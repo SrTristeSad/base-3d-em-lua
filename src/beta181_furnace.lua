@@ -114,7 +114,16 @@ function Furnace:update(dt)
   end
   -- Versão Beta: interrupção por falta de combustível perde progresso;
   -- o comportamento de manter progresso é de versões posteriores.
-  if self.burn<=0 and self.progress>0 then self.progress=0 end
+  if self.burn<=0 and self.progress>0 then
+   -- Se há mais combustível para acender no próximo passo, a
+   -- fundição continua (duas unidades de graveto cozinham um item).
+   -- Só perde progresso ao faltar combustível de verdade.
+   local nextFuel=self.slots[2]
+   if not self:canSmelt() or not nextFuel or
+       not self.fuels[nextFuel.id] then
+    self.progress=0
+   end
+  end
   if step==0 then break end
  end
  return crafted

@@ -31,6 +31,8 @@
 - Tronco/tábuas/bancada: **15 segundos**; graveto **5 segundos**.
 - Assim que combustível inicia a queima ele é consumido. O tempo
   restante continua diminuindo mesmo após terminar a entrada.
+- Combustíveis consecutivos mantêm o progresso de um mesmo item:
+  dois gravetos de cinco segundos podem concluir uma fundição.
 - O inventário de saída aceita até 64 unidades por pilha.
 - Progresso parcial reinicia se o combustível se esgota na
   versão Beta reconstruída, em vez de adotar pausas das
