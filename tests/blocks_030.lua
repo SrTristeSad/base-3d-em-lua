@@ -6,7 +6,7 @@ local World=require('src.world')
 local Classic=require('src.classic')
 local Textures=require('src.textures')
 local w=World.new()
-assert(Textures.MAX_ID==46)
+assert(Textures.MAX_ID==49 and w.MAX_ID==46, 'Catalogo Beta expandiu sem mudar os IDs Classic')
 for id=1,Textures.MAX_ID do
  assert(type(Textures.faces[id])=='table' and #Textures.faces[id]==6,'face ausente '..id)
  assert(type(Textures.labels[id])=='string','nome ausente '..id)
