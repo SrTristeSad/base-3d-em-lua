@@ -1,4 +1,4 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 10)
+# Base 3D em Lua — Beta 1.8.1 (Fase 11)
 
 Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta 1.8.1** como referência de comportamento histórico. Não utiliza código, texturas ou outros arquivos da Mojang. **O projeto ainda não é uma reprodução 1:1**: alguns algoritmos e sistemas são aproximações e vários recursos estão pendentes.
 
@@ -6,10 +6,28 @@ Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta
 
 Na página [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions), abra a execução mais recente **aprovada** e baixe um dos artefatos:
 
-- `Base3D-Beta181-Swimming-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
-- `Base3D-Beta181-Swimming-LOVR` — pacote `.lovr` para executar no motor LÖVR.
+- `Base3D-Beta181-Buckets-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
+- `Base3D-Beta181-Buckets-LOVR` — pacote `.lovr` para executar no motor LÖVR.
 
-Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Swimming.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Buckets.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+
+## Fase 11 — baldes e coleta de fontes de água e lava
+
+No modo sobrevivência, fabrique um **balde vazio** com três
+lingotes de ferro em formato V na bancada 3×3. Clique com o
+botão direito em uma fonte de água/lava para recolher o líquido;
+ao usar um balde cheio contra um bloco, o líquido é despejado
+no espaço livre à frente e o balde volta a ficar vazio.
+
+Baldes vazios, de água e de lava são itens individuais que
+não se empilham. No criativo, há uma nova página com os
+baldes de água/lava, que podem ser usados sem consumo.
+
+As fontes despejadas alimentam a simulação de fluidos existente;
+correntes não podem ser coletadas como fontes. Mundos e
+inventários anteriores seguem compatíveis.
+
+[Documentação da Fase 11](docs/FASE_11_BETA181.md).
 
 ## Fase 10 — natação, afogamento e dano por lava
 

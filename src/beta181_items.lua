@@ -19,6 +19,7 @@ Beta.labels={
  [48]='Minério de redstone',[49]='Minério de lápis',
  [50]='Bancada de trabalho',[51]='Fornalha',[52]='Tocha',
  [263]='Carvão',[264]='Diamante',[280]='Graveto',
+ [325]='Balde vazio',[326]='Balde de água',[327]='Balde de lava',
  [268]='Espada de madeira',[270]='Picareta de madeira',
  [271]='Machado de madeira',[272]='Espada de pedra',
  [274]='Picareta de pedra',[275]='Machado de pedra',
@@ -33,6 +34,7 @@ Beta.labels={
 }
 Beta.unstackable={}
 for id in pairs(Rules.tools) do Beta.unstackable[id]=true end
+for _,id in ipairs({325,326,327}) do Beta.unstackable[id]=true end
 Beta.DROPS={
  [1]=2,[3]=10,[14]=263,[47]=264,[48]=331,[49]=351
 }
@@ -206,6 +208,20 @@ function Beta:consumeFood(index,player)
  if not stack or not Rules.foodData(stack.id) then return false end
  if not Rules.eat(player,stack.id) then return false end
  self:consumeSlot(index,1)
+ return true
+end
+-- Baldes sao itens nao empilhaveis. A troca preserva o slot,
+-- sem criar itens em inventario cheio nem alterar outros slots.
+function Beta:canReplaceBucket(index,id)
+ local stack=self:getSlot(index)
+ return self.mode=='survival' and stack~=nil and stack.id==id
+   and stack.count==1 and (id==325 or id==326 or id==327)
+end
+function Beta:replaceBucket(index,id,newId)
+ if not self:canReplaceBucket(index,id) or
+    (newId~=325 and newId~=326 and newId~=327) then return false end
+ local stack=self.slots[index]
+ stack.id,stack.damage=newId,0
  return true
 end
 function Beta:canPlace(id)

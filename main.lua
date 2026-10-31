@@ -13,6 +13,7 @@ local Worlds = require('src.worlds')
 local Camera = require('src.camera')
 local MobSkins = require('src.mob_skins')
 local MobSpawn = require('src.mob_spawning')
+local Buckets = require('src.beta181_buckets')
 
 local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt,mobSkins,spawner
 local ignoreMouseMove=false
@@ -366,6 +367,10 @@ function lovr.mousepressed(x,y,button)
         player:edit(world,button,Textures.hotbar,classic,tnt)
       end
     elseif button==2 then
+      if classic.profile=='beta181' then
+        local handled=Buckets.use(world,player,classic,Textures.hotbar)
+        if handled then return end
+      end
       if classic.profile=='beta181' then
         local hit=player:raycast(world,5)
         if hit and hit.id==50 then

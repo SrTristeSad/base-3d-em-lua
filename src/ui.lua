@@ -274,7 +274,7 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
     end
     local beta=classic and classic.profile=='beta181'
     label(pass,beta
-      and 'E inventario | Segure Esq. para minerar | Segure Dir. para comer | Shift correr'
+      and 'E inventario | Dir.: usar balde/comer/construir | Espaco: nadar | Shift correr'
       or 'WASD mover | F3 desempenho | Esq. atacar/minerar | Dir. construir | TAB pagina | E cogumelo',
       w/2,28,15,.9,.96,1)
     -- Vida inicial: dez coracoes. Dano e morte sao calculados no jogador.

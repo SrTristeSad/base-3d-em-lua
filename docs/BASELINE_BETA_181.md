@@ -13,7 +13,7 @@ validar as mecânicas e a aparência.** Já existe um perfil Beta 1.8.1
 experimental no projeto, mas geração, interface e jogabilidade
 ainda não são reproduções completas da versão original.
 
-## Status de implementação — Fases 1 a 10
+## Status de implementação — Fases 1 a 11
 
 A fundação do Overworld está integrada ao jogo com o perfil `beta181`:
 biomas básicos, terreno, mar Y=62, altura 0..127 e minérios. Esta
@@ -72,6 +72,12 @@ ar submerso, dano por afogamento e lava e persistência opcional
 da respiração.
 
 [Relatório técnico da Fase 10](FASE_10_BETA181.md).
+
+**Fase 11:** fabricação do balde de ferro, coleta de fontes
+de água e lava, despejo de líquidos e três itens não empilháveis,
+preservando a Fase 9 e os saves antigos.
+
+[Relatório técnico da Fase 11](FASE_11_BETA181.md).
 
 ## Fase A — baseline Beta 1.8.1
 

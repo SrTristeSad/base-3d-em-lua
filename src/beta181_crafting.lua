@@ -25,6 +25,7 @@ recipe('Picareta de diamante',3,3,{264,264,264,0,280,0,0,280,0},278)
 recipe('Machado de ferro',2,3,{265,265,265,280,0,280},258)
 recipe('Espada de ferro',1,3,{265,265,280},267)
 recipe('Fornalha',3,3,{10,10,10,10,0,10,10,10,10},51)
+recipe('Balde',3,2,{265,0,265,0,265,0},325)
 recipe('Pão',3,1,{296,296,296},297)
 C.recipes=recipes
 function C.match(grid,width)
