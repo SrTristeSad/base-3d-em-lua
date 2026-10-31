@@ -1,3 +1,4 @@
+local Camera=require('src.camera')
 local Player = {}
 Player.__index = Player
 local sin,cos,floor,sqrt = math.sin,math.cos,math.floor,math.sqrt
@@ -47,8 +48,7 @@ function Player:respawn(world)
 end
 
 function Player:direction()
-  local c=cos(self.pitch)
-  return sin(self.yaw)*c, sin(self.pitch),-cos(self.yaw)*c
+  return Camera.forward(self.yaw,self.pitch)
 end
 
 function Player:update(dt,world)
@@ -90,14 +90,14 @@ function Player:eye()
   return self.x,self.y+1.61,self.z
 end
 
-function Player:camera()
+function Player:camera(world)
   local x,y,z=self:eye()
-  if not self.third then return x,y,z,x+sin(self.yaw)*cos(self.pitch),
-    y+sin(self.pitch),z-cos(self.yaw)*cos(self.pitch) end
   local dx,dy,dz=self:direction()
-  local distance=3.6
-  return x-dx*distance,y+1.1-dy*.5,z-dz*distance,
-    x+dx*.5,y+dy*.5,z+dz*.5
+  if not self.third then
+    return x,y,z,x+dx,y+dy,z+dz
+  end
+  local cx,cy,cz=Camera.thirdPerson(world,x,y,z,dx,dy,dz,3.6)
+  return cx,cy,cz,x+dx*.7,y+dy*.7,z+dz*.7
 end
 
 function Player:raycast(world,maxdist)

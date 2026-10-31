@@ -251,11 +251,12 @@ local function cube(pass,x,y,z,w,h,d,r,g,b)
  pass:setColor(r,g,b)
  pass:box(x,y,z,w,h,d)
 end
-function Creatures:draw(pass,px,pz,radius)
+function Creatures:draw(pass,px,pz,radius,skins)
  pass:setMaterial()
  local limit=(radius or 34)^2
  for _,mob in ipairs(self.list) do
   if mob.active and distance2(mob.x,mob.z,px,pz)<limit then
+   if not (skins and skins:draw(pass,mob,mob.kind)) then
    pass:push()
    pass:translate(mob.x,mob.y,mob.z)
    pass:rotate(mob.yaw,0,1,0)
@@ -302,6 +303,7 @@ function Creatures:draw(pass,px,pz,radius)
     end
    end
    pass:pop()
+   end
   end
  end
  for _,a in ipairs(self.projectiles) do

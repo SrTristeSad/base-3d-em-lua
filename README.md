@@ -127,6 +127,23 @@ Embora os testes de lógica e sintaxe sejam executados automaticamente,
 a renderização e os controles ainda precisam ser testados num PC com
 LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
+## Atualização — Visão FPS e skins de criaturas
+
+- **Visão FPS corrigida:** mouse relativo com sensibilidade ajustável,
+  proteção contra saltos ao recuperar foco e ângulo vertical de ±89°.
+- **Visão de terceira pessoa:** a câmera recua apenas até onde não
+  encontra paredes. F5 alterna entre primeira e terceira pessoa.
+- **Inverter eixo X/Y:** opções novas em Configurações; é possível
+  usar a orientação natural ou invertida do mouse.
+- **Seis mobs com malhas UV texturizadas:** creeper, zumbi, esqueleto,
+  aranha, porco e ovelha, com cabeça, corpo e membros separados.
+- **Skins personalizadas:** arquivos PNG 64×32 ou 64×64 podem substituir
+  a textura de qualquer mob. Na ausência, o jogo cria textura original
+  pixelada automaticamente, sem distribuir arquivos oficiais de Minecraft.
+
+Confira [SKINS_MOBS.md](docs/SKINS_MOBS.md). O visual das criaturas
+ainda é **inspirado e aproximado**, não idêntico aos modelos de 2009.
+
 ## Testar no Windows sem instalar o motor
 
 O GitHub Actions agora gera **dois arquivos de teste**:

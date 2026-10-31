@@ -71,12 +71,14 @@ function UI.buttons(state, settings, w, h, classic, menu)
     add('CONFIGURACOES',1,'settings')
     add('MENU INICIAL',2,'title')
   elseif state=='settings' then
-    add('CAMPO DE VISAO: '..settings.fov..' graus',-2,'fov')
-    add('MOUSE: '..settings.sensitivityLabel,-1,'sensitivity')
+    add('CAMPO DE VISAO: '..settings.fov..' graus',-3,'fov')
+    add('SENSIBILIDADE: '..settings.sensitivityLabel,-2,'sensitivity')
+    add('INVERTER EIXO X: '..(settings.invertX and 'SIM' or 'NAO'),-1,'invertx')
+    add('INVERTER EIXO Y: '..(settings.invertY and 'SIM' or 'NAO'),0,'inverty')
     add('ALCANCE: '..(settings.distance*32+32)..'x'..
-      (settings.distance*32+32)..' blocos',0,'distance')
-    add('TELA CHEIA: '..(settings.fullscreen and 'SIM' or 'NAO'),1,'fullscreen')
-    add('VOLTAR',2,'back')
+      (settings.distance*32+32)..' blocos',1,'distance')
+    add('TELA CHEIA: '..(settings.fullscreen and 'SIM' or 'NAO'),2,'fullscreen')
+    add('VOLTAR',3,'back')
   end
   return b
 end

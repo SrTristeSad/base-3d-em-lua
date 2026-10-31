@@ -186,10 +186,11 @@ local function cube(pass,x,y,z,w,h,d,r,g,b)
   pass:box(x,y,z,w,h,d)
 end
 
-function Creepers:draw(pass,px,pz,radius)
+function Creepers:draw(pass,px,pz,radius,skins)
   pass:setMaterial()
   for _,mob in ipairs(self.list) do
     if mob.active and dist2(mob.x,mob.z,px,pz)<(radius or 28)^2 then
+      if not (skins and skins:draw(pass,mob,'Creeper')) then
       pass:push()
       pass:translate(mob.x,mob.y,mob.z)
       pass:rotate(mob.yaw,0,1,0)
@@ -214,6 +215,7 @@ function Creepers:draw(pass,px,pz,radius)
       cube(pass,-.12,1.16+bob,-.395,.11,.16,.022,.055,.09,.045)
       cube(pass,.12,1.16+bob,-.395,.11,.16,.022,.055,.09,.045)
       pass:pop()
+      end
     end
   end
   pass:setColor(1,1,1)

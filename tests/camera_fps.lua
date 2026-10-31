@@ -1,0 +1,33 @@
+-- Camera do Classic: orientacao precisa, mouse sem saltos, clip de paredes.
+package.path='./?.lua;./?/init.lua;'..package.path
+local C=require('src.camera')
+local Player=require('src.player')
+local y,p=C.look(0,0,100,0,.002,false)
+assert(math.abs(y-.2)<1e-8,'Mouse para direita deve virar para direita')
+local dx,dy,dz=C.forward(y,p)
+assert(dx>0 and dz<0,'Direcao, view e mouse devem concordar')
+local ry,rp=C.look(0,0,0,-100,.002,false)
+assert(rp>.19,'Mover o mouse para cima deve olhar para cima')
+local _,inv=C.look(0,0,0,-100,.002,true)
+assert(inv<-.19,'Inversao vertical nao funcionou')
+local yaw,pitch=C.look(0,0,10,9999,.002,false)
+assert(yaw==0 and pitch==0,'Troca de foco criou um salto')
+local _,upper=C.look(0,0,0,-10000,.002,false)
+assert(upper==0,'Delta muito grande deveria ser ignorado')
+local _,limit=C.look(0,0,0,-420,.01,false)
+assert(limit<=math.rad(89) and limit>=-math.rad(89),'Pitch saiu do limite')
+local wrap=C.look(math.pi-.05,0,200,0,.002)
+assert(wrap<0,'Yaw precisa dar a volta sem crescer indefinidamente')
+local empty={isSolid=function() return false end}
+local a,b,c=C.thirdPerson(empty,0,4,0,0,0,-1,3.6)
+assert(math.abs(a)<.01 and b>4 and c>3,'Camera livre deve ficar atras')
+local wall={isSolid=function(_,x,y,z) return z>=1 and y>=3 and y<=6 end}
+local wx,wy,wz=C.thirdPerson(wall,0,4,0,0,0,-1,3.6)
+assert(wz<1,'Camera atravessou a parede')
+local p1=setmetatable({x=0,y=2,z=0,yaw=0,pitch=0,third=false},Player)
+local fx,fy,fz,tx,ty,tz=p1:camera(empty)
+assert(fz==0 and tz<0,'Primeira pessoa deve olhar para -Z')
+p1.third=true
+local tx1,ty1,tz1=p1:camera(wall)
+assert(tz1<1,'Terceira pessoa ignora colisoes')
+print('camera_fps: OK')

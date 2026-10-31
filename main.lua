@@ -9,8 +9,11 @@ local Classic = require('src.classic')
 local Creatures = require('src.creatures')
 local TNT = require('src.tnt')
 local Worlds = require('src.worlds')
+local Camera = require('src.camera')
+local MobSkins = require('src.mob_skins')
 
-local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt
+local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt,mobSkins
+local ignoreMouseMove=false
 local autosave=0
 local showStats=false
 local selectedWorld=nil
@@ -19,11 +22,11 @@ local menu={name='',seed='',image='',mode='survival',
 local state = 'title'
 local previous = 'title'
 local settings = {
-  fov=75,sensitivity=.003,sensitivityLabel='MEDIA',
-  distance=1,fullscreen=false
+  fov=75,sensitivity=.002,sensitivityLabel='MEDIA',
+  distance=1,fullscreen=false,invertX=false,invertY=false
 }
 local fovs={60,75,90}
-local sens={{.0015,'BAIXA'},{.003,'MEDIA'},{.005,'ALTA'}}
+local sens={{.0012,'BAIXA'},{.002,'MEDIA'},{.0032,'ALTA'},{.0045,'MUITO ALTA'}}
 local function cycle(value,options)
   for i,v in ipairs(options) do
     if value==v then return options[i%#options+1] end
@@ -32,8 +35,10 @@ local function cycle(value,options)
 end
 local function saveSettings()
   lovr.filesystem.write('settings.ini',
-    ('fov=%d\nsensitivity=%.4f\ndistance=%d\nfullscreen=%d\n'):format(
-    settings.fov,settings.sensitivity,settings.distance,settings.fullscreen and 1 or 0))
+    ('fov=%d\nsensitivity=%.4f\ndistance=%d\nfullscreen=%d\ninvertX=%d\ninvertY=%d\n'):format(
+    settings.fov,settings.sensitivity,settings.distance,
+    settings.fullscreen and 1 or 0,
+    settings.invertX and 1 or 0,settings.invertY and 1 or 0))
 end
 local function loadSettings()
   local str=lovr.filesystem.read('settings.ini')
@@ -49,9 +54,12 @@ local function loadSettings()
   if props.distance and props.distance>=1 and props.distance<=3
     and props.distance%1==0 then settings.distance=props.distance end
   settings.fullscreen=props.fullscreen==1
+  settings.invertX=props.invertX==1
+  settings.invertY=props.invertY==1
 end
 
 local function setState(next)
+  ignoreMouseMove=next=='playing'
   state=next
   lovr.system.setMouseMode(next=='playing' and 'relative' or 'normal')
 end
@@ -211,6 +219,12 @@ local function action(a)
     local value=sens[index%#sens+1]
     settings.sensitivity,settings.sensitivityLabel=value[1],value[2]
     saveSettings()
+  elseif a=='invertx' then
+    settings.invertX=not settings.invertX
+    saveSettings()
+  elseif a=='inverty' then
+    settings.invertY=not settings.invertY
+    saveSettings()
   elseif a=='distance' then
     settings.distance=settings.distance%3+1
     saveSettings()
@@ -227,6 +241,7 @@ function lovr.load()
   lovr.graphics.setBackgroundColor(.49,.72,.91)
   tiles=Textures.load()
   avatar=Avatar.new()
+  mobSkins=MobSkins.new()
   refreshWorlds()
   if #menu.entries>0 then
     local item=menu.entries[#menu.entries]
@@ -271,7 +286,7 @@ function lovr.draw(pass)
     cx,cy,cz,tx,ty,tz=player.x+13,player.y+10,player.z+17,
       player.x,player.y,player.z
   else
-    cx,cy,cz,tx,ty,tz=player:camera()
+    cx,cy,cz,tx,ty,tz=player:camera(world)
   end
   pass:setViewPose(1,lovr.math.newMat4():lookAt(
     vec3(cx,cy,cz),vec3(tx,ty,tz)),true)
@@ -281,8 +296,8 @@ function lovr.draw(pass)
   pass:setViewCull(true)
   mesher:draw(pass)
   if classic.mode=='survival' then
-    creepers:draw(pass,cx,cz,settings.distance*16+20)
-    creatures:draw(pass,cx,cz,settings.distance*16+20)
+    creepers:draw(pass,cx,cz,settings.distance*16+20,mobSkins)
+    creatures:draw(pass,cx,cz,settings.distance*16+20,mobSkins)
     tnt:draw(pass,cx,cz,settings.distance*16+20)
   end
   if player.third and state~='title' then avatar:draw(pass,player) end
@@ -302,8 +317,12 @@ end
 
 function lovr.mousemoved(x,y,dx,dy)
   if state~='playing' then return end
-  player.yaw=player.y+dx*settings.sensitivity
-  player.pitch=math.max(-1.50,math.min(1.50,player.pitch-dy*settings.sensitivity))
+  if ignoreMouseMove then
+    ignoreMouseMove=false
+    return
+  end
+  player.yaw,player.pitch=Camera.look(player.yaw,player.pitch,
+    settings.invertX and -dx or dx,dy,settings.sensitivity,settings.invertY)
 end
 
 function lovr.mousepressed(x,y,button)
@@ -393,6 +412,7 @@ end
 
 function lovr.focus(focused)
   if not focused and state=='playing' then setState('pause') end
+  if focused then ignoreMouseMove=true end
 end
 
 function lovr.quit()
