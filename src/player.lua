@@ -120,10 +120,14 @@ function Player:raycast(world,maxdist)
   return nil,nil
 end
 
-function Player:edit(world,button,hotbar,classic)
+function Player:edit(world,button,hotbar,classic,tnt)
   local hit,prev=self:raycast(world,6)
   if button==1 and hit then
     local id=hit.id
+    if classic and not classic:canMine(id) then return false end
+    if tnt and id==15 and classic and classic.mode=='survival' then
+      return tnt:ignite(hit.x,hit.y,hit.z)
+    end
     if world:set(hit.x,hit.y,hit.z,0) then
       if classic then classic:mine(id) end
       return true

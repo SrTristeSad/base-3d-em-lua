@@ -17,8 +17,10 @@ O sandbox usa como **referencia de comportamento** o Minecraft Classic
   sao salvos no `world.sav` (os arquivos anteriores continuam aceitos).
 
 A base reproduz **parte** das regras dessa epoca, nao todo o jogo original.
-Ainda faltam zumbis, esqueletos, aranhas, porcos, ovelhas, TNT, flores,
-cogumelos, arcos/flechas e a paleta completa do Classic 0.30.
+A maior parte dessas categorias ja existe em versao simplificada.
+Ainda faltam IA e animacoes mais fiéis, arco do jogador, geracao de cavernas,
+formas nao-cubicas para flores e lajes, liquidos dinamicos e os ajustes
+necessarios para uma reproducao mais fiel do Classic 0.30.
 Nao ha crafting moderno, e as regras/arte sao independentes.
 
 **Controles adaptados:** F5 alterna camera 1a/3a pessoa neste projeto,
@@ -26,6 +28,23 @@ apesar de no Classic original controlar chuva. Os creepers NAO explodem
 simplesmente por se aproximar nesta versao, diferentemente de um creeper
 moderno. Os blocos coletados que possuem drop disponivel alimentam
 a barra e o estoque de 99 unidades.
+
+## Novidades: criaturas e blocos do Classic 0.30
+
+- Criaturas **zumbi, esqueleto, aranha, porco e ovelha** renderizadas em cubos,
+  com IA basica. Esqueletos lancam projeteis; animais passivos perambulam.
+  O creeper original continua no Survival e explode quando e morto.
+- **Catalogo de 46 blocos/variantes**, incluindo minerios, vidro, TNT,
+  cogumelos, flores, saplings, obsidiana, lava decorativa, estante,
+  pedregulho, lajes visuais e 16 cores de la.
+- **TNT funcional:** clique esquerdo em TNT no Survival acende o pavio,
+  clique direito na entidade armada desarma, detonacoes podem ativar outras TNTs.
+- **6 paginas de blocos (TAB)**, com 8 itens na barra por pagina.
+  Inventario salva todos os 46 IDs, sem destruir saves antigos.
+- **Cogumelos curativos:** E consome um cogumelo quando a vida estiver baixa.
+- Geracao deterministica de pequenos veios minerais e flores no terreno.
+  As formas de decoracao ainda sao blocos inteiros; modelos de
+  saplings/flores e fluxo de lava serao aprimorados mais adiante.
 
 ## O que ja foi implementado
 
@@ -54,8 +73,8 @@ LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
 Na pagina [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions/workflows/lua-check.yml),
 abra a execucao mais recente **aprovada** e baixe o artefato
-`Base3D-Classic-Creeper-LOVR`. Extraia o arquivo
-`Base3D-Classic-Creeper.lovr`. E um jogo empacotado (ZIP renomeado)
+`Base3D-Classic-030-LOVR`. Extraia o arquivo
+`Base3D-Classic-030.lovr`. E um jogo empacotado (ZIP renomeado)
 para o motor LÖVR; no Windows, arraste o arquivo `.lovr` sobre
 `lovr.exe` baixado do site oficial. O pacote inclui as texturas,
 scripts e configuracoes. Nao inclui o executavel do motor nem salva dentro
@@ -78,7 +97,11 @@ do proprio arquivo.
 | Shift | Correr |
 | Botão esquerdo | Quebrar bloco / atacar creeper sob a mira |
 | Botão direito | Colocar bloco |
-| Teclas 1–8 / roda | Selecionar bloco |
+| Teclas 1–8 / roda | Selecionar bloco da pagina atual |
+| TAB | Trocar pagina de blocos |
+| E | Comer cogumelo no modo Sobrevivencia |
+| Clique esquerdo em TNT | Acender TNT no Sobrevivencia |
+| Clique direito em TNT acesa | Desarmar TNT |
 | F5 | Alternar 1ª e 3ª pessoa |
 | Esc | Pausar / abrir menu |
 | F6 | Salvar imediatamente |
@@ -109,6 +132,8 @@ src/avatar.lua       skin 64×64 do jogador
 src/ui.lua           menu e interface 2D
 src/creepers.lua     IA, ataque, explosao e modelo cubico dos creepers
 src/classic.lua      modos Creative/Survival, drops, estoque de 99 e pontuacao
+src/creatures.lua    zumbi, esqueleto, aranha, porco e ovelha
+src/tnt.lua          TNT acesa, desarme, explosoes em cadeia
 assets/              pasta livre para seus PNGs
 ```
 

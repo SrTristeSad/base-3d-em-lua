@@ -6,8 +6,10 @@ local Avatar = require('src.avatar')
 local UI = require('src.ui')
 local Creepers = require('src.creepers')
 local Classic = require('src.classic')
+local Creatures = require('src.creatures')
+local TNT = require('src.tnt')
 
-local world,mesher,player,avatar,tiles,creepers,classic
+local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt
 local autosave=0
 local state = 'title'
 local previous = 'title'
@@ -111,6 +113,8 @@ function lovr.load()
   player=Player.new(world)
   classic=Classic.new(world.savedMode,world.savedItems,world.savedScore)
   creepers=Creepers.new(world)
+  creatures=Creatures.new(world)
+  tnt=TNT.new(world)
   avatar=Avatar.new()
   setState('title')
 end
@@ -119,6 +123,8 @@ function lovr.update(dt)
   if state=='playing' then
     player:update(dt,world)
     creepers:update(dt,player,classic)
+    creatures:update(dt,player,classic)
+    tnt:update(dt,player,classic)
     mesher:sync()
     if player.health<=0 then setState('dead') end
     autosave=autosave+dt
@@ -145,6 +151,8 @@ function lovr.draw(pass)
   mesher:draw(pass,cx,cz,settings.distance)
   if classic.mode=='survival' then
     creepers:draw(pass,cx,cz,settings.distance*16+20)
+    creatures:draw(pass,cx,cz,settings.distance*16+20)
+    tnt:draw(pass,cx,cz,settings.distance*16+20)
   end
   if player.third and state~='title' then avatar:draw(pass,player) end
   local hit
@@ -157,7 +165,7 @@ function lovr.draw(pass)
     end
   end
   pass:setViewCull(false)
-  UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels,creepers,classic)
+  UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels,creepers,classic,creatures)
 end
 
 function lovr.mousemoved(x,y,dx,dy)
@@ -169,11 +177,18 @@ end
 function lovr.mousepressed(x,y,button)
   if state=='playing' then
     if button==1 then
-      if classic.mode=='creative' or not creepers:hit(player,1,classic) then
-        player:edit(world,button,Textures.hotbar,classic)
+      local attacked=false
+      if classic.mode=='survival' then
+        attacked=creepers:hit(player,1,classic)
+          or creatures:hit(player,classic)
+      end
+      if not attacked then
+        player:edit(world,button,Textures.hotbar,classic,tnt)
       end
     elseif button==2 then
-      player:edit(world,button,Textures.hotbar,classic)
+      if not tnt:defuse(player,classic) then
+        player:edit(world,button,Textures.hotbar,classic,tnt)
+      end
     end
   else
     local w,h=lovr.system.getWindowDimensions()
@@ -201,7 +216,12 @@ function lovr.keypressed(key)
     elseif key=='r' and state=='dead' then action('respawn') end
     return
   end
-  if key=='f5' then
+  if key=='tab' then
+    Textures.nextPage(1)
+    player.selected=1
+  elseif key=='e' then
+    classic:eat(player)
+  elseif key=='f5' then
     player.third=not player.third
   elseif key=='f6' then
     saveWorld()

@@ -53,6 +53,41 @@ function World.new()
       end
     end
   end
+  -- Veios minerais e decoracao do Classic, sem renumerar blocos dos saves.
+  for x=w.MIN+1,w.MAX-1 do
+    for z=w.MIN+1,w.MAX-1 do
+      local h=height(x,z)
+      local ore=rng(x+831,z-551)
+      local y=h-3
+      if y>w.YMIN and ore>.961 then
+        local id=14
+        if ore>.992 then id=12
+        elseif ore>.981 then id=13 end
+        for ox=-1,1 do
+          for oz=-1,1 do
+            if rng(x+ox*7,z+oz*11)>.39 then
+              local k=key(x+ox,y,z+oz)
+              if w.blocks[k]==3 then w.blocks[k]=id end
+            end
+          end
+        end
+      end
+      if math.abs(x)>4 or math.abs(z)>4 then
+        local decoration=rng(x+183,z+937)
+        local surface=key(x,h,z)
+        local above=key(x,h+1,z)
+        if h>1 and h+1<=w.YMAX and w.blocks[surface]==1
+          and not w.blocks[above] then
+          if decoration>.991 then w.blocks[above]=24
+          elseif decoration>.982 then w.blocks[above]=25
+          elseif decoration>.972 then w.blocks[above]=26
+          elseif decoration>.963 then w.blocks[above]=27 end
+        elseif decoration>.996 and w.blocks[surface]==1 then
+          w.blocks[surface]=11
+        end
+      end
+    end
+  end
   w:load()
   for cx = math.floor(w.MIN / w.CHUNK), math.floor(w.MAX / w.CHUNK) do
     for cz = math.floor(w.MIN / w.CHUNK), math.floor(w.MAX / w.CHUNK) do
@@ -75,7 +110,8 @@ end
 
 function World:set(x, y, z, id)
   if not self:within(x,y,z) or y == self.YMIN then return false end
-  if id < 0 or id > 9 or id % 1 ~= 0 then return false end
+  if type(id)~='number' or id~=id or id%1~=0 or id<0 or id>46 then return false end
+  if self:get(x,y,z)==30 then return false -- Rocha-mae permanente
   if self:get(x,y,z) == id then return false end
   local k = key(x,y,z)
   self.blocks[k] = id == 0 and nil or id
@@ -100,7 +136,8 @@ function World:explode(px,py,pz,radius)
         local dx,dy,dz=x-px,y-py,z-pz
         local id=self:get(x,y,z)
         local safeSpawn=math.abs(x)<3 and math.abs(z)<3
-        if id~=0 and id~=9 and y>self.YMIN and not safeSpawn
+        if id~=0 and id~=9 and id~=29 and id~=30
+          and y>self.YMIN and not safeSpawn
           and dx*dx+dy*dy+dz*dz<=radius*radius then
           if self:set(x,y,z,0) then removed=removed+1 end
         end
@@ -112,7 +149,8 @@ end
 
 function World:isSolid(x,y,z)
   local id = self:get(x,y,z)
-  return id ~= 0 and id ~= 9 and id ~= 5
+  return id~=0 and id~=5 and id~=9 and id~=24 and id~=25
+    and id~=26 and id~=27 and id~=28 and id~=29
 end
 
 function World:spawnHeight(x,z)
@@ -140,13 +178,13 @@ function World:load()
     local itemId,itemCount=line:match('^ITEM (%d+) (%d+)$')
     if itemId then
       itemId,itemCount=tonumber(itemId),tonumber(itemCount)
-      if itemId>=1 and itemId<=8 then
+      if itemId>=1 and itemId<=46 then
         self.savedItems[itemId]=math.min(99,itemCount)
       end
     end
     local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
     x,y,z,id=tonumber(x),tonumber(y),tonumber(z),tonumber(id)
-    if x and y and z and id and self:within(x,y,z) and id<=9 then
+    if x and y and z and id and self:within(x,y,z) and id<=46 then
       local k=key(x,y,z)
       self.blocks[k]=id==0 and nil or id
       self.edits[k]=id
@@ -160,7 +198,7 @@ function World:save(player,classic)
   if classic then
     lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
     lines[#lines+1]='SCORE '..tostring(math.max(0,math.floor(classic.score or 0)))
-    for id=1,8 do
+    for id=1,46 do
       local count=math.max(0,math.min(99,math.floor((classic.items or {})[id] or 0)))
       if count>0 then lines[#lines+1]=('ITEM %d %d'):format(id,count) end
     end

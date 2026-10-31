@@ -17,7 +17,7 @@ assert(s:count(7)==1,'Tronco deve fornecer tabuas')
 assert(s:place(2) and s:count(2)==0)
 assert(not s:place(2),'Nao pode construir sem blocos')
 for _=1,150 do s:mine(3) end
-assert(s:count(3)==99,'Pilha maxima deve ser 99')
+assert(s:count(10)==99,'Pilha maxima deve ser 99')
 s:award(100)
 assert(s.score==100)
 local c=Classic.new('creative')
@@ -31,7 +31,7 @@ assert(world:save(actor,s))
 local reload=World.new()
 local persisted=Classic.new(reload.savedMode,reload.savedItems,reload.savedScore)
 assert(persisted.mode=='survival')
-assert(persisted.score==100 and persisted:count(3)==99)
+assert(persisted.score==100 and persisted:count(10)==99)
 assert(persisted:count(7)==1)
 -- Na base antiga, saves sem MODE/ITEM continuam validos.
 file='PLAYER 1.000 5.000 1.000 0.000000 0.000000\n'

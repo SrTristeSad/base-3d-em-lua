@@ -37,7 +37,7 @@ for i=1,4 do
 end
 assert(not mob.active,'Quatro golpes devem matar o creeper')
 assert(mob.respawn>0,'Creeper nao foi colocado em respawn')
-assert(classic.score==100,'Pontuacao classica de combate ausente')
+assert(classic.score==200,'Pontuacao classica de combate ausente')
 assert(attacker.health<20,'Explosao na morte nao causou dano')
 assert(not mobs:hit(attacker,1,classic),'Mob morto nao deve ser golpeado')
 local bedrock=world:get(12,world.YMIN,12)

@@ -1,6 +1,6 @@
 # Texturas e skins
 
-As 11 texturas em `assets/textures/*.png` vem do
+As 23 texturas em `assets/textures/*.png` vem do
 [Kenney Voxel Pack](https://kenney.nl/assets/voxel-pack) (licenca CC0).
 Arquivos preservados/adaptados de nome para o loader:
 
@@ -17,6 +17,18 @@ Arquivos preservados/adaptados de nome para o loader:
 | planks.png | wood.png |
 | bricks.png | brick_red.png |
 | water.png | water.png |
+| cobble.png | greystone.png |
+| gravel.png | gravel_stone.png |
+| gold_ore.png | stone_gold.png |
+| iron_ore.png | stone_iron.png |
+| coal_ore.png | stone_coal.png |
+| mossy.png | rock_moss.png |
+| slab.png | brick_grey.png |
+| mushroom_brown.png | mushroom_brown.png |
+| mushroom_red.png | mushroom_red.png |
+| obsidian.png | greystone.png (provisorio) |
+| lava.png | lava.png |
+| sponge.png | cotton_tan.png (provisorio) |
 
 Fonte dos arquivos Kenney: https://github.com/shorepine/kenney/tree/master/2d/Voxel%20Pack/Tiles
 

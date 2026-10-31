@@ -17,6 +17,10 @@ jobs:
         run: lua5.4 tests/world_basic.lua
       - name: Classic 0.30 modes and inventory tests
         run: lua5.4 tests/classic_basic.lua
+      - name: Classic 0.30 blocks, new mobs and TNT regression
+        run: |
+          lua5.4 tests/blocks_030.lua
+          lua5.4 tests/creatures_030.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -37,6 +41,15 @@ jobs:
           assert 'function Player:respawn(' in player
           assert 'function Creepers:explode(' in mobs
           assert "state=='dead'" in ui
+          assert "require('src.creatures')" in main
+          assert "require('src.tnt')" in main
+          assert 'creatures:update(dt,player,classic)' in main
+          assert 'creatures:hit(player,classic)' in main
+          assert 'tnt:update(dt,player,classic)' in main
+          assert 'tnt:defuse(player,classic)' in main
+          assert 'function World:explode(' in world
+          assert 'Classic.MAX_ID=46' in Path('src/classic.lua').read_text()
+          assert 'T.MAX_ID=46' in Path('src/textures.lua').read_text()
           assert "require('src.classic')" in main
           assert "classic=Classic.new(world.savedMode" in main
           assert "UI.click(state,settings,x,y,w,h,classic)" in main
@@ -46,18 +59,21 @@ jobs:
           assert "function World:save(player,classic)" in world
           assert 'MODO: ' in ui
           required={'grass_top','grass_side','dirt','stone','wood_side',
-                    'wood_top','leaves','sand','planks','bricks','water'}
+                    'wood_top','leaves','sand','planks','bricks','water',
+                    'cobble','gravel','gold_ore','iron_ore','coal_ore',
+                    'mossy','slab','mushroom_brown','mushroom_red','lava',
+                    'obsidian','sponge'}
           for item in required:
             p=Path('assets/textures')/(item+'.png')
             assert p.read_bytes()[:8]==bytes([137,80,78,71,13,10,26,10]), p
-          print('Sandbox e 11 texturas PNG integrados: OK')
+          print('Sandbox Classic 0.30 e 23 texturas PNG integrados: OK')
           PY
       - name: Package runnable LÖVR project
         run: |
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Classic-Creeper.lovr')
+          out=Path('dist/Base3D-Classic-030.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -70,13 +86,15 @@ jobs:
             assert 'conf.lua' in z.namelist()
             assert 'src/creepers.lua' in z.namelist()
             assert 'src/classic.lua' in z.namelist()
+            assert 'src/creatures.lua' in z.namelist()
+            assert 'src/tnt.lua' in z.namelist()
             assert 'assets/textures/grass_top.png' in z.namelist()
           print(out,out.stat().st_size,'bytes',len(files),'files')
           PY
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Classic-Creeper-LOVR
-          path: dist/Base3D-Classic-Creeper.lovr
+          name: Base3D-Classic-030-LOVR
+          path: dist/Base3D-Classic-030.lovr
           if-no-files-found: error
           retention-days: 30

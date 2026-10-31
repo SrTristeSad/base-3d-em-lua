@@ -84,7 +84,7 @@ function Creepers:hit(player,damage,classic)
   if choice.health<=0 then
     -- Survival Test 0.30: creeper explode APOS a morte, nao por proximidade.
     self:explode(choice,player)
-    if classic then classic:award(100) end
+    if classic then classic:award(200) end
   end
   return true
 end

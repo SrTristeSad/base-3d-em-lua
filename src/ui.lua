@@ -47,7 +47,7 @@ function UI.click(state,settings,x,y,w,h,classic)
   end
 end
 
-function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic)
+function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,creatures)
   local w,h=pass:getDimensions()
   pass:setViewPose(1,lovr.math.newMat4())
   pass:setProjection('orthographic')
@@ -65,15 +65,15 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic)
         selected and .93 or .16,selected and .77 or .22,
         selected and .34 or .27,selected and .95 or .87)
       rect(pass,x,h-52,55,48,.13,.16,.21)
-      label(pass,i..'  '..labels[i],x,h-58,14)
+      label(pass,i..'  '..(labels[id] or ('Bloco '..id)),x,h-58,11)
       if classic and classic.mode=='survival' then
         local count=classic:count(id) or 0
         label(pass,tostring(count),x,h-38,14,
           count>0 and .92 or .66,count>0 and .95 or .71,.86)
       end
     end
-    label(pass,'WASD mover | Mouse olhar | Esq. minerar/atacar | Dir. colocar | F5 camera | ESC menu',
-      w/2,28,17,.9,.96,1)
+    label(pass,'WASD mover | Esq. atacar/minerar | Dir. construir/desarmar TNT | TAB pagina | E cogumelo',
+      w/2,28,15,.9,.96,1)
     -- Vida inicial: dez coracoes. Dano e morte sao calculados no jogador.
     local health=player.health or 20
     for i=1,10 do
@@ -99,9 +99,13 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic)
         if mob.active then nearby=nearby+1 end
       end
     end
+    if creatures then nearby=nearby+creatures:count() end
+    if classic and classic.mode=='creative' then nearby=0 end
     label(pass,'Criaturas: '..nearby..'  |  F6 salvar',w-119,92,15,.86,.98,.83)
+    label(pass,'BARRA '..require('src.textures').currentPage..'/'..
+      #require('src.textures').pages..'  |  TAB para trocar',w/2,h-104,14,.96,.94,.70)
     if hit then
-      label(pass,'Alvo: '..(labels[hit.id] or 'Agua')..'  ['..hit.x..','..hit.y..','..hit.z..']',
+      label(pass,'Alvo: '..(labels[hit.id] or 'Bloco')..'  ['..hit.x..','..hit.y..','..hit.z..']',
       w/2,58,16,1,1,.6)
     end
     return
