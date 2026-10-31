@@ -1,4 +1,4 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 5)
+# Base 3D em Lua — Beta 1.8.1 (Fase 6)
 
 Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta 1.8.1** como referência de comportamento histórico. Não utiliza código, texturas ou outros arquivos da Mojang. **O projeto ainda não é uma reprodução 1:1**: alguns algoritmos e sistemas são aproximações e vários recursos estão pendentes.
 
@@ -6,10 +6,23 @@ Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta
 
 Na página [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions), abra a execução mais recente **aprovada** e baixe um dos artefatos:
 
-- `Base3D-Beta181-DayNight-Lighting-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
-- `Base3D-Beta181-DayNight-Lighting-LOVR` — pacote `.lovr` para executar no motor LÖVR.
+- `Base3D-Beta181-Cave-Lighting-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
+- `Base3D-Beta181-Cave-Lighting-LOVR` — pacote `.lovr` para executar no motor LÖVR.
 
-Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-DayNight-Lighting.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Cave-Lighting.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+
+## Fase 6 — luz bloqueada por paredes
+
+Tochas e lava colocada agora propagam luz em seis direcoes, com
+perda por bloco e **bloqueio por materiais opacos**. Corredores e
+buracos deixam a luz passar; fechar uma passagem recalcula as
+fontes proximas, incluindo as bordas dos chunks.
+
+O sistema conserva o relogio e salva os mesmos mundos. A
+iluminacao do ceu ainda e aproximada; nao ha skylight
+propagado completamente por voxel.
+
+[Relatorio tecnico da Fase 6](docs/FASE_06_BETA181.md).
 
 ## Fase 5 — luz, dia/noite e criaturas
 
@@ -17,7 +30,7 @@ Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Day
 
 - Dia, pôr do sol, noite e amanhecer, com transições graduais de cor do céu e brilho.
 - **Relógio e número de dias salvos**, de forma compatível com saves das fases anteriores.
-- **Tochas (bloco 52)** iluminam a geometria próxima; retirar uma tocha atualiza as malhas afetadas. Luz local usa uma **aproximação radial por distância Manhattan**, ainda sem propagação com bloqueio de paredes.
+- **Tochas (bloco 52)** iluminam a geometria próxima; retirar uma tocha atualiza as malhas afetadas. Luz local usa propagação BFS por voxels transparentes, respeitando paredes.
 - **O renderizador diferencia exterior e subsolo**, aplicando tonalidade diurna/noturna e luz local nas superfícies. A identificação visual de luz solar usa a altura do terreno natural e ainda não cobre todos os poços cavados, telhados ou transparências.
 - **Mobs passivos** são tentados em terrenos iluminados; **hostis** em locais escuros. Regiões já visitadas voltam a receber tentativas quando o dia muda para noite ou vice-versa.
 - **Zumbis e esqueletos** expostos diretamente ao sol sofrem dano periódico; creepers não queimam. Há verificação real de blocos acima dos mobs para reconhecer abrigos.

@@ -5,7 +5,7 @@
 ## Escopo desta entrega
 
 - `src/beta181_lighting.lua`: relógio 24.000 ticks, 20 ticks por segundo (20 minutos por dia), transições de dia, crepúsculo, noite e amanhecer, cor do céu e luz natural aproximada de 4–15.
-- Gerenciamento de fontes de luz por seções tridimensionais. Uma **tocha** (ID 52) emite nível 14 e uma lava **colocada** (ID 29) emite 15. A luz é atenuada por distância Manhattan, sem bloqueio por paredes nesta fase.
+- Gerenciamento de fontes de luz por seções tridimensionais. Uma **tocha** (ID 52) emite nível 14 e uma lava **colocada** (ID 29) emite 15. A luz é atenuada por distância Manhattan, sem bloqueio por paredes nesta fase (aperfeiçoado na [Fase 6](FASE_06_BETA181.md)).
 - `src/world.lua`: mantém o relógio somente para perfil `beta181`, indexa luz das edições e salva `DAYTIME <tick> <dia>`. Ao alterar uma fonte, invalida malhas vizinhas, inclusive em direções verticais.
 - `src/mesher.lua`: agrupa faces de mesmo material conforme aproximação de céu aberto e faixa de luz local. Os multiplicadores de brilho são atualizados a cada frame **sem refazer as malhas quando apenas o horário muda**.
 - `main.lua`: avança o relógio apenas durante a sessão jogável, inclusive nas interfaces; aplica cor de fundo dinâmica pela API `Pass:setClear` do LÖVR 0.19.
