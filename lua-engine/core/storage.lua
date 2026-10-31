@@ -39,6 +39,27 @@ function Storage.encode(map)
    lines[#lines+1]=('M %d %d %d %s %s'):format(
     x,y,z,enc(field),enc(map.metadata[k].fields[field]))
   end
+  local inv=map.metadata[k].inventory
+  if inv then
+   for _,list in ipairs(keys(inv.lists)) do
+    local width=inv:get_width(list)
+    lines[#lines+1]=('L %d %d %d %s %d %d'):format(
+     x,y,z,enc(list),inv:get_size(list),width)
+    for index=1,inv:get_size(list) do
+     local stack=inv:get_stack(list,index)
+     if not stack:is_empty() then
+      lines[#lines+1]=('I %d %d %d %s %d %s %d %d'):format(
+       x,y,z,enc(list),index,enc(stack:get_name()),
+       stack:get_count(),stack:get_wear())
+      local meta=stack:get_meta():to_table().fields
+      for _,field in ipairs(keys(meta)) do
+       lines[#lines+1]=('F %d %d %d %s %d %s %s'):format(
+        x,y,z,enc(list),index,enc(field),enc(meta[field]))
+      end
+     end
+    end
+   end
+  end
  end
  for _,k in ipairs(keys(map.timers)) do
   local x,y,z=coords(k)
@@ -64,7 +85,7 @@ function Storage.decode(data)
     finished=true
    else
     assert(not finished,'data after END')
-    local tag,x,y,z,rest=line:match('^([NMT]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
+    local tag,x,y,z,rest=line:match('^([NMTLIF]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
     assert(tag,'malformed save at line '..lineNo)
     local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
     if tag=='N' then
@@ -75,6 +96,32 @@ function Storage.decode(data)
      local field,value=rest:match('^(%S+) (%S+)$')
      assert(field,'invalid metadata save')
      map:get_meta(p):set_string(dec(field),dec(value))
+    elseif tag=='L' then
+     local list,size,width=rest:match('^(%S+) (%d+) (%d+)$')
+     size,width=tonumber(size),tonumber(width)
+     assert(list and size and size<=65535 and width and width<=65535,
+      'invalid inventory list')
+     local inv=map:get_meta(p):get_inventory()
+     inv:set_size(dec(list),size)
+     inv:set_width(dec(list),width)
+    elseif tag=='I' then
+     local list,index,name,count,wear=
+      rest:match('^(%S+) (%d+) (%S+) (%d+) (%d+)$')
+     index,count,wear=tonumber(index),tonumber(count),tonumber(wear)
+     assert(list and index and count and wear,'invalid inventory item')
+     local inv=map:get_meta(p):get_inventory()
+     assert(inv:set_stack(dec(list),index,{
+      name=dec(name),count=count,wear=wear
+     }),'item without inventory list')
+    elseif tag=='F' then
+     local list,index,field,value=rest:match('^(%S+) (%d+) (%S+) (%S+)$')
+     index=tonumber(index)
+     assert(list and index and field and value,'invalid item metadata')
+     local inv=map:get_meta(p):get_inventory()
+     local stack=inv:get_stack(dec(list),index)
+     assert(not stack:is_empty(),'metadata without item')
+     stack:get_meta():set_string(dec(field),dec(value))
+     inv:set_stack(dec(list),index,stack)
     elseif tag=='T' then
      local timeout,elapsed=rest:match('^(%S+) (%S+)$')
      timeout,elapsed=tonumber(timeout),tonumber(elapsed)

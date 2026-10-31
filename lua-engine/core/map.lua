@@ -1,5 +1,6 @@
 -- Luanti Lua Engine: sparse voxel map (16^3 mapblocks).
 -- A implementation is intentionally independent of the old Beta 1.8 world.
+local Inventory=require('core.inventory')
 local Map={}
 Map.__index=Map
 Map.BLOCKSIZE=16
@@ -17,8 +18,8 @@ local function key(x,y,z) return x..','..y..','..z end
 local function bk(x,y,z)
  return floor(x/16)..','..floor(y/16)..','..floor(z/16)
 end
-function Map.new()
- return setmetatable({nodes={},metadata={},timers={},
+function Map.new(registry)
+ return setmetatable({nodes={},metadata={},timers={},registry=registry,
   revisions={},modified={},count=0},Map)
 end
 function Map.key(p)
@@ -78,7 +79,7 @@ function Map:iter_nodes(minp,maxp)
  end end end
  return nodes
 end
-local function metaref(entry)
+local function metaref(entry,registry)
  local ref={}
  function ref:get_string(name) return tostring(entry.fields[name] or '') end
  function ref:set_string(name,v)
@@ -98,15 +99,25 @@ local function metaref(entry)
   entry.fields[name]=tostring(v)
  end
  function ref:contains(name) return entry.fields[name]~=nil end
+ function ref:get_inventory()
+  if not entry.inventory then entry.inventory=Inventory.new(registry) end
+  return entry.inventory
+ end
  function ref:to_table()
   local fields={}
   for k,v in pairs(entry.fields) do fields[k]=v end
-  return {fields=fields,inventory={}}
+  return {fields=fields,inventory=entry.inventory and
+   entry.inventory:to_table() or {}}
  end
  function ref:from_table(t)
   entry.fields={}
   if t and t.fields then
    for k,v in pairs(t.fields) do entry.fields[k]=tostring(v) end
+  end
+  if t and t.inventory then
+   ref:get_inventory():from_table(t.inventory)
+  else
+   entry.inventory=nil
   end
   return true
  end
@@ -115,7 +126,7 @@ end
 function Map:get_meta(p)
  local k=Map.key(p)
  if not self.metadata[k] then self.metadata[k]={fields={}} end
- return metaref(self.metadata[k])
+ return metaref(self.metadata[k],self.registry)
 end
 function Map:get_timer(p)
  local k=Map.key(p)

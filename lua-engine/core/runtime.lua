@@ -2,6 +2,8 @@
 -- Compativel apenas com o subconjunto documentado neste prototipo.
 local Map=require('core.map')
 local Vector=require('core.vector')
+local ItemStack=require('core.itemstack')
+local Inventory=require('core.inventory')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -26,14 +28,19 @@ function Runtime.new(options)
     entities={},aliases={},crafts={},abms={},lbms={}},
   callbacks={globalstep={},generated={},mods_loaded={},
     on_placenode={},on_dignode={},on_joinplayer={}},
-  abmClock={}, logging={}
+  abmClock={}, logging={}, detached={}
  },Runtime)
  local api={}
  self.api=api
+ self.map.registry=self.registry.items
  api.registered_nodes=self.registry.nodes
  api.registered_items=self.registry.items
  api.registered_entities=self.registry.entities
  api.registered_aliases=self.registry.aliases
+ api.registered_tools=self.registry.tools
+ api.registered_craftitems=self.registry.craftitems
+ api.registered_abms=self.registry.abms
+ api.registered_lbms=self.registry.lbms
  api.MAP_BLOCKSIZE=16
  api.MAX_MAP_GENERATION_LIMIT=31000
  api.features={hud_def_type_field=true}
@@ -167,6 +174,26 @@ function Runtime.new(options)
    name=self.registry.aliases[name]
   end
   return name
+ end
+ function api.ItemStack(value)
+  return ItemStack.new(value,self.registry.items)
+ end
+ function api.create_detached_inventory(name,callbacks)
+  assert(type(name)=='string' and name~='' and
+   not self.detached[name],'detached inventory name already exists')
+  local inv=Inventory.new(self.registry.items)
+  self.detached[name]={inv=inv,callbacks=callbacks or {}}
+  return inv
+ end
+ function api.get_inventory(location)
+  if type(location)~='table' then return nil end
+  if location.type=='detached' then
+   local v=self.detached[location.name]
+   return v and v.inv or nil
+  elseif location.type=='node' and ispos(location.pos) then
+   return self.map:get_meta(location.pos):get_inventory()
+  end
+  return nil
  end
  function api.get_node(pos) return self.map:get_node(pos) end
  function api.get_node_or_nil(pos) return self.map:get_node(pos) end
@@ -315,6 +342,7 @@ function Runtime:installGlobals(target)
  target.minetest=self.api
  target.core=self.api
  target.vector=Vector
+ target.ItemStack=self.api.ItemStack
  return self.api
 end
 function Runtime:loadMod(name,path)
@@ -323,7 +351,8 @@ function Runtime:loadMod(name,path)
  self.opts.modpaths=self.opts.modpaths or {}
  self.opts.modpaths[name]=path
  self.current_mod=name
- local ok,err=pcall(dofile,path..'/init.lua')
+ local execute=self.opts.executeMod or dofile
+ local ok,err=pcall(execute,path..'/init.lua',name)
  self.current_mod=nil
  if not ok then error('error loading mod '..name..': '..tostring(err),0) end
 end
