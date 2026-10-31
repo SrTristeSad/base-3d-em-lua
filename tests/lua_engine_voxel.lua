@@ -80,7 +80,7 @@ local p2bad=vm:get_param2_data()
 p2bad[idx]=256
 assert(not pcall(function() vm:set_param2_data(p2bad) end))
 assert(not pcall(function() vm:set_node_at(
- {x=2,y=0,z=0},{name='test:dirt'}) end))
+ {x=16,y=0,z=0},{name='test:dirt'}) end))
 assert(not pcall(function() vm:set_node_at(
  {x=0,y=0,z=0},{name='not:registered'}) end))
 assert(not pcall(function() api.get_voxel_manip(
