@@ -55,58 +55,7 @@ local function settings_file(filename)
  local file=io.open(filename,'rb')
  if file then
   for line in file:lines() do
-   local k,v=line:match('^%s*([%w_]+)%s*=%s*(.-)%s*
- assert(type(runtime)=='table' and type(runtime.api)=='table',
-  'a runtime is required')
- local self=setmetatable({runtime=runtime,read_count=0,files={}},ModEnvironment)
- local env=stdlib(runtime)
- env.core=runtime.api
- env.minetest=runtime.api
- env.vector=Vector
- env.ItemStack=runtime.api.ItemStack
- env.DIR_DELIM=package.config:sub(1,1)
- env.Settings=settings_file
- env.table.copy=recursive_copy
- env.table.indexof=function(tbl,item)
-  for i,v in ipairs(tbl) do if v==item then return i end end
-  return -1
- end
- env._G=env
- env.dofile=function(path) return self:runfile(path) end
- self.globals=env
- return self
-end
-
-function ModEnvironment:runfile(path)
- local filename=normal(path)
- local allowed=false
- for _,root in pairs(self.runtime.opts.modpaths or {}) do
-  if within(filename,normal(root)) then allowed=true;break end
- end
- assert(allowed,'mod file is outside registered mod directories: '..filename)
- assert(filename:sub(-4)=='.lua','only Lua mod files are supported')
- -- Lua 5.1 (LuaJIT) uses setfenv; Lua 5.2+ takes env in loadfile.
- local chunk,err
- if setfenv then
-  chunk,err=loadfile(filename)
-  if chunk then setfenv(chunk,self.globals) end
- else
-  chunk,err=loadfile(filename,'t',self.globals)
- end
- if not chunk then error(err,0) end
- self.read_count=self.read_count+1
- self.files[#self.files+1]=filename
- return chunk()
-end
-
-function ModEnvironment:executeMod(path,name)
- local old=self.runtime.current_mod
- assert(old==name,'mod context must match dependency loader')
- return self:runfile(path)
-end
-
-return ModEnvironment
-)
+   local k,v=line:match('^%s*([%w_]+)%s*=%s*(.-)%s*$')
    if k then fields[k]=v end
   end
   file:close()
@@ -123,7 +72,6 @@ return ModEnvironment
   get_num=function(_,key,default) return tonumber(fields[key]) or default end
  }
 end
-
 local function recursive_copy(value,seen)
  if type(value)~='table' then return value end
  seen=seen or {}
@@ -145,6 +93,13 @@ function ModEnvironment.new(runtime)
  env.minetest=runtime.api
  env.vector=Vector
  env.ItemStack=runtime.api.ItemStack
+ env.DIR_DELIM=package.config:sub(1,1)
+ env.Settings=settings_file
+ env.table.copy=recursive_copy
+ env.table.indexof=function(tbl,item)
+  for i,v in ipairs(tbl) do if v==item then return i end end
+  return -1
+ end
  env._G=env
  env.dofile=function(path) return self:runfile(path) end
  self.globals=env
