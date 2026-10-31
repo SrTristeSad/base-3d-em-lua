@@ -68,7 +68,9 @@ assert(world:save({x=spawnX,y=spawnY,z=spawnZ,yaw=0,pitch=0},
  Items.new('survival',{[47]=3})))
 local restored=World.new(Worlds.open(entry))
 assert(restored:get(1,109,1)==47,'Edição de bloco não persistiu')
-assert(restored.savedItems[47]==3,'Inventário do minério novo não persistiu')
+assert(restored.savedSlots and restored.savedSlots[1] and
+ restored.savedSlots[1].id==47 and restored.savedSlots[1].count==3,
+ 'Inventário por slot do minério novo não persistiu')
 assert(restored.gen:height(300,-175)==world.gen:height(300,-175))
 assert(world:cacheCount()>0)
 local beta=Items.new('survival')
