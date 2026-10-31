@@ -1,0 +1,9 @@
+# Editor / system
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# Saves generated when running with unusual configurations
+world.sav
+settings.ini
+*.log
