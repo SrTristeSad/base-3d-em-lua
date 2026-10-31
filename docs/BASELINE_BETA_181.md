@@ -40,7 +40,10 @@ apareceu nas prereleases da Beta 1.9 e no lançamento 1.0.
 - Cubic Chunks 16×16×16 e mundo vertical expansível.
 - Streaming volumétrico adaptativo, renderização e meshing
   modernos, preservando performance.
-- Geração por imagem e variações de relevo, além das seeds.
+- Melhorias futuras de terreno usando **sementes determinísticas**.
+  Geração de mundo por PNG/JPG foi descartada do planejamento.
+- Cubic Chunks é a **primeira melhoria confirmada**; as demais ideias
+  seguem para análise, sem aprovação automática.
 - Outras melhorias aprovadas pelo criador, sem sobrescrever o
   baseline fiel.
 

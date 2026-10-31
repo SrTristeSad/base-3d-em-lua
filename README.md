@@ -12,6 +12,10 @@ aprimorada. **A versão jogável atual ainda é o protótipo Classic 0.30**,
 não uma reprodução Beta 1.8.1.
 
 Leia o [plano de reconstrução e critérios de fidelidade](docs/BASELINE_BETA_181.md).
+Consulte também [FUTURO.md](FUTURO.md), com **Cubic Chunks confirmado**
+e uma pesquisa exploratória de oportunidades a partir do feedback da comunidade.
+A geração por imagem foi retirada do planejamento futuro; ainda há
+código legado para essa função no protótipo atual, que não foi removido.
 Os saves existentes não serão migrados automaticamente.
 
 ## Novidade — Criar mundo com semente ou imagem
