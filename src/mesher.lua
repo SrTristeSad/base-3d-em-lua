@@ -1,90 +1,203 @@
-local Mesher = {}
-Mesher.__index = Mesher
-local directions = {
-  { 1,0,0, .82 }, {-1,0,0, .82 }, {0,1,0,1}, {0,-1,0,.55},
-  {0,0,1,.72}, {0,0,-1,.72}
+-- Streaming + greedy meshing (GPU). Uma malha por material em cada chunk.
+-- Gera uma face apenas quando visivel e funde superficies retangulares iguais.
+local Mesher={}
+Mesher.__index=Mesher
+local floor,abs=math.floor,math.abs
+local SIDES={
+ {1,0,0,.82},{-1,0,0,.82},{0,1,0,1},{0,-1,0,.55},
+ {0,0,1,.72},{0,0,-1,.72}
 }
-local corners = {
-  { {1,-1,-1},{1,-1,1},{1,1,1},{1,1,-1} },
-  { {-1,-1,1},{-1,-1,-1},{-1,1,-1},{-1,1,1} },
-  { {-1,1,-1},{1,1,-1},{1,1,1},{-1,1,1} },
-  { {-1,-1,1},{1,-1,1},{1,-1,-1},{-1,-1,-1} },
-  { {1,-1,1},{-1,-1,1},{-1,1,1},{1,1,1} },
-  { {-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1} }
+local CORNERS={
+ {{1,-1,-1},{1,-1,1},{1,1,1},{1,1,-1}},
+ {{-1,-1,1},{-1,-1,-1},{-1,1,-1},{-1,1,1}},
+ {{-1,1,-1},{1,1,-1},{1,1,1},{-1,1,1}},
+ {{-1,-1,1},{1,-1,1},{1,-1,-1},{-1,-1,-1}},
+ {{1,-1,1},{-1,-1,1},{-1,1,1},{1,1,1}},
+ {{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1}}
 }
-local uv = { {0,1},{1,1},{1,0},{0,0} }
-local triangles = {1,2,3,1,3,4}
-local format = {
-  {'VertexPosition','vec3'}, {'VertexNormal','vec3'},
-  {'VertexUV','vec2'}, {'VertexColor','vec4'}
+local UV={{0,1},{1,1},{1,0},{0,0}}
+local TRI={1,2,3,1,3,4}
+local FORMAT={
+ {'VertexPosition','vec3'},{'VertexNormal','vec3'},
+ {'VertexUV','vec2'},{'VertexColor','vec4'}
 }
-local function pushQuad(v, x,y,z, face)
-  local d,quad = directions[face],corners[face]
-  for _, i in ipairs(triangles) do
-    local c = quad[i]
-    v[#v+1] = {x+c[1]*.5,y+c[2]*.5,z+c[3]*.5,
-      d[1],d[2],d[3],uv[i][1],uv[i][2],d[4],d[4],d[4],1}
+local function ck(cx,cz) return cx..':'..cz end
+local function visible(block,neighbor)
+ if block==0 then return false end
+ return neighbor==0 or (neighbor==9 and block~=9)
+    or (neighbor==5 and block~=5)
+    or (neighbor>=24 and neighbor<=28 and block~=neighbor)
+    or (neighbor==29 and block~=29)
+end
+local function push(groups,material,face,fixed,u,v,width,height)
+ local verts=groups[material]
+ if not verts then verts={};groups[material]=verts end
+ local x,y,z,dx,dy,dz
+ if face<=2 then
+  x,y,z=fixed,v+(height-1)/2,u+(width-1)/2
+  dx,dy,dz=1,height,width
+ elseif face<=4 then
+  x,y,z=u+(width-1)/2,fixed,v+(height-1)/2
+  dx,dy,dz=width,1,height
+ else
+  x,y,z=u+(width-1)/2,v+(height-1)/2,fixed
+  dx,dy,dz=width,height,1
+ end
+ local dir=SIDES[face]
+ for _,i in ipairs(TRI) do
+  local c=CORNERS[face][i]
+  verts[#verts+1]={
+   x+c[1]*dx*.5,y+c[2]*dy*.5,z+c[3]*dz*.5,
+   dir[1],dir[2],dir[3],UV[i][1]*width,UV[i][2]*height,
+   dir[4],dir[4],dir[4],1
+  }
+ end
+end
+function Mesher.buildData(world,cx,cz,faces)
+ local groups={}
+ local total=0
+ local x0,z0=cx*world.CHUNK,cz*world.CHUNK
+ local H=world.YMAX-world.YMIN+1
+ for face,dir in ipairs(SIDES) do
+  local fixedMin,fixedMax,us,vs,uCount,vCount
+  if face<=2 then
+   fixedMin,fixedMax=x0,x0+15
+   us,vs=z0,world.YMIN
+   uCount,vCount=16,H
+  elseif face<=4 then
+   fixedMin,fixedMax=world.YMIN,world.YMAX
+   us,vs=x0,z0
+   uCount,vCount=16,16
+  else
+   fixedMin,fixedMax=z0,z0+15
+   us,vs=x0,world.YMIN
+   uCount,vCount=16,H
   end
-end
-
-function Mesher.new(world, textures, faces)
-  return setmetatable({world=world, textures=textures, faces=faces, chunks={}}, Mesher)
-end
-
-function Mesher:rebuild(cx,cz)
-  local w=self.world
-  local groups={}
-  for x=cx*w.CHUNK,(cx+1)*w.CHUNK-1 do
-    for z=cz*w.CHUNK,(cz+1)*w.CHUNK-1 do
-      if x>=w.MIN and x<=w.MAX and z>=w.MIN and z<=w.MAX then
-        for y=w.YMIN,w.YMAX do
-          local id = w:get(x,y,z)
-          if id~=0 then
-            for face,d in ipairs(directions) do
-              local other = w:get(x+d[1],y+d[2],z+d[3])
-              -- Leaves and water are opaque in this starter build.
-              if other==0 then
-                local material=self.faces[id][face]
-                local verts=groups[material]
-                if not verts then verts={}; groups[material]=verts end
-                pushQuad(verts,x,y,z,face)
-              end
-            end
-          end
+  for fixed=fixedMin,fixedMax do
+   local mask={}
+   for v=0,vCount-1 do
+    for u=0,uCount-1 do
+     local x,y,z
+     if face<=2 then x,y,z=fixed,vs+v,us+u
+     elseif face<=4 then x,y,z=us+u,fixed,vs+v
+     else x,y,z=us+u,vs+v,fixed end
+     local id=world:get(x,y,z)
+     local neighbor=world:get(x+dir[1],y+dir[2],z+dir[3])
+     if visible(id,neighbor) then
+      local row=faces[id]
+      if row then mask[v*uCount+u+1]=row[face] end
+     end
+    end
+   end
+   for v=0,vCount-1 do
+    local u=0
+    while u<uCount do
+     local index=v*uCount+u+1
+     local material=mask[index]
+     if material then
+      local width=1
+      while u+width<uCount and
+        mask[v*uCount+u+width+1]==material do width=width+1 end
+      local height=1
+      local more=true
+      while v+height<vCount and more do
+       for dx=0,width-1 do
+        if mask[(v+height)*uCount+u+dx+1]~=material then
+         more=false;break
         end
+       end
+       if more then height=height+1 end
       end
+      for dy=0,height-1 do
+       for dx=0,width-1 do
+        mask[(v+dy)*uCount+u+dx+1]=nil
+       end
+      end
+      push(groups,material,face,fixed,us+u,vs+v,width,height)
+      total=total+1
+      u=u+width
+     else
+      u=u+1
+     end
     end
+   end
   end
-  local id=cx..':'..cz
-  if self.chunks[id] then
-    for _,mesh in pairs(self.chunks[id]) do mesh:release() end
-  end
-  local meshes={}
-  for material, vertices in pairs(groups) do
-    if #vertices>0 then
-      local mesh=lovr.graphics.newMesh(format,vertices,{storage='gpu'})
-      mesh:setMaterial(self.textures[material])
-      meshes[#meshes+1]=mesh
-    end
-  end
-  self.chunks[id]=meshes
-  w.dirty[id]=nil
+ end
+ return groups,total
 end
-
-function Mesher:sync()
-  for key in pairs(self.world.dirty) do
-    local cx,cz=key:match('^(-?%d+):(-?%d+)$')
-    self:rebuild(tonumber(cx),tonumber(cz))
-  end
+function Mesher.new(world,textures,faces)
+ return setmetatable({world=world,textures=textures,faces=faces,
+  chunks={},quads=0,rebuilds=0,pending=0,visibleCount=0},Mesher)
 end
-
-function Mesher:draw(pass,px,pz,radius)
-  local cx,cz = math.floor(px/16),math.floor(pz/16)
-  for key,meshes in pairs(self.chunks) do
-    local x,z=key:match('^(-?%d+):(-?%d+)$')
-    if math.abs(tonumber(x)-cx)<=radius and math.abs(tonumber(z)-cz)<=radius then
-      for _,mesh in ipairs(meshes) do pass:draw(mesh) end
-    end
+function Mesher:rebuild(cx,cz)
+ local groups,quads=Mesher.buildData(self.world,cx,cz,self.faces)
+ local id=ck(cx,cz)
+ local old=self.chunks[id]
+ if old then
+  for _,mesh in ipairs(old.meshes) do mesh:release() end
+  self.quads=self.quads-old.quads
+ end
+ local meshes={}
+ for material,vertices in pairs(groups) do
+  if #vertices>0 then
+   local mesh=lovr.graphics.newMesh(FORMAT,vertices,{storage='gpu'})
+   mesh:setMaterial(self.textures[material])
+   meshes[#meshes+1]=mesh
   end
+ end
+ self.chunks[id]={meshes=meshes,quads=quads,cx=cx,cz=cz}
+ self.quads=self.quads+quads
+ self.rebuilds=self.rebuilds+1
+ self.world.dirty[id]=nil
+end
+function Mesher:sync(px,pz,view,budget)
+ px,pz=px or 0,pz or 0
+ local half=1+math.max(1,math.min(3,view or 1))
+ budget=budget or 2
+ local minX,minZ=floor((px-half*16)/16),floor((pz-half*16)/16)
+ local limit=half*2
+ local desired={}
+ local queue={}
+ local centerX,centerZ=floor(px/16),floor(pz/16)
+ for i=0,limit-1 do
+  for j=0,limit-1 do
+   local cx,cz=minX+i,minZ+j
+   local k=ck(cx,cz)
+   desired[k]=true
+   if not self.chunks[k] or self.world.dirty[k] then
+    local priority=(cx-centerX)^2+(cz-centerZ)^2
+    queue[#queue+1]={cx=cx,cz=cz,key=k,priority=priority}
+   end
+  end
+ end
+ -- DESCARREGAMENTO: memoria GPU e CPU de chunks fora da janela.
+ for k,chunk in pairs(self.chunks) do
+  if not desired[k] then
+   for _,mesh in ipairs(chunk.meshes) do mesh:release() end
+   self.quads=self.quads-chunk.quads
+   self.chunks[k]=nil
+  end
+ end
+ table.sort(queue,function(a,b)
+  if a.priority~=b.priority then return a.priority<b.priority end
+  return a.key<b.key
+ end)
+ self.pending=#queue
+ local loaded=0
+ for i=1,math.min(#queue,math.max(0,budget)) do
+  self:rebuild(queue[i].cx,queue[i].cz)
+  loaded=loaded+1
+ end
+ self.pending=self.pending-loaded
+ self.world:prune(px,pz,half)
+ local n=0
+ for _ in pairs(self.chunks) do n=n+1 end
+ self.visibleCount=n
+ return loaded
+end
+function Mesher:draw(pass)
+ for _,chunk in pairs(self.chunks) do
+  for _,mesh in ipairs(chunk.meshes) do pass:draw(mesh) end
+ end
 end
 return Mesher

@@ -20,8 +20,9 @@ function Player.new(world)
     invulnerable=0
   },Player)
   local saved=world.savedPlayer
-  if saved and saved.x>=world.MIN and saved.x<=world.MAX and
-    saved.z>=world.MIN and saved.z<=world.MAX and saved.y>=world.YMIN then
+  if saved and math.abs(saved.x)<=world.BOUND-4 and
+    math.abs(saved.z)<=world.BOUND-4 and
+    saved.y>=world.YMIN and saved.y<=world.YMAX then
     p.x,p.y,p.z,p.yaw,p.pitch=saved.x,saved.y,saved.z,saved.yaw,saved.pitch
   end
   return p

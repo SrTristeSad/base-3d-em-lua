@@ -2,7 +2,7 @@
 
 Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** (Windows/Linux/macOS). Não precisa do Roblox nem de Minecraft.
 
-**Versão jogável em desenvolvimento:** mundo procedural com árvores, terreno e água decorativa; renderização por malha de faces visíveis; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
+**Versão jogável em desenvolvimento:** mundo procedural com streaming de chunks 16×16, 64×64 blocos carregados por padrão, árvores, terreno e água decorativa; renderização GPU com greedy meshing; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
 
 ## Referencia escolhida: Minecraft Classic 0.30
 
@@ -29,6 +29,36 @@ simplesmente por se aproximar nesta versao, diferentemente de um creeper
 moderno. Os blocos coletados que possuem drop disponivel alimentam
 a barra e o estoque de 99 unidades.
 
+## Nova arquitetura de mundo infinito com streaming 64×64
+
+O mapa **deixou de ser um quadrado fixo 48×48**. A região de spawn antiga
+continua como referencia para mobs iniciais, mas terreno e construcoes
+podem se estender por uma area muito maior (limite de seguranca:
+±1.048.575 blocos nos eixos X/Z).
+
+- Geração procedural determinística sob demanda, dividida em chunks de 16×16.
+- **Janela padrão 64×64 blocos** em torno do jogador (4×4 chunks).
+- Distância configurável: 64×64, 96×96 ou 128×128 blocos.
+- Carregamento priorizado pela proximidade e limitado a dois chunks GPU
+  por frame, para reduzir travamentos.
+- Descarregamento de chunks distantes e liberação de malhas GPU.
+- **Greedy meshing:** faces contíguas do mesmo material viram retângulos,
+  em vez de milhares de quads independentes; redução de geometria sobretudo
+  em superfícies planas.
+- O save grava apenas os blocos modificados. Ao voltar, o terreno é
+  regenerado, e as alterações previamente salvas são reaplicadas.
+- Zumbis, ovelhas, porcos e demais criaturas próximas são reaproveitadas
+  quando o jogador viaja para outra região, sem criar hordas ilimitadas.
+- **F3** mostra chunks visíveis, quads de geometria, cache e contador de geração.
+- Testes verificam geração após 480 blocos de distância, persistência de
+  alterações, recarga de regiões, descarregamento de memória e meshing.
+
+O motor continua sendo **LÖVR 0.19 / Lua**, com buffers GPU de malhas.
+A versão 0.19 suporta também Luau, tarefas assíncronas e novos recursos
+de renderização, mas **não declaramos que estão integrados**: a geração
+atual usa orçamento controlado por quadro. Ver
+[arquitetura de streaming](docs/CHUNK_STREAMING.md).
+
 ## Novidades: criaturas e blocos do Classic 0.30
 
 - Criaturas **zumbi, esqueleto, aranha, porco e ovelha** renderizadas em cubos,
@@ -48,7 +78,7 @@ a barra e o estoque de 99 unidades.
 
 ## O que ja foi implementado
 
-- Mundo voxel procedural 48×48 com árvores, areia, água, mineração, construção e salvamento local.
+- Mundo voxel procedural em chunks, com árvores, areia, água, mineração, construção e salvamento local.
 - **5 creepers** originais em blocos (somente no modo Sobrevivencia): surgem longe do spawn, perseguem o jogador,
   **atacam de perto e explodem ao serem derrotados**, como no Survival Test 0.30.
 - As explosões removem blocos editáveis próximos (as alterações são salvas).
@@ -63,8 +93,9 @@ a barra e o estoque de 99 unidades.
   texturas PNG personalizadas, skin 64×64, menus e configurações.
 - Projeto **independente em Lua**, sem Roblox Studio.
 
-**Limitações atuais:** jogo local, sem crafting, animais passivos,
-inventário limitado, iluminação dinâmica, física de líquidos ou multiplayer.
+**Limitações atuais:** jogo local, sem crafting, com IA simplificada de criaturas,
+inventário limitado, iluminação dinâmica incompleta, física de líquidos estática
+e sem multiplayer.
 Embora os testes de lógica e sintaxe sejam executados automaticamente,
 a renderização e os controles ainda precisam ser testados num PC com
 LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
@@ -73,8 +104,8 @@ LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
 Na pagina [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions/workflows/lua-check.yml),
 abra a execucao mais recente **aprovada** e baixe o artefato
-`Base3D-Classic-030-LOVR`. Extraia o arquivo
-`Base3D-Classic-030.lovr`. E um jogo empacotado (ZIP renomeado)
+`Base3D-Classic-030-Streaming64-LOVR`. Extraia o arquivo
+`Base3D-Classic-030-Streaming64.lovr`. E um jogo empacotado (ZIP renomeado)
 para o motor LÖVR; no Windows, arraste o arquivo `.lovr` sobre
 `lovr.exe` baixado do site oficial. O pacote inclui as texturas,
 scripts e configuracoes. Nao inclui o executavel do motor nem salva dentro
@@ -105,6 +136,7 @@ do proprio arquivo.
 | F5 | Alternar 1ª e 3ª pessoa |
 | Esc | Pausar / abrir menu |
 | F6 | Salvar imediatamente |
+| F3 | Mostrar/ocultar estatísticas de chunks e geometria |
 | R (ao morrer) | Renascer com a vida restaurada |
 
 A tela inicial tem **Jogar**, **Configurações** e **Sair**. No menu de pausa, você pode **Salvar**, retornar ao menu e continuar.
@@ -124,8 +156,8 @@ A tela inicial tem **Jogar**, **Configurações** e **Sair**. No menu de pausa, 
 ```
 main.lua             loop, menus, render e controles
 conf.lua             janela, módulos e identidade
-src/world.lua        terreno e blocos + salvamento
-src/mesher.lua       malhas de faces visíveis por material
+src/world.lua        geração procedural, cache espacial de chunks + salvamento
+src/mesher.lua       greedy meshing, streaming prioritizado e liberação GPU
 src/textures.lua     PNGs externos e fallback procedural
 src/player.lua       movimento, colisão e seleção
 src/avatar.lua       skin 64×64 do jogador

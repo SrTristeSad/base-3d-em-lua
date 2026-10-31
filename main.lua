@@ -11,11 +11,12 @@ local TNT = require('src.tnt')
 
 local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt
 local autosave=0
+local showStats=false
 local state = 'title'
 local previous = 'title'
 local settings = {
   fov=75,sensitivity=.003,sensitivityLabel='MEDIA',
-  distance=2,fullscreen=false
+  distance=1,fullscreen=false
 }
 local fovs={60,75,90}
 local sens={{.0015,'BAIXA'},{.003,'MEDIA'},{.005,'ALTA'}}
@@ -108,9 +109,10 @@ function lovr.load()
   lovr.graphics.setBackgroundColor(.49,.72,.91)
   tiles=Textures.load()
   world=World.new()
-  mesher=Mesher.new(world,tiles,Textures.faces)
-  mesher:sync()
   player=Player.new(world)
+  mesher=Mesher.new(world,tiles,Textures.faces)
+  -- Compila apenas os chunks proximos. O restante chega gradualmente.
+  mesher:sync(player.x,player.z,settings.distance,4)
   classic=Classic.new(world.savedMode,world.savedItems,world.savedScore)
   creepers=Creepers.new(world)
   creatures=Creatures.new(world)
@@ -125,13 +127,16 @@ function lovr.update(dt)
     creepers:update(dt,player,classic)
     creatures:update(dt,player,classic)
     tnt:update(dt,player,classic)
-    mesher:sync()
+    mesher:sync(player.x,player.z,settings.distance,2)
     if player.health<=0 then setState('dead') end
     autosave=autosave+dt
     if autosave>=45 then
       autosave=0
       saveWorld()
     end
+  elseif state=='title' then
+    -- Preenche o panorama do menu com orcamento minimo por quadro.
+    mesher:sync(13,17,settings.distance,1)
   end
 end
 
@@ -148,7 +153,7 @@ function lovr.draw(pass)
   pass:setSampler('nearest')
   pass:setColor(1,1,1)
   pass:setViewCull(true)
-  mesher:draw(pass,cx,cz,settings.distance)
+  mesher:draw(pass)
   if classic.mode=='survival' then
     creepers:draw(pass,cx,cz,settings.distance*16+20)
     creatures:draw(pass,cx,cz,settings.distance*16+20)
@@ -165,7 +170,8 @@ function lovr.draw(pass)
     end
   end
   pass:setViewCull(false)
-  UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels,creepers,classic,creatures)
+  UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels,creepers,classic,creatures,
+    mesher,showStats)
 end
 
 function lovr.mousemoved(x,y,dx,dy)
@@ -216,7 +222,9 @@ function lovr.keypressed(key)
     elseif key=='r' and state=='dead' then action('respawn') end
     return
   end
-  if key=='tab' then
+  if key=='f3' then
+    showStats=not showStats
+  elseif key=='tab' then
     Textures.nextPage(1)
     player.selected=1
   elseif key=='e' then

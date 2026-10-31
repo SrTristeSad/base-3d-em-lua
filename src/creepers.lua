@@ -55,6 +55,27 @@ function Creepers:spawn()
   return nil
 end
 
+-- Mantem a população de creepers perto do jogador quando ele viaja.
+function Creepers:relocate(mob,player)
+ local w=self.world
+ for _=1,40 do
+  local angle=self:random()*math.pi*2
+  local dist=14+self:random()*15
+  local x=floor(player.x+sin(angle)*dist)
+  local z=floor(player.z+cos(angle)*dist)
+  if w:within(x,2,z) then
+   local y=validSpawn(w,x,z)
+   if y and w:get(x,floor(y+.5),z)==0 then
+    mob.x,mob.y,mob.z=x,y,z
+    mob.nextAttack=self.clock+1.0
+    mob.phase=0
+    return true
+   end
+  end
+ end
+ return false
+end
+
 function Creepers:hit(player,damage,classic)
   local ox,oy,oz=player:eye()
   local dx,dy,dz=player:direction()
@@ -125,6 +146,9 @@ function Creepers:update(dt,player,classic)
         if not nextMob then mob.respawn=3;mob.remove=false end
       end
     else
+      if dist2(mob.x,mob.z,player.x,player.z)>48*48 then
+        self:relocate(mob,player)
+      end
       local d2=dist2(mob.x,mob.z,player.x,player.z)
       local d=sqrt(d2)
       local dy=abs((mob.y+1)-(player.y+1))

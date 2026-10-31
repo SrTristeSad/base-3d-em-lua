@@ -21,6 +21,8 @@ jobs:
         run: |
           lua5.4 tests/blocks_030.lua
           lua5.4 tests/creatures_030.lua
+      - name: Chunk streaming 64x64 and greedy meshing tests
+        run: lua5.4 tests/streaming_64.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -41,6 +43,13 @@ jobs:
           assert 'function Player:respawn(' in player
           assert 'function Creepers:explode(' in mobs
           assert "state=='dead'" in ui
+          assert 'function Mesher.buildData(' in Path('src/mesher.lua').read_text()
+          assert 'self.world:prune(px,pz,half)' in Path('src/mesher.lua').read_text()
+          assert 'world:spawnHeight' in player
+          assert 'mesher:sync(player.x,player.z,settings.distance,2)' in main
+          assert 'function World:ensureChunk(' in world
+          assert 'function World:prune(' in world
+          assert 'function World:cacheCount(' in world
           assert "require('src.creatures')" in main
           assert "require('src.tnt')" in main
           assert 'creatures:update(dt,player,classic)' in main
@@ -73,7 +82,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Classic-030.lovr')
+          out=Path('dist/Base3D-Classic-030-Streaming64.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -88,13 +97,15 @@ jobs:
             assert 'src/classic.lua' in z.namelist()
             assert 'src/creatures.lua' in z.namelist()
             assert 'src/tnt.lua' in z.namelist()
+            assert 'src/mesher.lua' in z.namelist()
+            assert 'src/world.lua' in z.namelist()
             assert 'assets/textures/grass_top.png' in z.namelist()
           print(out,out.stat().st_size,'bytes',len(files),'files')
           PY
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Classic-030-LOVR
-          path: dist/Base3D-Classic-030.lovr
+          name: Base3D-Classic-030-Streaming64-LOVR
+          path: dist/Base3D-Classic-030-Streaming64.lovr
           if-no-files-found: error
           retention-days: 30

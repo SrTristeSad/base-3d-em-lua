@@ -34,7 +34,8 @@ function UI.buttons(state, settings, w, h, classic)
   elseif state=='settings' then
     add('CAMPO DE VISAO: '..settings.fov..' graus',-2,'fov')
     add('MOUSE: '..settings.sensitivityLabel,-1,'sensitivity')
-    add('DISTANCIA: '..settings.distance..' chunks',0,'distance')
+    add('ALCANCE: '..(settings.distance*32+32)..'x'..
+      (settings.distance*32+32)..' blocos',0,'distance')
     add('TELA CHEIA: '..(settings.fullscreen and 'SIM' or 'NAO'),1,'fullscreen')
     add('VOLTAR',2,'back')
   end
@@ -47,7 +48,8 @@ function UI.click(state,settings,x,y,w,h,classic)
   end
 end
 
-function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,creatures)
+function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,creatures,
+  mesher,showStats)
   local w,h=pass:getDimensions()
   pass:setViewPose(1,lovr.math.newMat4())
   pass:setProjection('orthographic')
@@ -72,7 +74,7 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
           count>0 and .92 or .66,count>0 and .95 or .71,.86)
       end
     end
-    label(pass,'WASD mover | Esq. atacar/minerar | Dir. construir/desarmar TNT | TAB pagina | E cogumelo',
+    label(pass,'WASD mover | F3 desempenho | Esq. atacar/minerar | Dir. construir | TAB pagina | E cogumelo',
       w/2,28,15,.9,.96,1)
     -- Vida inicial: dez coracoes. Dano e morte sao calculados no jogador.
     local health=player.health or 20
@@ -104,6 +106,16 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
     label(pass,'Criaturas: '..nearby..'  |  F6 salvar',w-119,92,15,.86,.98,.83)
     label(pass,'BARRA '..require('src.textures').currentPage..'/'..
       #require('src.textures').pages..'  |  TAB para trocar',w/2,h-104,14,.96,.94,.70)
+    if mesher then
+      local size=settings.distance*32+32
+      label(pass,'Mundo dinamico '..size..'x'..size..
+        ' | carregando '..mesher.pending..' chunks',w/2,111,14,.83,.97,.81)
+      if showStats then
+        label(pass,('CHUNKS %d | QUADS %d | CACHE %d | GERADOS %d'):format(
+          mesher.visibleCount,mesher.quads,mesher.world:cacheCount(),
+          mesher.world.generatedTotal),w/2,134,14,.90,.93,.99)
+      end
+    end
     if hit then
       label(pass,'Alvo: '..(labels[hit.id] or 'Bloco')..'  ['..hit.x..','..hit.y..','..hit.z..']',
       w/2,58,16,1,1,.6)

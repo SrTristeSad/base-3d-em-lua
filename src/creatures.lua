@@ -80,6 +80,29 @@ function Creatures:count()
  end
  return active
 end
+-- Se o jogador viaja para longe, reutiliza entidades existentes na regiao nova.
+-- Nao amplia o numero de mobs nem mantem simulacao em regiões distantes.
+function Creatures:relocate(mob,player)
+ local w=self.world
+ for _=1,32 do
+  local angle=self:random()*math.pi*2
+  local distance=13+self:random()*15
+  local x=floor(player.x+sin(angle)*distance)
+  local z=floor(player.z+cos(angle)*distance)
+  if w:within(x,2,z) then
+   local y=w:spawnHeight(x,z)
+   if y>1 and y<w.YMAX-3 and walkable(w,x,y,z)
+     and w:get(x,floor(y+.5),z)==0 then
+    mob.x,mob.y,mob.z=x,y,z
+    mob.phase=0
+    mob.nextAttack=self.clock+1.2
+    return true
+   end
+  end
+ end
+ return false
+end
+
 function Creatures:hit(player,classic)
  local ox,oy,oz=player:eye()
  local dx,dy,dz=player:direction()
@@ -132,6 +155,9 @@ function Creatures:update(dt,player,classic)
  local w=self.world
  for _,mob in ipairs(self.list) do
   local data=self.SPECIES[mob.kind]
+  if mob.active and distance2(player.x,player.z,mob.x,mob.z)>48*48 then
+   self:relocate(mob,player)
+  end
   if not mob.active then
    mob.respawn=mob.respawn-dt
    if mob.respawn<=0 then
