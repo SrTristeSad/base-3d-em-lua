@@ -1,0 +1,68 @@
+name: VoxeLibre completo - pacote Windows (Luanti)
+on:
+  push:
+    paths:
+      - '.gitmodules'
+      - 'games/voxelibre'
+      - 'scripts/package_voxelibre.py'
+      - 'tests/voxelibre/**'
+      - '.github/workflows/voxelibre-windows.yml'
+  pull_request:
+    paths:
+      - '.gitmodules'
+      - 'games/voxelibre'
+      - 'scripts/package_voxelibre.py'
+      - 'tests/voxelibre/**'
+      - '.github/workflows/voxelibre-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Baixar codigo e VoxeLibre inteiro (submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Verificar jogo completo e versao fixa
+        run: |
+          set -eu
+          test -f games/voxelibre/game.conf
+          test -f games/voxelibre/LICENSE.txt
+          test -f games/voxelibre/LEGAL.md
+          test -f games/voxelibre/CREDITS.md
+          test -d games/voxelibre/mods
+          test "$(git -C games/voxelibre rev-parse HEAD)" = "4492ce6ff8d856daa4567abe2ea689f4e7a39842"
+          echo "Total de mods (mod.conf): $(find games/voxelibre/mods -name mod.conf | wc -l)"
+          git -C games/voxelibre status --short
+      - name: Testes do empacotador (sem dependencias externas)
+        run: python3 -m unittest discover -s tests/voxelibre -v
+      - name: Baixar Luanti estavel 5.18.0, verificar SHA256 oficial
+        run: |
+          curl --fail --location --retry 4 --retry-delay 3 \
+            --output /tmp/luanti-win64.zip \
+            https://github.com/luanti-org/luanti/releases/download/5.18.0/luanti-5.18.0-win64.zip
+          echo "bebce52b58555d8208bf16767d0717788479fef23c35ec8d7bf287774d641835  /tmp/luanti-win64.zip" | sha256sum --check
+      - name: Montar jogo Windows com todos os mods e texturas
+        run: |
+          python3 scripts/package_voxelibre.py \
+            --engine-zip /tmp/luanti-win64.zip \
+            --game games/voxelibre \
+            --output dist/VoxeLibre-Luanti-Windows \
+            --engine-version 5.18.0 \
+            --game-revision "$(git -C games/voxelibre rev-parse HEAD)"
+          test -f dist/VoxeLibre-Luanti-Windows/JOGAR-VOXELIBRE.bat
+          test -f dist/VoxeLibre-Luanti-Windows/games/voxelibre/game.conf
+      - name: Publicar pacote jogavel Windows x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: Base3D-VoxeLibre-Completo-Windows-x64
+          path: dist/VoxeLibre-Luanti-Windows/
+          if-no-files-found: error
+          compression-level: 2
+          retention-days: 30

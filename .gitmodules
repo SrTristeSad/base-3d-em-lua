@@ -1,0 +1,3 @@
+[submodule "games/voxelibre"]
+	path = games/voxelibre
+	url = https://github.com/VoxeLibre/VoxeLibre.git
