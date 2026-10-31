@@ -13,7 +13,7 @@ validar as mecânicas e a aparência.** Já existe um perfil Beta 1.8.1
 experimental no projeto, mas geração, interface e jogabilidade
 ainda não são reproduções completas da versão original.
 
-## Status de implementação — Fases 1 a 5
+## Status de implementação — Fases 1 a 7
 
 A fundação do Overworld está integrada ao jogo com o perfil `beta181`:
 biomas básicos, terreno, mar Y=62, altura 0..127 e minérios. Esta
@@ -48,6 +48,14 @@ de spawn por luminosidade e dano solar de zumbis/esqueletos.
 O algoritmo completo de luz, clima e IA histórica ainda está pendente.
 
 [Detalhes e limitações da Fase 5](FASE_05_BETA181.md).
+
+**Fase 6:** luz artificial por BFS respeitando paredes e passagens.
+
+**Fase 7:** skylight por voxel baseado no teto real de cada coluna,
+difusão limitada da luz através de corredores, com cache e
+invalidação de malhas após construção e mineração.
+
+[Relatório da Fase 7](FASE_07_BETA181.md).
 
 ## Fase A — baseline Beta 1.8.1
 

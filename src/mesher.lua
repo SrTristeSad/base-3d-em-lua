@@ -91,11 +91,14 @@ function Mesher.buildData(world,cx,cy,cz,faces)
        if lighting then
         -- Separa faces com iluminacao distinta sem regenerar a malha
         -- a cada segundo: so o multiplicador de luz solar muda.
-        local sky=lighting:skyApprox(x+dir[1],y+dir[2],z+dir[3],
-          columnCache) and 1 or 0
+        local sky=lighting.skyLight
+          and lighting:skyLight(x+dir[1],y+dir[2],z+dir[3])
+          or (lighting:skyApprox(x+dir[1],y+dir[2],z+dir[3],
+            columnCache) and 15 or 0)
+        local skyBucket=math.min(5,math.floor((sky+1)/3))
         local light=lighting:blockLevel(x+dir[1],y+dir[2],z+dir[3])
         local bucket=math.min(3,math.floor((light+2)/4))
-        material=material..'#'..sky..'#'..bucket
+        material=material..'#'..skyBucket..'#'..bucket
        end
        mask[v*uCount+u+1]=material
       end
@@ -153,12 +156,13 @@ function Mesher:rebuild(cx,cy,cz)
  local meshes,lights={},{}
  for material,vertices in pairs(groups) do
   if #vertices>0 then
-   local name,sky,bucket=material:match('^(.-)#([01])#(%d+)$')
+   local name,sky,bucket=material:match('^(.-)#(%d+)#(%d+)$')
    local mesh=lovr.graphics.newMesh(FORMAT,vertices,{storage='gpu'})
    mesh:setMaterial(self.textures[name or material])
    meshes[#meshes+1]=mesh
    if sky then
-    lights[#meshes]={sky=sky=='1',block=tonumber(bucket)*4}
+    lights[#meshes]={sky=math.min(15,tonumber(sky)*3),
+     block=tonumber(bucket)*4}
    end
   end
  end
@@ -236,7 +240,7 @@ function Mesher:draw(pass)
    local info=chunk.lightInfo and chunk.lightInfo[i]
    if lighting and info then
     local block=math.min(1,(info.block or 0)/15)
-    local ambient=info.sky and daytime or .13
+    local ambient=.13+(daytime-.13)*(info.sky or 0)/15
     local light=math.max(ambient,.12+block*.85)
     pass:setColor(light,light,light,1)
    end

@@ -1,4 +1,4 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 6)
+# Base 3D em Lua — Beta 1.8.1 (Fase 7)
 
 Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta 1.8.1** como referência de comportamento histórico. Não utiliza código, texturas ou outros arquivos da Mojang. **O projeto ainda não é uma reprodução 1:1**: alguns algoritmos e sistemas são aproximações e vários recursos estão pendentes.
 
@@ -6,10 +6,23 @@ Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta
 
 Na página [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions), abra a execução mais recente **aprovada** e baixe um dos artefatos:
 
-- `Base3D-Beta181-Cave-Lighting-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
-- `Base3D-Beta181-Cave-Lighting-LOVR` — pacote `.lovr` para executar no motor LÖVR.
+- `Base3D-Beta181-Skylight-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
+- `Base3D-Beta181-Skylight-LOVR` — pacote `.lovr` para executar no motor LÖVR.
 
-Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Cave-Lighting.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Skylight.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+
+## Fase 7 — skylight em poços, telhados e cavernas
+
+A luz do céu agora respeita o teto **real de cada coluna**, inclusive
+blocos construídos ou escavados. Poços abertos recebem claridade até
+o fundo; a luz também entra lateralmente por entradas de cavernas,
+perdendo intensidade ao percorrer os corredores.
+
+As alterações invalidam os caches solares e atualizam os chunks
+necessários sem recriar malhas apenas por passar de dia para noite.
+O cálculo é aproximado e usa buscas limitadas a 14 passos.
+
+[Relatório técnico da Fase 7](docs/FASE_07_BETA181.md).
 
 ## Fase 6 — luz bloqueada por paredes
 
@@ -31,12 +44,12 @@ propagado completamente por voxel.
 - Dia, pôr do sol, noite e amanhecer, com transições graduais de cor do céu e brilho.
 - **Relógio e número de dias salvos**, de forma compatível com saves das fases anteriores.
 - **Tochas (bloco 52)** iluminam a geometria próxima; retirar uma tocha atualiza as malhas afetadas. Luz local usa propagação BFS por voxels transparentes, respeitando paredes.
-- **O renderizador diferencia exterior e subsolo**, aplicando tonalidade diurna/noturna e luz local nas superfícies. A identificação visual de luz solar usa a altura do terreno natural e ainda não cobre todos os poços cavados, telhados ou transparências.
+- **O renderizador diferencia exterior e subsolo**, aplicando tonalidade diurna/noturna e luz local nas superfícies. A Fase 5 utilizava altura natural; a Fase 7 acrescentou verificação da geometria real.
 - **Mobs passivos** são tentados em terrenos iluminados; **hostis** em locais escuros. Regiões já visitadas voltam a receber tentativas quando o dia muda para noite ou vice-versa.
 - **Zumbis e esqueletos** expostos diretamente ao sol sofrem dano periódico; creepers não queimam. Há verificação real de blocos acima dos mobs para reconhecer abrigos.
 - O HUD exibe **dia, horário aproximado, fase e nível da luz do céu**.
 
-Os mobs ainda são provisórios: faltam geração subterrânea completa, a distribuição de spawn original, efeitos visuais de fogo, comportamento complexo, iluminação por voxel com propagação/oclusão, sombras e animações finais.
+Os mobs ainda são provisórios: faltam geração subterrânea completa, a distribuição de spawn original, efeitos visuais de fogo, comportamento complexo, skylight historicamente exato, sombras suavizadas e animações finais.
 
 ## Recursos das fases 1–4
 
