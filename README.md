@@ -1,8 +1,30 @@
-# Base 3D em Lua — Voxel Sandbox
+# Base 3D em Lua — Classic Sandbox com Creepers
 
 Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** (Windows/Linux/macOS). Não precisa do Roblox nem de Minecraft.
 
-**Primeira versão:** mundo procedural com árvores, terreno e água decorativa; renderização por malha de faces visíveis; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
+**Versão jogável em desenvolvimento:** mundo procedural com árvores, terreno e água decorativa; renderização por malha de faces visíveis; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
+
+## O que ja foi implementado
+
+- Mundo voxel procedural 48×48 com árvores, areia, água, mineração, construção e salvamento local.
+- **5 creepers** originais em blocos: surgem longe do spawn, perseguem o jogador,
+  iniciam o pavio quando se aproximam e explodem após cerca de 1,55 segundo.
+- As explosões removem blocos editáveis próximos (as alterações são salvas).
+  Água, camada de fundo e ponto de nascimento ficam protegidos.
+- Os creepers podem ser derrotados com **quatro golpes** antes de explodirem;
+  o ataque usa a mira do jogador e alcance de aproximadamente quatro blocos.
+- Barra de **20 pontos de vida**, imunidade curta após levar dano,
+  tela de morte e renascimento com **R**.
+- Salvamento automático a cada 45 segundos enquanto estiver jogando.
+- Câmera em primeira pessoa e terceira pessoa, seleção de oito blocos,
+  texturas PNG personalizadas, skin 64×64, menus e configurações.
+- Projeto **independente em Lua**, sem Roblox Studio.
+
+**Limitações atuais:** jogo local, sem crafting, animais passivos,
+inventário limitado, iluminação dinâmica, física de líquidos ou multiplayer.
+Embora os testes de lógica e sintaxe sejam executados automaticamente,
+a renderização e os controles ainda precisam ser testados num PC com
+LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
 ## Executar
 
@@ -19,12 +41,13 @@ Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** 
 | Mouse | Olhar (capturado quando joga) |
 | Espaço | Pular |
 | Shift | Correr |
-| Botão esquerdo | Quebrar bloco |
+| Botão esquerdo | Quebrar bloco / atacar creeper sob a mira |
 | Botão direito | Colocar bloco |
 | Teclas 1–8 / roda | Selecionar bloco |
 | F5 | Alternar 1ª e 3ª pessoa |
 | Esc | Pausar / abrir menu |
 | F6 | Salvar imediatamente |
+| R (ao morrer) | Renascer com a vida restaurada |
 
 A tela inicial tem **Jogar**, **Configurações** e **Sair**. No menu de pausa, você pode **Salvar**, retornar ao menu e continuar.
 
@@ -46,6 +69,7 @@ src/textures.lua     PNGs externos e fallback procedural
 src/player.lua       movimento, colisão e seleção
 src/avatar.lua       skin 64×64 do jogador
 src/ui.lua           menu e interface 2D
+src/creepers.lua     IA, ataque, explosao e modelo cubico dos creepers
 assets/              pasta livre para seus PNGs
 ```
 
@@ -55,4 +79,5 @@ Os arquivos de save são escritos no diretório de dados do usuário administrad
 
 Este é um **projeto original e independente**. Como referência de funcionalidades do gênero voxel, foi consultado [VintageCube](https://github.com/VintageCube/VintageCube), um projeto Roblox licenciado sob AGPL-3.0. **Nenhum arquivo de código ou arte do VintageCube/Minecraft foi copiado para esta base**; as APIs e a implementação são próprias. O código autoral deste repositório é distribuído sob MIT. Skins e texturas importadas são responsabilidade de seus respectivos autores.
 
-> Estado: primeira implementação de desenvolvimento; ainda requer execução/teste gráfico em um PC com LÖVR e Vulkan. Não é um jogo completo nem possui multiplayer.
+> Estado: sandbox funcional no código e testável sem Roblox. A jogabilidade 3D
+> ainda requer verificação manual no LÖVR; sem multiplayer ou crafting.

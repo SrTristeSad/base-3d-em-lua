@@ -16,7 +16,8 @@ function Player.new(world)
   local p = setmetatable({
     x=0,y=world:spawnHeight(0,0),z=0,
     yaw=0,pitch=0,vy=0,grounded=false,
-    selected=1,third=false
+    selected=1,third=false,health=20,maxHealth=20,
+    invulnerable=0
   },Player)
   local saved=world.savedPlayer
   if saved and saved.x>=world.MIN and saved.x<=world.MAX and
@@ -26,6 +27,24 @@ function Player.new(world)
   return p
 end
 
+-- A resistencia temporaria evita varios danos no mesmo instante.
+function Player:damage(amount)
+  if self.health<=0 or self.invulnerable>0 then return false end
+  if type(amount)~='number' or amount<=0 or amount~=amount then return false end
+  self.health=math.max(0,self.health-math.floor(amount+.5))
+  self.invulnerable=.65
+  return true
+end
+
+function Player:respawn(world)
+  self.x,self.z=0,0
+  self.y=world:spawnHeight(0,0)
+  self.vy=0
+  self.grounded=false
+  self.health=self.maxHealth
+  self.invulnerable=2
+end
+
 function Player:direction()
   local c=cos(self.pitch)
   return sin(self.yaw)*c, sin(self.pitch),-cos(self.yaw)*c
@@ -33,6 +52,8 @@ end
 
 function Player:update(dt,world)
   dt=math.min(dt,.05)
+  if self.health<=0 then return end
+  self.invulnerable=math.max(0,self.invulnerable-dt)
   local k=lovr.system.isKeyDown
   local forward=(k('w','up') and 1 or 0)-(k('s','down') and 1 or 0)
   local strafe=(k('d','right') and 1 or 0)-(k('a','left') and 1 or 0)

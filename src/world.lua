@@ -87,6 +87,28 @@ function World:set(x, y, z, id)
   return true
 end
 
+-- Uma detonacao remove apenas blocos editaveis. A camada de fundo,
+-- a agua e a area de nascimento ficam protegidas contra destruicao.
+function World:explode(px,py,pz,radius)
+  radius=math.max(.5,math.min(4,radius or 2))
+  local removed=0
+  local r=math.ceil(radius)
+  for x=math.floor(px)-r,math.floor(px)+r do
+    for y=math.floor(py)-r,math.floor(py)+r do
+      for z=math.floor(pz)-r,math.floor(pz)+r do
+        local dx,dy,dz=x-px,y-py,z-pz
+        local id=self:get(x,y,z)
+        local safeSpawn=math.abs(x)<3 and math.abs(z)<3
+        if id~=0 and id~=9 and y>self.YMIN and not safeSpawn
+          and dx*dx+dy*dy+dz*dz<=radius*radius then
+          if self:set(x,y,z,0) then removed=removed+1 end
+        end
+      end
+    end
+  end
+  return removed
+end
+
 function World:isSolid(x,y,z)
   local id = self:get(x,y,z)
   return id ~= 0 and id ~= 9 and id ~= 5

@@ -22,6 +22,9 @@ function UI.buttons(state, settings, w, h)
     add('JOGAR',0,'play')
     add('CONFIGURACOES',1,'settings')
     add('SAIR',2,'quit')
+  elseif state=='dead' then
+    add('RENASCER',0,'respawn')
+    add('MENU INICIAL',1,'title')
   elseif state=='pause' then
     add('CONTINUAR',-1,'resume')
     add('SALVAR MUNDO',0,'save')
@@ -43,7 +46,7 @@ function UI.click(state,settings,x,y,w,h)
   end
 end
 
-function UI.draw(pass,state,settings,player,hit,hotbar,labels)
+function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers)
   local w,h=pass:getDimensions()
   pass:setViewPose(1,lovr.math.newMat4())
   pass:setProjection('orthographic')
@@ -63,8 +66,27 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels)
       rect(pass,x,h-52,55,48,.13,.16,.21)
       label(pass,i..'  '..labels[i],x,h-53,14)
     end
-    label(pass,'WASD mover | Mouse olhar | Esq. quebrar | Dir. colocar | F5 camera | ESC menu',
+    label(pass,'WASD mover | Mouse olhar | Esq. minerar/atacar | Dir. colocar | F5 camera | ESC menu',
       w/2,28,17,.9,.96,1)
+    -- Vida inicial: dez coracoes. Dano e morte sao calculados no jogador.
+    local health=player.health or 20
+    for i=1,10 do
+      local cx=30+(i-1)*27
+      local fill=math.max(0,math.min(2,health-(i-1)*2))
+      rect(pass,cx,92,22,22,.25,.12,.13,.96)
+      if fill>0 then
+        local r=fill==2 and .96 or .65
+        rect(pass,cx,92,fill==2 and 17 or 9,17,r,.17,.19,.99)
+      end
+    end
+    label(pass,'VIDA '..health..'/20',112,119,15,1,.86,.82)
+    local nearby=0
+    if creepers then
+      for _,mob in ipairs(creepers.list) do
+        if mob.active then nearby=nearby+1 end
+      end
+    end
+    label(pass,'Criaturas: '..nearby..'  |  F6 salvar',w-119,92,15,.86,.98,.83)
     if hit then
       label(pass,'Alvo: '..(labels[hit.id] or 'Agua')..'  ['..hit.x..','..hit.y..','..hit.z..']',
       w/2,58,16,1,1,.6)
@@ -73,9 +95,11 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels)
   end
   rect(pass,w/2,h/2,w,h,.022,.033,.050,.88)
   local title=(state=='title' and 'BASE 3D EM LUA') or
-    (state=='pause' and 'JOGO PAUSADO') or 'CONFIGURACOES'
+    (state=='pause' and 'JOGO PAUSADO') or
+    (state=='dead' and 'VOCE MORREU') or 'CONFIGURACOES'
   label(pass,title,w/2,h*.22,math.min(54,w/20),.94,.82,.51)
-  label(pass,'Sandbox voxel independente  -  LÖVR 0.19',
+  label(pass,state=='dead' and 'Pressione R ou clique RENASCER'
+    or 'Sandbox voxel independente  -  LÖVR 0.19',
     w/2,h*.22+52,17,.72,.82,.90)
   local mx,my=lovr.system.getMousePosition()
   for _,b in ipairs(UI.buttons(state,settings,w,h)) do

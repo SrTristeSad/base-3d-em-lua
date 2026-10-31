@@ -14,3 +14,25 @@ jobs:
         run: find . -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
       - name: World logic regression
         run: lua5.4 tests/world_basic.lua
+      - name: Creeper, combat and explosion tests
+        run: lua5.4 tests/creepers_basic.lua
+      - name: Verify playable sandbox integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          main=Path('main.lua').read_text()
+          player=Path('src/player.lua').read_text()
+          world=Path('src/world.lua').read_text()
+          mobs=Path('src/creepers.lua').read_text()
+          ui=Path('src/ui.lua').read_text()
+          assert "require('src.creepers')" in main
+          assert 'creepers:update(dt,player)' in main
+          assert 'creepers:draw(pass,cx,cz' in main
+          assert 'creepers:hit(player,1)' in main
+          assert "setState('dead')" in main
+          assert 'function World:explode(' in world
+          assert 'function Player:respawn(' in player
+          assert 'function Creepers:explode(' in mobs
+          assert "state=='dead'" in ui
+          print('Creepers integrados ao jogo: OK')
+          PY

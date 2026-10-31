@@ -4,8 +4,10 @@ local Textures = require('src.textures')
 local Player = require('src.player')
 local Avatar = require('src.avatar')
 local UI = require('src.ui')
+local Creepers = require('src.creepers')
 
-local world,mesher,player,avatar,tiles
+local world,mesher,player,avatar,tiles,creepers
+local autosave=0
 local state = 'title'
 local previous = 'title'
 local settings = {
@@ -56,6 +58,9 @@ local function action(a)
     setState('playing')
   elseif a=='pause' then
     setState('pause')
+  elseif a=='respawn' then
+    player:respawn(world)
+    setState('playing')
   elseif a=='quit' then
     saveWorld()
     lovr.event.quit()
@@ -97,6 +102,7 @@ function lovr.load()
   mesher=Mesher.new(world,tiles,Textures.faces)
   mesher:sync()
   player=Player.new(world)
+  creepers=Creepers.new(world)
   avatar=Avatar.new()
   setState('title')
 end
@@ -104,7 +110,14 @@ end
 function lovr.update(dt)
   if state=='playing' then
     player:update(dt,world)
+    creepers:update(dt,player)
     mesher:sync()
+    if player.health<=0 then setState('dead') end
+    autosave=autosave+dt
+    if autosave>=45 then
+      autosave=0
+      saveWorld()
+    end
   end
 end
 
@@ -122,6 +135,7 @@ function lovr.draw(pass)
   pass:setColor(1,1,1)
   pass:setViewCull(true)
   mesher:draw(pass,cx,cz,settings.distance)
+  creepers:draw(pass,cx,cz,settings.distance*16+20)
   if player.third and state~='title' then avatar:draw(pass,player) end
   local hit
   if state=='playing' then
@@ -133,7 +147,7 @@ function lovr.draw(pass)
     end
   end
   pass:setViewCull(false)
-  UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels)
+  UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels,creepers)
 end
 
 function lovr.mousemoved(x,y,dx,dy)
@@ -144,7 +158,13 @@ end
 
 function lovr.mousepressed(x,y,button)
   if state=='playing' then
-    if button==1 or button==2 then player:edit(world,button,Textures.hotbar) end
+    if button==1 then
+      if not creepers:hit(player,1) then
+        player:edit(world,button,Textures.hotbar)
+      end
+    elseif button==2 then
+      player:edit(world,button,Textures.hotbar)
+    end
   else
     local w,h=lovr.system.getWindowDimensions()
     local a=UI.click(state,settings,x,y,w,h)
@@ -167,7 +187,8 @@ function lovr.keypressed(key)
     return
   end
   if state~='playing' then
-    if key=='return' and state=='title' then action('play') end
+    if key=='return' and state=='title' then action('play')
+    elseif key=='r' and state=='dead' then action('respawn') end
     return
   end
   if key=='f5' then
