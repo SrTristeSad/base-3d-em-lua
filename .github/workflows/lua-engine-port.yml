@@ -6,6 +6,9 @@ on:
       - 'lua-engine/**'
       - 'tests/lua_engine_core.lua'
       - 'tests/lua_engine_inventory_modloader.lua'
+      - 'tests/lua_engine_crafting.lua'
+      - 'scripts/audit_voxelibre_api.py'
+      - 'scripts/export_lua_engine_api.lua'
       - 'scripts/package_lua_engine.py'
       - '.github/workflows/lua-engine-port.yml'
       - 'docs/ENGINE_LUA_PORT.md'
@@ -14,6 +17,9 @@ on:
       - 'lua-engine/**'
       - 'tests/lua_engine_core.lua'
       - 'tests/lua_engine_inventory_modloader.lua'
+      - 'tests/lua_engine_crafting.lua'
+      - 'scripts/audit_voxelibre_api.py'
+      - 'scripts/export_lua_engine_api.lua'
       - 'scripts/package_lua_engine.py'
       - '.github/workflows/lua-engine-port.yml'
       - 'docs/ENGINE_LUA_PORT.md'
@@ -39,6 +45,10 @@ jobs:
         run: lua5.4 tests/lua_engine_inventory_modloader.lua
       - name: Same inventory and mod loader tests on LuaJIT
         run: luajit tests/lua_engine_inventory_modloader.lua
+      - name: Shaped, shapeless, groups, cooking and inventory transactions (Lua 5.4)
+        run: lua5.4 tests/lua_engine_crafting.lua
+      - name: Same crafting tests on LuaJIT
+        run: luajit tests/lua_engine_crafting.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
       - uses: actions/upload-artifact@v4
@@ -96,5 +106,31 @@ jobs:
             dist/Motor-Lua-Demo.exe
             dist/*.dll
             dist/LEIA-ME.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  voxelibre-audit:
+    needs: api-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: Install Lua for API export
+        run: sudo apt-get update -qq && sudo apt-get install -y lua5.4
+      - name: Report directly referenced VoxeLibre APIs not yet exported
+        run: |
+          mkdir -p dist
+          lua5.4 scripts/export_lua_engine_api.lua > dist/lua-engine-api-exports.txt
+          python3 scripts/audit_voxelibre_api.py \
+            --game games/voxelibre \
+            --supported dist/lua-engine-api-exports.txt \
+            --output dist/VoxeLibre-Lua-API-Audit.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VoxeLibre-Lua-API-Compatibility-Audit
+          path: dist/VoxeLibre-Lua-API-Audit.md
           if-no-files-found: error
           retention-days: 30
