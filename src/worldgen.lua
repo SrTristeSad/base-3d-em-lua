@@ -16,8 +16,12 @@ function Gen.seed(text)
  return h>0 and h or 1
 end
 local function hash(seed,x,z,salt)
- local a=(seed+((x%MOD)*92821)%MOD+((z%MOD)*68917)%MOD+salt*347)%MOD
- a=(a*48271)%MOD
+ local a=(seed*48271+((x%MOD)*92821)%MOD+((z%MOD)*68917)%MOD
+   +salt*347)%MOD
+ -- Mistura em dois estagios: uma seed vizinha muda todos os biomas.
+ -- Multiplicacoes intermediarias cabem em 53 bits (LuaJIT/Lua 5.4).
+ a=(a*11939+104729)%MOD
+ a=(a*48271+17389)%MOD
  return a/MOD
 end
 local function smooth(t) return t*t*(3-2*t) end
