@@ -39,6 +39,8 @@ jobs:
           lua5.4 tests/classic_030_spawning.lua
       - name: Beta 1.8.1 world foundation, biomes and world compatibility
         run: lua5.4 tests/beta181_world.lua
+      - name: Beta 1.8.1 inventory, crafting, cursor and saving
+        run: lua5.4 tests/beta181_inventory.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -61,6 +63,13 @@ jobs:
           assert "require('src.beta181_terrain')" in world
           assert "Terrain:generateSection(" in Path('src/beta181_terrain.lua').read_text()
           assert "require('src.beta181_items')" in main
+          assert "require('src.beta181_crafting')" in Path('src/beta181_items.lua').read_text()
+          assert "UI.inventoryHit(state,x,y,w,h)" in main
+          assert "classic:takeOutput(" in main
+          assert "if state=='inventory' or state=='workbench'" in ui
+          assert "SLOT (%d+) (%d+) (%d+)" in world
+          assert "CRAFT2" in world and "CRAFT3" in world
+          assert "function Beta:clickSlot(" in Path('src/beta181_items.lua').read_text()
           assert "Textures.setProfile(world.generatorVersion)" in main
           assert "options.generatorVersion=='classic030'" in world
           assert "Terrain:cave(" in Path('src/classic_terrain.lua').read_text()
@@ -108,7 +117,7 @@ jobs:
           assert 'assets/worlds/demo.png' in Path('README.md').read_text() or Path('assets/worlds/demo.png').is_file()
           assert "world:save(player,classic)" in main
           assert "classic:mine(id)" in player
-          assert "classic:place(id)" in player
+          assert "classic:place(id," in player
           assert "function World:save(player,classic)" in world
           assert 'MODO: ' in ui
           required={'grass_top','grass_side','dirt','stone','wood_side',
@@ -128,7 +137,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Beta181-Overworld-Foundation.lovr')
+          out=Path('dist/Base3D-Beta181-Inventory-Crafting.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -155,14 +164,15 @@ jobs:
             assert 'src/mob_spawning.lua' in z.namelist()
             assert 'src/beta181_terrain.lua' in z.namelist()
             assert 'src/beta181_items.lua' in z.namelist()
+            assert 'src/beta181_crafting.lua' in z.namelist()
             assert 'assets/skins/mobs/README.md' in z.namelist()
           print(out,out.stat().st_size,'bytes',len(files),'files')
           PY
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Beta181-Overworld-Foundation-LOVR
-          path: dist/Base3D-Beta181-Overworld-Foundation.lovr
+          name: Base3D-Beta181-Inventory-Crafting-LOVR
+          path: dist/Base3D-Beta181-Inventory-Crafting.lovr
           if-no-files-found: error
           retention-days: 30
 
@@ -174,7 +184,7 @@ jobs:
       - name: Download verified game package
         uses: actions/download-artifact@v4
         with:
-          name: Base3D-Beta181-Overworld-Foundation-LOVR
+          name: Base3D-Beta181-Inventory-Crafting-LOVR
           path: game
       - name: Fuse LÖVR runtime with game for Windows x64
         shell: pwsh
@@ -188,7 +198,7 @@ jobs:
           if (-not $runtime) { throw 'The official runtime has no lovr.exe' }
           if (-not $archive) { throw 'The validated game artifact is missing' }
           New-Item -ItemType Directory -Path 'dist/Base3D-Windows' -Force | Out-Null
-          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Beta181-Overworld-Foundation.exe'
+          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Beta181-Inventory-Crafting.exe'
           # LÖVR supports a fused Windows executable: runtime bytes + .lovr zip.
           $outStream = [System.IO.File]::Create($output)
           try {
@@ -214,14 +224,16 @@ jobs:
           BASE 3D - TESTE WINDOWS (64 bits)
           =================================
           1. Extraia o arquivo ZIP inteiro para uma pasta.
-          2. Execute Base3D-Beta181-Overworld-Foundation.exe.
+          2. Execute Base3D-Beta181-Inventory-Crafting.exe.
           3. No menu escolha CRIAR NOVO MUNDO e informe uma semente.
           4. Escolha SOBREVIVENCIA ou CRIATIVO. Sem geracao por imagem.
-          5. Beta 1.8.1 FASE 1: biomas, continentes, rios, cavernas,
-             minérios, mundo Y=0..127 e nove slots visuais.
-          6. Ainda NAO ha fome, crafting, Nether, cama ou inventario
-             completo; mobs continuam provisórios.
-          7. E possivel jogar sem Minecraft ou Roblox instalados.
+          5. Beta 1.8.1 FASE 2: inventario 36 slots (E), craft 2x2,
+             bancada de trabalho 3x3 ao clicar com o direito nela.
+          6. Clique esquerdo move a pilha, direito divide ou coloca uma
+             unidade; Shift+clique transfere pilha ou fabrica ate o limite.
+          7. Jogo ainda em desenvolvimento; fome, ferramentas funcionais,
+             Nether e camas ainda NAO estao implementados.
+          8. E possivel jogar sem Minecraft ou Roblox instalados.
 
           Exige Windows 10+ 64 bits e GPU/driver compatível com Vulkan.
           O Microsoft Visual C++ Runtime pode ser necessario.
@@ -235,7 +247,7 @@ jobs:
       - name: Upload Windows portable ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Beta181-Overworld-Foundation-Windows-EXE
+          name: Base3D-Beta181-Inventory-Crafting-Windows-EXE
           path: dist/Base3D-Windows/
           if-no-files-found: error
           retention-days: 30
