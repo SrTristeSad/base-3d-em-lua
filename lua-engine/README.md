@@ -6,9 +6,11 @@ camada de compatibilidade com a API Lua do Luanti e permitir executar
 o VoxeLibre sem o motor original.
 
 **O alvo é compatibilidade 1:1, mas esta fase NÃO é um porte 1:1.**
-Na Fase 4 executamos os arquivos reais de seis mods utilitários e de inicialização do
-VoxeLibre em Lua, com contexto de mod isolado, e documentamos o
-primeiro bloqueio encontrado em `mcl_init`.
+Na Fase 5, o carregador passa a executar os arquivos originais de oito
+mods do VoxeLibre, incluindo `mcl_util` e `vl_unittests`.
+A implementação também introduz operações de bits portáveis e
+um gerador PCG32 com estado de 64 bits em duas partes de 32 bits,
+testado contra sequências determinísticas de referência.
 A versão atual roda apenas uma demonstração independente.
 
 ## Experimentar
@@ -40,12 +42,15 @@ a partir da raiz do repositório.
 - `get_meta`, `get_node_timer`, `find_nodes_in_area`;
 - `register_globalstep`, `after`, `register_abm`,
   `register_lbm`, `register_on_generated`;
+- `bit` (operações de 32 bits) e `PcgRandom` PCG32
+  com `next`, `rand_normal_dist`, `get_state` e `set_state`;
 - `get_mod_storage`, `register_chatcommand` e callbacks de eventos
   básicos exigidos por mods originais;
 - executor de arquivos reais de mods em `core/modenvironment.lua`,
   com globais separadas e restrição aos caminhos registrados;
-- smoke test de 6 módulos reais: `mcl_colors`, `mcl_sounds`,
-  `mcl_autogroup`, `tga_encoder`, `vl_tuning`;
+- smoke test de 8 módulos reais: `mcl_init`, `mcl_util`,
+  `vl_unittests`, `mcl_colors`, `mcl_sounds`, `mcl_autogroup`,
+  `tga_encoder` e `vl_tuning`;
 - `get_craft_result`, `get_craft_recipe` e `get_all_craft_recipes`;
 - receitas com formato, sem formato, grupos, forno, combustível e
   recipientes retornáveis (subconjunto da API original);
@@ -68,15 +73,15 @@ a partir da raiz do repositório.
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
 A CI também gera um **relatório estático de APIs do VoxeLibre**
-que ainda faltam. A CI executa **apenas seis módulos selecionados**,
-sem iniciar o jogo. O arquivo de diagnóstico `VoxeLibre-Real-Mod-Boot.md`
-identifica o resultado de tentativa isolada de `mcl_init`. A presença de uma API
+que ainda faltam. A CI executa **apenas oito módulos selecionados**,
+sem iniciar o jogo. O arquivo `VoxeLibre-Real-Mod-Boot.md`
+registra quais módulos e arquivos Lua foram carregados. A presença de uma API
 no relatório não significa compatibilidade semântica completa.
 
 Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
 `tests/lua_engine_core.lua` e
 `tests/lua_engine_inventory_modloader.lua` e
-`tests/lua_engine_crafting.lua`.
+`tests/lua_engine_crafting.lua` e `tests/lua_engine_rng.lua`.
 A demonstração gráfica precisa de hardware Vulkan e teste manual.
 
 O VoxeLibre integral continua disponível em `games/voxelibre/`

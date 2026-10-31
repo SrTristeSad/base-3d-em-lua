@@ -22,7 +22,7 @@ apenas por existir uma API com os mesmos nomes.
 | Serialização segura, determinística, sem execução de código | Implementada (formato próprio) |
 | Câmera livre, renderização voxel básica, mineração/colocação | Demo LÖVR independente |
 | Loader `mod.conf`, dependências obrigatórias e opcionais | **Parcial, testado; não inicia VoxeLibre** |
-| Seis módulos Lua originais reais de VoxeLibre | **Carregamento inicial em Lua, sem gameplay** |
+| Oito módulos Lua originais reais do VoxeLibre | **Inicialização testada em Lua 5.4 e LuaJIT, sem gameplay** |
 | Jogo VoxeLibre completo no motor Lua | **Não funcional ainda** |
 | VoxelManip, Mapgen, biomas, caves e iluminação Luanti | Ausentes |
 | ItemStack, InvRef, listas em nós, detached, metadados e save | **Parcial, testado** |
@@ -45,6 +45,8 @@ apenas por existir uma API com os mesmos nomes.
 - `lua-engine/core/modloader.lua`: leitura de `mod.conf`, ordenação por dependências e falha explícita.
 - `lua-engine/core/modenvironment.lua`: ambiente de globais separado que executa arquivos Lua reais dos mods de referência, com acesso ao sistema de arquivos limitado aos diretórios de mods declarados. **Não é sandbox de segurança contra código não confiável.**
 - `lua-engine/core/modstorage.lua`: armazenamento de mod por runtime, ainda sem persistência em disco.
+- `lua-engine/core/bitops.lua`: bitops de 32 bits em Lua sem operadores da sintaxe Lua 5.3.
+- `lua-engine/core/pcgrandom.lua`: gerador PCG32 com dois limbs de 32 bits e estado restaurável; referência Luanti 5.18.0.
 - `tests/lua_engine_real_voxelibre.lua`: executa 6 mods upstream e reporta primeiro bloqueio de `mcl_init`.
 - `lua-engine/core/crafting.lua`: registro, consulta, escolha prioritária e execução atômica de receitas.
 - `scripts/audit_voxelibre_api.py`: inspeção estática das chamadas `core.*`/`minetest.*` no VoxeLibre; não mede paridade funcional.
@@ -107,3 +109,18 @@ presentes na tabela do motor, com 174 nomes ainda não exportados.
 A implementação de Settings lê game.conf para fins de inicialização,
 e get_version identifica este porte como 0.1.0-lua-port, e NÃO como
 o binário Luanti original. Os arquivos do VoxeLibre não são alterados.
+
+### Fase 5 — bitops e PCG32
+
+Foram implementados bitops aritméticos de 32 bits em Lua puro e uma
+implementação PCG32 baseada no algoritmo do Luanti 5.18.0, usando
+metades de 32 bits para evitar perda de precisão em LuaJIT.
+Os testes comparam sequências determinísticas de valores assinados
+com vetores de referência para sementes 0, 42, 12345 e -1.
+O módulo `mcl_util` e sua dependência `vl_unittests` passam a integrar
+o teste real de carregamento, além dos seis módulos anteriores.
+
+**Limitação:** sementes/seq em valor numérico Lua acima do intervalo
+exato de 53 bits são rejeitadas explicitamente; o código Luanti aceita
+u64 completo. A API ainda não é 1:1 nesse caso. PCG32 não é gerador
+criptograficamente seguro. Continua faltando rodar o jogo inteiro.

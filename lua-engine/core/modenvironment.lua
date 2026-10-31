@@ -2,6 +2,8 @@
 -- Smoke-test launcher only, NOT a security sandbox for untrusted Lua code.
 -- Native game mods may use APIs that are deliberately absent here.
 local Vector=require('core.vector')
+local Bitops=require('core.bitops')
+local PcgRandom=require('core.pcgrandom')
 local ModEnvironment={}
 ModEnvironment.__index=ModEnvironment
 
@@ -46,7 +48,7 @@ local function stdlib(runtime)
  }
  if utf8 then std.utf8=shallow(utf8) end
  if bit32 then std.bit32=shallow(bit32) end
- if bit then std.bit=shallow(bit) end
+ std.bit=bit and shallow(bit) or Bitops
  return std
 end
 
@@ -94,6 +96,7 @@ function ModEnvironment.new(runtime)
  env.minetest=runtime.api
  env.vector=Vector
  env.ItemStack=runtime.api.ItemStack
+ env.PcgRandom=PcgRandom.new
  env.DIR_DELIM=package.config:sub(1,1)
  env.Settings=settings_file
  env.table.copy=recursive_copy

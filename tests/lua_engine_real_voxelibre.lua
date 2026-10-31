@@ -15,6 +15,8 @@ end
 local paths={
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
+ mcl_util='mods/CORE/mcl_util',
+ vl_unittests='mods/CORE/vl_unittests',
  mcl_sounds='mods/CORE/mcl_sounds',
  mcl_autogroup='mods/CORE/mcl_autogroup',
  tga_encoder='mods/CORE/tga_encoder',
@@ -47,6 +49,11 @@ if not success then
 end
 local g=runner.globals
 assert(g.mcl_colors.WHITE=='#FFFFFF')
+assert(type(g.mcl_util)=='table','mcl_util did not load')
+assert(g.mcl_util.djb2_hash('VoxeLibre')==2331368085,
+ 'original VoxeLibre DJB2 self-test was not preserved')
+assert(type(g.mcl_util.gen_uuid())=='string','original UUID generator not running')
+assert(g.vl_unittests and g.vl_unittests.enabled==false)
 assert(type(g.mcl_vars)=='table' and type(g.mcl_vars.mg_nether_min)=='number')
 assert(rt.api.get_mapgen_setting('vl_world_version')=='0.93.0-SNAPSHOT')
 local song=g.mcl_sounds.node_sound_stone_defaults({})
@@ -68,43 +75,31 @@ for _ in pairs(rt.chatcommands) do count=count+1 end
 print(('VOXELIBRE REAL MODS PASS: %d modules, %d source files, %d registered commands')
  :format(#results,runner.read_count,count))
 
--- Probe an actual foundational mod in another environment.
--- A failure here is diagnostic, not a false claim that VoxeLibre runs.
-local probe=Engine.new({mapgen={seed=42,mg_name='v7',chunksize=5,mapgen_limit=31000},
- game_info={path=root,title='VoxeLibre'}})
-local pe=Environment.new(probe)
-probe.opts.executeMod=function(path,name) return pe:executeMod(path,name) end
-probe.opts.modpaths={mcl_init=root..'/mods/CORE/mcl_init',
- mcl_util=root..'/mods/CORE/mcl_util',
- vl_unittests=root..'/mods/CORE/vl_unittests'}
-local ok,err=pcall(probe.loadMod,probe,'mcl_init',probe.opts.modpaths.mcl_init)
-if ok then
- ok,err=pcall(probe.loadMod,probe,'mcl_util',probe.opts.modpaths.mcl_util)
-end
 local report={
- '# VoxeLibre real Lua mod boot — Fase 4','',
- 'Executed source files from pinned VoxeLibre Git checkout, not simulations.','',
+ '# VoxeLibre real Lua mod boot — Fase 5','',
+ 'Original VoxeLibre code from the pinned Git checkout was executed.',
+ 'Lua 5.4 and LuaJIT tests must both pass for this report to be published.','',
  ('- Real modules loaded: **%d**'):format(#results),
  ('- Real source files executed: **%d**'):format(runner.read_count),
  ('- Registered chat commands: **%d**'):format(count),
- '- Modules: `mcl_colors`, `mcl_sounds`, `mcl_autogroup`, `tga_encoder`, `vl_tuning`, `mcl_init`.',
- '- Luanti source engine: **not used** in this integration test.',
- '- VoxeLibre gameplay: **NOT running** (only selected Lua modules loaded).',
+ '- Modules: mcl_init, mcl_util, vl_unittests, mcl_colors,',
+ '  mcl_sounds, mcl_autogroup, tga_encoder, vl_tuning.',
+ '- Luanti binary engine: not used in this module integration test.',
+ '- VoxeLibre gameplay: **NOT RUNNING** (only selected Lua modules loaded).',
  '',
- '## Next foundational mod: mcl_util',
+ '## Verified runtime behavior', '',
+ '- Real VoxeLibre hashing asserts and DJB2 golden value passed.',
+ '- Real mcl_util UUID generation executed with the Lua PCG32 replacement.',
+ '- Real mod loading follows declared dependencies.',
+ '- The original files remain unchanged.',
  '',
- ('- Probe outcome: **%s**'):format(ok and 'loaded' or 'blocked'),
- '- Diagnostic:',
- '',
- '```text',
- tostring(ok and 'mcl_init + mcl_util loaded in isolation; this does not prove complete game compatibility'
-  or err):gsub('[\r\n]+',' '):sub(1,2000),
- '```',
- '',
- 'The probe is intentionally independent and does not alter VoxeLibre files.'
+ '## Pending', '',
+ 'Player, entity, mapgen, nodes, VoxelManip, networking, sound and UI',
+ 'are not functionally compatible with the full VoxeLibre game.',
+ 'The working playable game still uses Luanti C++ from the separate build.',
 }
 if arg and arg[2] then
  local out=assert(io.open(arg[2],'wb'))
- out:write(table.concat(report,'\n')..'\n');out:close()
+ out:write(table.concat(report,'\\n')..'\\n')
+ out:close()
 end
-print('mcl_util probe: '..(ok and 'LOADED' or ('BLOCKED '..tostring(err):sub(1,210))))
