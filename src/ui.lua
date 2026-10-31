@@ -302,6 +302,17 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
       end
       label(pass,'FOME '..math.floor(food)..'/20',w-150,174,
         14,.96,.85,.66)
+      if player.underwater or (player.air or 15)<15 then
+        label(pass,('AR %.1f / 15 s'):format(player.air or 15),
+          111,161,16,.48,.80,1)
+      end
+      if player.inLava then
+        label(pass,'CUIDADO: LAVA! DANO POR CALOR',
+          w/2,188,15,1,.37,.21)
+      elseif player.inWater then
+        label(pass,'NATACAO: SEGURE ESPACO PARA SUBIR',
+          w/2,188,14,.58,.87,1)
+      end
     end
     if classic then
       label(pass,(beta and 'BETA 1.8.1 (PROTOTIPO)' or 'CLASSIC 0.30')..
