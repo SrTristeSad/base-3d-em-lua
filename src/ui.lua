@@ -1,3 +1,4 @@
+local Daylight=require('src.beta181_daylight')
 local UI={}
 local function rect(pass,x,y,w,h,r,g,b,a)
   pass:setColor(r,g,b,a or 1)
@@ -335,6 +336,12 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
         label(pass,('CHUNKS %d | QUADS %d | CACHE %d | GERADOS %d'):format(
           mesher.visibleCount,mesher.quads,mesher.world:cacheCount(),
           mesher.world.generatedTotal),w/2,134,14,.90,.93,.99)
+      end
+      if beta and mesher.world then
+        local ticks=mesher.world.time or 0
+        label(pass,('DIA %d | %s | %s'):format(Daylight.day(ticks),
+          Daylight.clock(ticks),Daylight.phase(ticks)),
+          w/2,showStats and 157 or 134,14,.95,.94,.82)
       end
     end
     if hit then

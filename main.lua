@@ -13,6 +13,7 @@ local Worlds = require('src.worlds')
 local Camera = require('src.camera')
 local MobSkins = require('src.mob_skins')
 local MobSpawn = require('src.mob_spawning')
+local Daylight = require('src.beta181_daylight')
 
 local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt,mobSkins,spawner
 local ignoreMouseMove=false
@@ -255,7 +256,13 @@ function lovr.update(dt)
   if world and world.generatorVersion=='beta181'
      and (state=='playing' or state=='inventory'
        or state=='workbench' or state=='furnace') then
+    world:advanceTime(dt)
     world:updateFurnaces(dt)
+  end
+  if world and world.generatorVersion=='beta181' then
+    lovr.graphics.setBackgroundColor(Daylight.sky(world.time))
+  else
+    lovr.graphics.setBackgroundColor(.49,.72,.91)
   end
   if state=='playing' then
     player:update(dt,world,classic)
@@ -296,7 +303,12 @@ function lovr.draw(pass)
   pass:setSampler('nearest')
   pass:setColor(1,1,1)
   pass:setViewCull(true)
+  if world.generatorVersion=='beta181' then
+    local ambient=Daylight.ambient(world.time)
+    pass:setColor(ambient,ambient,ambient)
+  end
   mesher:draw(pass)
+  pass:setColor(1,1,1)
   if classic.mode=='survival' then
     creepers:draw(pass,cx,cz,settings.distance*16+20,mobSkins)
     creatures:draw(pass,cx,cz,settings.distance*16+20,mobSkins)
@@ -469,6 +481,8 @@ function lovr.keypressed(key)
     player.third=not player.third
   elseif key=='f6' then
     saveWorld()
+  elseif key=='f7' and classic.profile=='beta181' and classic.mode=='creative' then
+    world.time=world.time+6000
   else
     local slot=tonumber(key)
     if slot and slot>=1 and slot<=#Textures.hotbar then player.selected=slot end
