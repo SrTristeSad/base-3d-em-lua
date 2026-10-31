@@ -122,7 +122,7 @@ jobs:
           persist-credentials: false
       - name: Install Lua for API export
         run: sudo apt-get update -qq && sudo apt-get install -y lua5.4 luajit
-      - name: Boot five original VoxeLibre mods under Lua 5.4
+      - name: Boot six original VoxeLibre mods under Lua 5.4
         run: |
           mkdir -p dist
           lua5.4 tests/lua_engine_real_voxelibre.lua games/voxelibre dist/VoxeLibre-Real-Mod-Boot.md

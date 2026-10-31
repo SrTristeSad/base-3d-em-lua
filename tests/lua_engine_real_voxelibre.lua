@@ -87,7 +87,7 @@ local report={
  ('- Real modules loaded: **%d**'):format(#results),
  ('- Real source files executed: **%d**'):format(runner.read_count),
  ('- Registered chat commands: **%d**'):format(count),
- '- Modules: `mcl_colors`, `mcl_sounds`, `mcl_autogroup`, `tga_encoder`, `vl_tuning`.',
+ '- Modules: `mcl_colors`, `mcl_sounds`, `mcl_autogroup`, `tga_encoder`, `vl_tuning`, `mcl_init`.',
  '- Luanti source engine: **not used** in this integration test.',
  '- VoxeLibre gameplay: **NOT running** (only selected Lua modules loaded).',
  '',

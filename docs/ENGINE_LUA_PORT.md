@@ -22,7 +22,7 @@ apenas por existir uma API com os mesmos nomes.
 | Serialização segura, determinística, sem execução de código | Implementada (formato próprio) |
 | Câmera livre, renderização voxel básica, mineração/colocação | Demo LÖVR independente |
 | Loader `mod.conf`, dependências obrigatórias e opcionais | **Parcial, testado; não inicia VoxeLibre** |
-| Cinco módulos utilitários reais de VoxeLibre | **Carregamento inicial em Lua, sem gameplay** |
+| Seis módulos Lua originais reais de VoxeLibre | **Carregamento inicial em Lua, sem gameplay** |
 | Jogo VoxeLibre completo no motor Lua | **Não funcional ainda** |
 | VoxelManip, Mapgen, biomas, caves e iluminação Luanti | Ausentes |
 | ItemStack, InvRef, listas em nós, detached, metadados e save | **Parcial, testado** |
@@ -45,7 +45,7 @@ apenas por existir uma API com os mesmos nomes.
 - `lua-engine/core/modloader.lua`: leitura de `mod.conf`, ordenação por dependências e falha explícita.
 - `lua-engine/core/modenvironment.lua`: ambiente de globais separado que executa arquivos Lua reais dos mods de referência, com acesso ao sistema de arquivos limitado aos diretórios de mods declarados. **Não é sandbox de segurança contra código não confiável.**
 - `lua-engine/core/modstorage.lua`: armazenamento de mod por runtime, ainda sem persistência em disco.
-- `tests/lua_engine_real_voxelibre.lua`: executa 5 mods upstream e reporta primeiro bloqueio de `mcl_init`.
+- `tests/lua_engine_real_voxelibre.lua`: executa 6 mods upstream e reporta primeiro bloqueio de `mcl_init`.
 - `lua-engine/core/crafting.lua`: registro, consulta, escolha prioritária e execução atômica de receitas.
 - `scripts/audit_voxelibre_api.py`: inspeção estática das chamadas `core.*`/`minetest.*` no VoxeLibre; não mede paridade funcional.
 - `lua-engine/main.lua`: demo independente LÖVR para testarmos o motor.
@@ -72,7 +72,7 @@ terá de ser comprovada, e não pressuposta.
 1. Completar os callbacks de craft/inventário e toolrepair; conectar
    o resultado da receita ao inventário do jogador e à interface.
 2. Expandir os testes de execução da árvore de módulos além dos
-   cinco utilitários já testados, corrigindo APIs ausentes e dependências.
+   seis módulos já testados, corrigindo APIs ausentes e dependências.
 3. Lua VoxelManip + geração/iluminação e mundos persistentes;
    streaming e greedy meshing em renderização otimizada.
 4. HUD/formspec, entidades físicas, players, multijogador.
@@ -89,3 +89,21 @@ sob GPLv3+, com créditos e licenças de media. Luanti é LGPLv2.1+.
 O protótipo Lua ainda não é uma tradução linha-por-linha do
 código C++; é uma reimplementação incremental de interfaces e
 comportamentos a partir de uma arquitetura nova.
+
+### Fase 4 — verificação real
+
+Na execução Linux de GitHub Actions, seis módulos originais foram
+carregados com sucesso usando Lua 5.4 e LuaJIT, totalizando 12 arquivos
+Lua: mcl_init, mcl_colors, mcl_sounds, mcl_autogroup,
+tga_encoder e vl_tuning.
+
+O módulo seguinte mcl_util continua bloqueado em fase de inicialização:
+ao menos os recursos bit (Lua 5.4) e PcgRandom (LuaJIT) precisam ser
+portados. Os relatórios de cada execução documentam o erro observável.
+A auditoria estática registra 66 dos 240 nomes de API usados nos mods
+presentes na tabela do motor, com 174 nomes ainda não exportados.
+**Quantidade de nomes de funções NÃO equivale a compatibilidade funcional.**
+
+A implementação de Settings lê game.conf para fins de inicialização,
+e get_version identifica este porte como 0.1.0-lua-port, e NÃO como
+o binário Luanti original. Os arquivos do VoxeLibre não são alterados.
