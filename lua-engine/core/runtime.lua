@@ -5,6 +5,7 @@ local Vector=require('core.vector')
 local ItemStack=require('core.itemstack')
 local Inventory=require('core.inventory')
 local Crafting=require('core.crafting')
+local ModStorage=require('core.modstorage')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -28,8 +29,10 @@ function Runtime.new(options)
   registry={nodes={},items={},tools={},craftitems={},
     entities={},aliases={},crafts={},abms={},lbms={}},
   callbacks={globalstep={},generated={},mods_loaded={},
-    on_placenode={},on_dignode={},on_joinplayer={}},
-  abmClock={}, logging={}, detached={}
+    on_placenode={},on_dignode={},on_joinplayer={},
+    on_dieplayer={},on_leaveplayer={},on_player_receive_fields={}},
+  abmClock={}, logging={}, detached={},mod_storage={},
+  chatcommands={}
  },Runtime)
  local api={}
  self.api=api
@@ -43,11 +46,15 @@ function Runtime.new(options)
  api.registered_craftitems=self.registry.craftitems
  api.registered_abms=self.registry.abms
  api.registered_lbms=self.registry.lbms
+ api.nodedef_default={stack_max=99}
+ api.craftitemdef_default={stack_max=99}
  api.MAP_BLOCKSIZE=16
  api.MAX_MAP_GENERATION_LIMIT=31000
  api.features={hud_def_type_field=true}
  api.settings={}
  local settings=self.opts.settings or {}
+ local mapgen=self.opts.mapgen or {}
+ self.opts.mapgen=mapgen
  function api.settings:get(name)
   local v=settings[name]
   if v==nil then return nil end
@@ -63,6 +70,53 @@ function Runtime.new(options)
  function api.settings:get_num(name,default)
   return tonumber(settings[name]) or default
  end
+ function api.settings:set(name,value)
+  assert(type(name)=='string' and type(value)=='string','invalid setting')
+  settings[name]=value
+ end
+ function api.settings:set_bool(name,value)
+  assert(type(name)=='string' and type(value)=='boolean','invalid bool setting')
+  settings[name]=value and 'true' or 'false'
+ end
+ function api.get_mod_storage()
+  assert(type(self.current_mod)=='string','get_mod_storage only within a mod')
+  local name=self.current_mod
+  if not self.mod_storage[name] then
+   self.mod_storage[name]=ModStorage.new()
+  end
+  return self.mod_storage[name]
+ end
+ function api.register_chatcommand(name,def)
+  assert(type(name)=='string' and name~='' and type(def)=='table',
+   'invalid chat command')
+  assert(not self.chatcommands[name],'chatcommand already registered: '..name)
+  self.chatcommands[name]=opts_copy(def)
+ end
+ api.registered_chatcommands=self.chatcommands
+ function api.register_on_dieplayer(callback)
+  assert(type(callback)=='function')
+  self.callbacks.on_dieplayer[#self.callbacks.on_dieplayer+1]=callback
+ end
+ function api.register_on_joinplayer(callback)
+  assert(type(callback)=='function')
+  self.callbacks.on_joinplayer[#self.callbacks.on_joinplayer+1]=callback
+ end
+ function api.register_on_leaveplayer(callback)
+  assert(type(callback)=='function')
+  self.callbacks.on_leaveplayer[#self.callbacks.on_leaveplayer+1]=callback
+ end
+ function api.register_on_player_receive_fields(callback)
+  assert(type(callback)=='function')
+  self.callbacks.on_player_receive_fields[
+   #self.callbacks.on_player_receive_fields+1]=callback
+ end
+ -- For use when an actual player/HUD backend exists; registration
+ -- alone must never invent a player or pretend to emit sound.
+ function api.formspec_escape(text)
+  assert(type(text)=='string','formspec text required')
+  return (text:gsub('\\','\\\\'):gsub('%]','\\]'):gsub('%[','\\[')
+   :gsub(';','\\;'):gsub(',','\\,'))
+ end
  function api.log(level,message)
   if message==nil then message=level;level='action' end
   local line='['..tostring(level)..'] '..tostring(message)
@@ -74,9 +128,31 @@ function Runtime.new(options)
  end
  function api.get_worldpath() return self.opts.worldpath or 'worlds/lua-engine' end
  function api.get_mapgen_setting(name)
-  local v=self.opts.mapgen and self.opts.mapgen[name]
+  local v=mapgen[name]
   if v==nil then return nil end
   return tostring(v)
+ end
+ function api.set_mapgen_setting(name,value)
+  assert(type(name)=='string' and type(value)=='string',
+   'invalid mapgen setting')
+  mapgen[name]=value
+  return true
+ end
+ function api.get_game_info()
+  local info=self.opts.game_info or {}
+  return {path=info.path or '.',title=info.title or 'Lua Engine',
+   author=info.author or ''}
+ end
+ function api.get_version()
+  -- This is the Lua port version, never a forged Luanti binary version.
+  return {string='0.1.0-lua-port',major=0,minor=1,patch=0,
+    project='lua-engine'}
+ end
+ function api.global_exists(name)
+  assert(type(name)=='string','global name required')
+  -- The mod environment exposes only explicitly supported globals.
+  return type(self.opts.modglobals)=='table'
+    and self.opts.modglobals[name]~=nil or false
  end
  function api.get_gametime() return floor(self.clock) end
  function api.get_timeofday() return (self.clock/1200)%1 end
@@ -95,6 +171,7 @@ function Runtime.new(options)
   def.name=name
   def.groups=opts_copy(def.groups)
   if kind=='node' then
+   if def.stack_max==nil then def.stack_max=api.nodedef_default.stack_max end
    if def.walkable==nil then def.walkable=true end
    if def.pointable==nil then def.pointable=true end
    if def.buildable_to==nil then def.buildable_to=false end
@@ -103,6 +180,7 @@ function Runtime.new(options)
    def.stack_max=def.stack_max or 1
    self.registry.tools[name]=def
   else
+   if def.stack_max==nil then def.stack_max=api.craftitemdef_default.stack_max end
    self.registry.craftitems[name]=def
   end
   self.registry.items[name]=def
@@ -375,5 +453,15 @@ function Runtime:loadMod(name,path)
 end
 function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
+end
+-- Explicit event dispatch for tests and future player integration.
+function Runtime:emit(event,...)
+ local callbacks=self.callbacks[event]
+ assert(callbacks,'unknown runtime event: '..tostring(event))
+ local results={}
+ for i,callback in ipairs(callbacks) do
+  results[i]=callback(...)
+ end
+ return results
 end
 return Runtime
