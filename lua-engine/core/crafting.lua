@@ -132,6 +132,7 @@ local function match_shapeless(recipe,slots,items,aliases,count)
     result[n]=i
     if solve(n+1) then return true end
     used[i]=nil
+   end
   end
   return false
  end
