@@ -127,6 +127,34 @@ Embora os testes de lógica e sintaxe sejam executados automaticamente,
 a renderização e os controles ainda precisam ser testados num PC com
 LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
+## Reconstrução da geração e do nascimento de mobs do Classic 0.30
+
+A partir desta atualização, **somente mundos novos** usam o gerador
+`classic030` inspirado no visual de 2009. Os saves anteriores mantêm
+o gerador antigo graças a uma versão persistente no catálogo.
+
+- **Terreno clássico:** costas, praias de areia e cascalho, relevo
+  ondulado, escarpas de rocha, cavernas com túneis, camadas de terra,
+  minérios e pequenos bolsões de lava na base.
+- **Sem biomas modernos por padrão:** o modo Classic não distribui
+  neve/desertos modernos como se fossem sistemas da versão de 2009.
+- **Semente + foto:** continuarão funcionando juntas; a foto modifica
+  as colinas e a costa, mas o mundo mantém estética Classic.
+- **Spawn regional de mobs:** no Sobrevivência, os animais e inimigos
+  nascem em pequenos grupos nas regiões próximas, respeitam distância
+  mínima do jogador e limites de população.
+- **Streaming de entidades:** criaturas distantes são descarregadas, sem
+  teletransporte artificial para perto do personagem. O Criativo não
+  cria mobs hostis nem passivos.
+- **Compatibilidade:** os mundos antigos continuam usando seu terreno e
+  o comportamento anterior de criaturas. Esta nova implementação é
+  exclusiva de mundos gerados com o perfil `classic030`.
+
+Isso é uma **reconstrução independente baseada em documentação e capturas
+do Survival Test 0.30**, não engenharia reversa exata do arquivo original.
+A frequência e a posição de surgimento dos mobs ainda são aproximações.
+Veja o [relatório técnico](docs/RECONSTRUCAO_CLASSIC_030.md).
+
 ## Atualização — Visão FPS e skins de criaturas
 
 - **Visão FPS corrigida:** mouse relativo com sensibilidade ajustável,

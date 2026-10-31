@@ -11,12 +11,17 @@ local function readIndex()
  local items={}
  local data=lovr.filesystem.read(INDEX) or ''
  for line in data:gmatch('[^\r\n]+') do
-  local id,name,seed,mode,hash=line:match('^(%d+)|([^|]*)|([^|]*)|([^|]*)|(%d+)$')
+  local id,name,seed,mode,hash,version=
+    line:match('^(%d+)|([^|]*)|([^|]*)|([^|]*)|(%d+)|([%w_]+)$')
+  if not id then
+    id,name,seed,mode,hash=line:match('^(%d+)|([^|]*)|([^|]*)|([^|]*)|(%d+)$')
+  end
   if id and mode and (mode=='creative' or mode=='survival') then
    local number=tonumber(id)
    if number and number>=1 and number<=100000 then
     items[#items+1]={id=number,name=name,seed=seed,mode=mode,
-      imageHash=tonumber(hash),legacy=false}
+      imageHash=tonumber(hash),legacy=false,
+      generatorVersion=version=='classic030' and version or nil}
    end
   end
  end
@@ -41,8 +46,9 @@ end
 local function writeIndex(items)
  local rows={}
  for _,it in ipairs(items) do
-  rows[#rows+1]=('%d|%s|%s|%s|%d'):format(it.id,
-    clean(it.name,40),clean(it.seed,60),it.mode,it.imageHash or 0)
+  rows[#rows+1]=('%d|%s|%s|%s|%d|%s'):format(it.id,
+    clean(it.name,40),clean(it.seed,60),it.mode,it.imageHash or 0,
+    it.generatorVersion or 'legacy')
  end
  local old=lovr.filesystem.read(INDEX)
  if old then lovr.filesystem.write('worlds/index.bak',old) end
@@ -62,7 +68,8 @@ function Worlds.open(info)
   if map.hash~=info.imageHash then return nil,'A imagem salva nao confere com o mundo' end
  end
  return {savePath=Worlds.file(info.id,'sav'),seed=info.seed,image=map,
-   legacy=false,name=info.name,mode=info.mode}
+   legacy=false,name=info.name,mode=info.mode,
+   generatorVersion=info.generatorVersion}
 end
 function Worlds.create(name,seed,imagePath,mode)
  ensureDir()
@@ -101,7 +108,8 @@ function Worlds.create(name,seed,imagePath,mode)
  for _,it in ipairs(items) do nextId=math.max(nextId,it.id+1) end
  if nextId>100000 then return nil,'Limite de identificadores atingido' end
  local entry={id=nextId,name=name,seed=seed,mode=mode,
-   imageHash=image and image.hash or 0,legacy=false}
+   imageHash=image and image.hash or 0,legacy=false,
+   generatorVersion='classic030'}
  if image then
   local raw=Gen.encodeImage(image)
   local ok=lovr.filesystem.write(Worlds.file(nextId,'map'),raw)

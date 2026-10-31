@@ -32,10 +32,13 @@ local function clearLine(world,ox,oy,oz,dx,dy,dz,length)
  end
  return true
 end
-function Creatures.new(world)
- local self=setmetatable({world=world,list={},projectiles={},seed=27071,clock=0},Creatures)
- for _,kind in ipairs(Creatures.ORDER) do
-  for _=1,Creatures.SPECIES[kind].count do self:spawn(kind) end
+function Creatures.new(world,managed)
+ local self=setmetatable({world=world,list={},projectiles={},seed=27071,clock=0,
+  managed=managed or false},Creatures)
+ if not managed then
+  for _,kind in ipairs(Creatures.ORDER) do
+   for _=1,Creatures.SPECIES[kind].count do self:spawn(kind) end
+  end
  end
  return self
 end
@@ -155,10 +158,11 @@ function Creatures:update(dt,player,classic)
  local w=self.world
  for _,mob in ipairs(self.list) do
   local data=self.SPECIES[mob.kind]
-  if mob.active and distance2(player.x,player.z,mob.x,mob.z)>48*48 then
+  if not self.managed and mob.active and distance2(player.x,player.z,mob.x,mob.z)>48*48 then
    self:relocate(mob,player)
   end
   if not mob.active then
+   if not self.managed then
    mob.respawn=mob.respawn-dt
    if mob.respawn<=0 then
     -- Reposiciona no slot existente sem ampliar a lista.
@@ -178,6 +182,7 @@ function Creatures:update(dt,player,classic)
      end
     end
     if not found then mob.respawn=3 end
+   end
    end
   else
    local distSq=distance2(player.x,player.z,mob.x,mob.z)

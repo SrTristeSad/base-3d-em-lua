@@ -33,6 +33,10 @@ jobs:
         run: |
           lua5.4 tests/camera_fps.lua
           lua5.4 tests/mob_skins_uv.lua
+      - name: Classic 0.30 terrain and streamed mob spawning
+        run: |
+          lua5.4 tests/classic_030_terrain.lua
+          lua5.4 tests/classic_030_spawning.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -47,6 +51,11 @@ jobs:
           assert "require('src.creepers')" in main
           assert "require('src.camera')" in main
           assert "require('src.mob_skins')" in main
+          assert "require('src.mob_spawning')" in main
+          assert "MobSpawn.new(world,creatures,creepers)" in main
+          assert "generatorVersion='classic030'" in Path('src/worlds.lua').read_text()
+          assert "options.generatorVersion=='classic030'" in world
+          assert "Terrain:cave(" in Path('src/classic_terrain.lua').read_text()
           assert 'Camera.look(player.yaw,player.pitch' in main
           assert 'player:camera(world)' in main
           assert 'skins:draw(pass,mob' in Path('src/creepers.lua').read_text()
@@ -110,7 +119,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Classic030-Camera-Skins.lovr')
+          out=Path('dist/Base3D-Classic030-Terrain-Mobs.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -133,14 +142,16 @@ jobs:
             assert 'src/worlds.lua' in z.namelist()
             assert 'src/camera.lua' in z.namelist()
             assert 'src/mob_skins.lua' in z.namelist()
+            assert 'src/classic_terrain.lua' in z.namelist()
+            assert 'src/mob_spawning.lua' in z.namelist()
             assert 'assets/skins/mobs/README.md' in z.namelist()
           print(out,out.stat().st_size,'bytes',len(files),'files')
           PY
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Classic030-Camera-Skins-LOVR
-          path: dist/Base3D-Classic030-Camera-Skins.lovr
+          name: Base3D-Classic030-Terrain-Mobs-LOVR
+          path: dist/Base3D-Classic030-Terrain-Mobs.lovr
           if-no-files-found: error
           retention-days: 30
 
@@ -152,7 +163,7 @@ jobs:
       - name: Download verified game package
         uses: actions/download-artifact@v4
         with:
-          name: Base3D-Classic030-Camera-Skins-LOVR
+          name: Base3D-Classic030-Terrain-Mobs-LOVR
           path: game
       - name: Fuse LÖVR runtime with game for Windows x64
         shell: pwsh
@@ -166,7 +177,7 @@ jobs:
           if (-not $runtime) { throw 'The official runtime has no lovr.exe' }
           if (-not $archive) { throw 'The validated game artifact is missing' }
           New-Item -ItemType Directory -Path 'dist/Base3D-Windows' -Force | Out-Null
-          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Classic030-Camera-Skins.exe'
+          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Classic030-Terrain-Mobs.exe'
           # LÖVR supports a fused Windows executable: runtime bytes + .lovr zip.
           $outStream = [System.IO.File]::Create($output)
           try {
@@ -209,7 +220,7 @@ jobs:
       - name: Upload Windows portable ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Classic030-Camera-Skins-Windows-EXE
+          name: Base3D-Classic030-Terrain-Mobs-Windows-EXE
           path: dist/Base3D-Windows/
           if-no-files-found: error
           retention-days: 30

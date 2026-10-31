@@ -18,9 +18,10 @@ local function validSpawn(world,x,z)
   return y
 end
 
-function Creepers.new(world)
-  local self=setmetatable({list={},clock=0,lastId=0,world=world,seed=7043},Creepers)
-  for _=1,5 do self:spawn() end
+function Creepers.new(world,managed)
+  local self=setmetatable({list={},clock=0,lastId=0,world=world,seed=7043,
+    managed=managed or false},Creepers)
+  if not managed then for _=1,5 do self:spawn() end end
   return self
 end
 
@@ -138,6 +139,7 @@ function Creepers:update(dt,player,classic)
   local w=self.world
   for _,mob in ipairs(self.list) do
     if not mob.active then
+      if not self.managed then
       mob.respawn=mob.respawn-dt
       if mob.respawn<=0 then
         local nextMob=self:spawn()
@@ -145,8 +147,9 @@ function Creepers:update(dt,player,classic)
         mob.remove=true
         if not nextMob then mob.respawn=3;mob.remove=false end
       end
+      end
     else
-      if dist2(mob.x,mob.z,player.x,player.z)>48*48 then
+      if not self.managed and dist2(mob.x,mob.z,player.x,player.z)>48*48 then
         self:relocate(mob,player)
       end
       local d2=dist2(mob.x,mob.z,player.x,player.z)

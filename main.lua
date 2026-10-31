@@ -11,8 +11,9 @@ local TNT = require('src.tnt')
 local Worlds = require('src.worlds')
 local Camera = require('src.camera')
 local MobSkins = require('src.mob_skins')
+local MobSpawn = require('src.mob_spawning')
 
-local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt,mobSkins
+local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt,mobSkins,spawner
 local ignoreMouseMove=false
 local autosave=0
 local showStats=false
@@ -86,8 +87,10 @@ local function useWorld(options,entry)
    world.savedScore)
  mesher=Mesher.new(world,tiles,Textures.faces)
  mesher:sync(player.x,player.y,player.z,settings.distance,6)
- creepers=Creepers.new(world)
- creatures=Creatures.new(world)
+ local managed=world.generatorVersion=='classic030'
+ creepers=Creepers.new(world,managed)
+ creatures=Creatures.new(world,managed)
+ spawner=managed and MobSpawn.new(world,creatures,creepers) or nil
  tnt=TNT.new(world)
  menu.selected=entry
  autosave=0
@@ -262,6 +265,7 @@ end
 function lovr.update(dt)
   if state=='playing' then
     player:update(dt,world)
+    if spawner then spawner:sync(player,dt,classic) end
     creepers:update(dt,player,classic)
     creatures:update(dt,player,classic)
     tnt:update(dt,player,classic)

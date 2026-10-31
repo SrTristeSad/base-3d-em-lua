@@ -1,6 +1,7 @@
 -- Streaming voxel infinito em chunks 16x16. Terreno deterministico, edits persistentes.
 -- Apenas os chunks proximos ao player ficam residentes; o save guarda diferencias.
 local Gen=require('src.worldgen')
+local ClassicTerrain=require('src.classic_terrain')
 local World={}
 World.__index=World
 World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
@@ -37,7 +38,10 @@ function World.new(options)
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
-     and Gen.new(options.seed,options.image) or nil,
+     and (options.generatorVersion=='classic030'
+       and ClassicTerrain.new(options.seed,options.image)
+       or Gen.new(options.seed,options.image)) or nil,
+  generatorVersion=options.generatorVersion,
   SAVE=options.savePath or World.SAVE
  },World)
  w:load()
@@ -52,9 +56,20 @@ end
 -- Gera um bloco novo na memoria de chunk, sem inserir no save.
 function World:generateSection(cx,cy,cz)
  local data={}
+ local isClassic=self.generatorVersion=='classic030'
+ local heightCache={}
+ local function cachedColumn(x,z)
+   local id=x..':'..z
+   local result=heightCache[id]
+   if result then return result[1],result[2] end
+   local h,biome
+   if self.gen then h,biome=self.gen:column(x,z)
+   else h,biome=height(x,z),'grass' end
+   heightCache[id]={h,biome}
+   return h,biome
+ end
  local function column(x,z)
-  if self.gen then return self.gen:column(x,z) end
-  return height(x,z),'grass'
+  return cachedColumn(x,z)
  end
  local function random(x,z,salt)
   if self.gen then return self.gen:random(x,z,salt or 0) end
@@ -80,19 +95,31 @@ function World:generateSection(cx,cy,cz)
   for z=sz,sz+15 do
    local h,biome=column(x,z)
    for y=math.max(World.YMIN,y0),math.min(h,y1) do
-    local top=(biome=='desert' and 6) or (biome=='snow' and 31)
-      or (h>26 and 3) or 1
-    local middle=(biome=='desert' and 6) or 2
+    local top=(biome=='desert' or biome=='sand') and 6
+      or ((biome=='snow') and 31 or ((biome=='gravel') and 11
+      or ((biome=='stone' or h>34) and 3 or 1)))
+    local middle=(biome=='desert' or biome=='sand') and 6 or 2
     local id=(y==h and top) or (y>=h-2 and middle) or 3
+    if y==World.YMIN then id=30 end
     if y<h-5 and y>World.YMIN+1 then
-      local salt=self.gen and self.gen.seed*.000001 or 0
-      local n=sin(x*.131+y*.071+salt)+cos(z*.137-y*.08-salt)
-        +sin(y*.24+x*.037-z*.04+salt)
-      if n>2.08 then id=0 end
+      if isClassic then
+        if self.gen:cave(x,y,z,h) then id=0
+        elseif id==3 then id=self.gen:ore(x,y,z,h) or id end
+      else
+        local salt=self.gen and self.gen.seed*.000001 or 0
+        local n=sin(x*.131+y*.071+salt)+cos(z*.137-y*.08-salt)
+          +sin(y*.24+x*.037-z*.04+salt)
+        if n>2.08 then id=0 end
+      end
+    end
+    if isClassic and y==World.YMIN+1 then
+      -- Bolsões de lava junto da camada inferior.
+      if id==0 or (id==3 and random(x,z,1511)>.94) then id=29 end
     end
     if id~=0 then fill(x,y,z,id) end
    end
-   for y=math.max(h+1,y0),math.min(1,y1) do fill(x,y,z,9) end
+   local waterLevel=isClassic and self.gen.seaLevel or 1
+   for y=math.max(h+1,y0),math.min(waterLevel,y1) do fill(x,y,z,9) end
   end
  end
  -- Centros de arvore com margem de 2 blocos: sem cortes nas bordas.
@@ -100,8 +127,10 @@ function World:generateSection(cx,cy,cz)
   for z=sz-2,sz+17 do
    local h,biome=column(x,z)
    local treeChance=biome=='forest' and .970 or .990
-   if h>1 and biome~='desert' and biome~='snow'
-     and random(x,z,512)>treeChance and (abs(x)>4 or abs(z)>4) then
+   local placeTree=(isClassic and self.gen:tree(x,z))
+     or (not isClassic and h>1 and biome~='desert' and biome~='snow'
+     and random(x,z,512)>treeChance and (abs(x)>4 or abs(z)>4))
+   if placeTree then
     for y=h+1,h+4 do fill(x,y,z,4) end
     for yy=h+3,h+5 do
      for xx=x-2,x+2 do
@@ -122,7 +151,7 @@ function World:generateSection(cx,cy,cz)
    local h=column(x,z)
    local ore=random(x+831,z-551,779)
    local y=h-3
-   if y>World.YMIN and y>=y0 and y<=y1 and ore>.961 then
+   if not isClassic and y>World.YMIN and y>=y0 and y<=y1 and ore>.961 then
     local id=14
     if ore>.992 then id=12 elseif ore>.981 then id=13 end
     for ox=-1,1 do
@@ -143,9 +172,13 @@ function World:generateSection(cx,cy,cz)
     local h,biome=column(x,z)
     local decoration=random(x+183,z+937,1013)
     if h>1 and h+1<=World.YMAX and biome~='desert'
-      and biome~='snow' and cell(x,h,z)==1
+      and biome~='snow' and biome~='sand'
+      and biome~='gravel' and cell(x,h,z)==1
        and cell(x,h+1,z)==0 then
-     if decoration>.991 then fill(x,h+1,z,24)
+     if isClassic then
+       local flower=self.gen:decoration(x,z)
+       if flower then fill(x,h+1,z,flower) end
+     elseif decoration>.991 then fill(x,h+1,z,24)
      elseif decoration>.982 then fill(x,h+1,z,25)
      elseif decoration>.972 then fill(x,h+1,z,26)
      elseif decoration>.963 then fill(x,h+1,z,27) end
