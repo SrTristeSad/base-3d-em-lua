@@ -6,7 +6,8 @@ import argparse
 
 REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/vector.lua", "core/runtime.lua", "core/storage.lua",
-            "core/itemstack.lua", "core/inventory.lua", "core/modloader.lua")
+            "core/itemstack.lua", "core/inventory.lua", "core/modloader.lua",
+            "core/modenvironment.lua", "core/modstorage.lua")
 
 
 def build(source: Path, output: Path) -> None:

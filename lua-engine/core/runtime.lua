@@ -5,6 +5,7 @@ local Vector=require('core.vector')
 local ItemStack=require('core.itemstack')
 local Inventory=require('core.inventory')
 local Crafting=require('core.crafting')
+local ModStorage=require('core.modstorage')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -28,8 +29,10 @@ function Runtime.new(options)
   registry={nodes={},items={},tools={},craftitems={},
     entities={},aliases={},crafts={},abms={},lbms={}},
   callbacks={globalstep={},generated={},mods_loaded={},
-    on_placenode={},on_dignode={},on_joinplayer={}},
-  abmClock={}, logging={}, detached={}
+    on_placenode={},on_dignode={},on_joinplayer={},
+    on_dieplayer={},on_leaveplayer={},on_player_receive_fields={}},
+  abmClock={}, logging={}, detached={},mod_storage={},
+  chatcommands={}
  },Runtime)
  local api={}
  self.api=api
@@ -62,6 +65,53 @@ function Runtime.new(options)
  end
  function api.settings:get_num(name,default)
   return tonumber(settings[name]) or default
+ end
+ function api.settings:set(name,value)
+  assert(type(name)=='string' and type(value)=='string','invalid setting')
+  settings[name]=value
+ end
+ function api.settings:set_bool(name,value)
+  assert(type(name)=='string' and type(value)=='boolean','invalid bool setting')
+  settings[name]=value and 'true' or 'false'
+ end
+ function api.get_mod_storage()
+  assert(type(self.current_mod)=='string','get_mod_storage only within a mod')
+  local name=self.current_mod
+  if not self.mod_storage[name] then
+   self.mod_storage[name]=ModStorage.new()
+  end
+  return self.mod_storage[name]
+ end
+ function api.register_chatcommand(name,def)
+  assert(type(name)=='string' and name~='' and type(def)=='table',
+   'invalid chat command')
+  assert(not self.chatcommands[name],'chatcommand already registered: '..name)
+  self.chatcommands[name]=opts_copy(def)
+ end
+ api.registered_chatcommands=self.chatcommands
+ function api.register_on_dieplayer(callback)
+  assert(type(callback)=='function')
+  self.callbacks.on_dieplayer[#self.callbacks.on_dieplayer+1]=callback
+ end
+ function api.register_on_joinplayer(callback)
+  assert(type(callback)=='function')
+  self.callbacks.on_joinplayer[#self.callbacks.on_joinplayer+1]=callback
+ end
+ function api.register_on_leaveplayer(callback)
+  assert(type(callback)=='function')
+  self.callbacks.on_leaveplayer[#self.callbacks.on_leaveplayer+1]=callback
+ end
+ function api.register_on_player_receive_fields(callback)
+  assert(type(callback)=='function')
+  self.callbacks.on_player_receive_fields[
+   #self.callbacks.on_player_receive_fields+1]=callback
+ end
+ -- For use when an actual player/HUD backend exists; registration
+ -- alone must never invent a player or pretend to emit sound.
+ function api.formspec_escape(text)
+  assert(type(text)=='string','formspec text required')
+  return (text:gsub('\\','\\\\'):gsub('%]','\\]'):gsub('%[','\\[')
+   :gsub(';','\\;'):gsub(',','\\,'))
  end
  function api.log(level,message)
   if message==nil then message=level;level='action' end
@@ -375,5 +425,15 @@ function Runtime:loadMod(name,path)
 end
 function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
+end
+-- Explicit event dispatch for tests and future player integration.
+function Runtime:emit(event,...)
+ local callbacks=self.callbacks[event]
+ assert(callbacks,'unknown runtime event: '..tostring(event))
+ local results={}
+ for i,callback in ipairs(callbacks) do
+  results[i]=callback(...)
+ end
+ return results
 end
 return Runtime

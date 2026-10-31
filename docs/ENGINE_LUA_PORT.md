@@ -22,7 +22,8 @@ apenas por existir uma API com os mesmos nomes.
 | Serialização segura, determinística, sem execução de código | Implementada (formato próprio) |
 | Câmera livre, renderização voxel básica, mineração/colocação | Demo LÖVR independente |
 | Loader `mod.conf`, dependências obrigatórias e opcionais | **Parcial, testado; não inicia VoxeLibre** |
-| Compatibilidade com mods do VoxeLibre | **Não funcional ainda** |
+| Cinco módulos utilitários reais de VoxeLibre | **Carregamento inicial em Lua, sem gameplay** |
+| Jogo VoxeLibre completo no motor Lua | **Não funcional ainda** |
 | VoxelManip, Mapgen, biomas, caves e iluminação Luanti | Ausentes |
 | ItemStack, InvRef, listas em nós, detached, metadados e save | **Parcial, testado** |
 | Receitas shaped/shapeless, grupos, forno/combustível, devoluções | **Parcial, testado** |
@@ -42,6 +43,9 @@ apenas por existir uma API com os mesmos nomes.
 - `lua-engine/core/itemstack.lua`: valores `ItemStack` copiáveis e metadados.
 - `lua-engine/core/inventory.lua`: listas `InvRef` e inserção com sobras.
 - `lua-engine/core/modloader.lua`: leitura de `mod.conf`, ordenação por dependências e falha explícita.
+- `lua-engine/core/modenvironment.lua`: ambiente de globais separado que executa arquivos Lua reais dos mods de referência, com acesso ao sistema de arquivos limitado aos diretórios de mods declarados. **Não é sandbox de segurança contra código não confiável.**
+- `lua-engine/core/modstorage.lua`: armazenamento de mod por runtime, ainda sem persistência em disco.
+- `tests/lua_engine_real_voxelibre.lua`: executa 5 mods upstream e reporta primeiro bloqueio de `mcl_init`.
 - `lua-engine/core/crafting.lua`: registro, consulta, escolha prioritária e execução atômica de receitas.
 - `scripts/audit_voxelibre_api.py`: inspeção estática das chamadas `core.*`/`minetest.*` no VoxeLibre; não mede paridade funcional.
 - `lua-engine/main.lua`: demo independente LÖVR para testarmos o motor.
@@ -67,8 +71,8 @@ terá de ser comprovada, e não pressuposta.
 
 1. Completar os callbacks de craft/inventário e toolrepair; conectar
    o resultado da receita ao inventário do jogador e à interface.
-2. Loader real da árvore de 221 módulos do VoxeLibre, dependências
-   e log de chamadas de API ainda não implementadas.
+2. Expandir os testes de execução da árvore de módulos além dos
+   cinco utilitários já testados, corrigindo APIs ausentes e dependências.
 3. Lua VoxelManip + geração/iluminação e mundos persistentes;
    streaming e greedy meshing em renderização otimizada.
 4. HUD/formspec, entidades físicas, players, multijogador.
