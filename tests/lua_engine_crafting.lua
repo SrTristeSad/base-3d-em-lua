@@ -137,6 +137,7 @@ eq(inv:get_stack('main',1):get_count(),1)
 -- Lack of room for replacement prevents an otherwise valid craft.
 inv:set_size('main',1)
 inv:set_stack('main',1,'game:water_bucket 98')
+inv:set_stack('craft',1,'game:milk 2')
 local before=inv:get_stack('craft',1):get_count()
 ok,why=api.lua_engine_craft_inventory(inv,'craft','main')
 assert(not ok)
