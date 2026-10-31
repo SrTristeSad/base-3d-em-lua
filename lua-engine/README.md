@@ -6,11 +6,11 @@ camada de compatibilidade com a API Lua do Luanti e permitir executar
 o VoxeLibre sem o motor original.
 
 **O alvo é compatibilidade 1:1, mas esta fase NÃO é um porte 1:1.**
-Na Fase 5, o carregador passa a executar os arquivos originais de oito
-mods do VoxeLibre, incluindo `mcl_util` e `vl_unittests`.
-A implementação também introduz operações de bits portáveis e
-um gerador PCG32 com estado de 64 bits em duas partes de 32 bits,
-testado contra sequências determinísticas de referência.
+Na Fase 6, o núcleo passou a dispor de VoxelArea, VoxelManip com
+buffers por mapblocks e identificadores de conteúdo, além de registros
+de biomas, minérios e decorações. **A execução real de geração de biomas
+e minérios ainda não existe.** O teste de inicialização inclui onze
+módulos originais, entre eles flowlib, vl_legacy e controls.
 A versão atual roda apenas uma demonstração independente.
 
 ## Experimentar
@@ -37,6 +37,11 @@ a partir da raiz do repositório.
   `register_craft`;
 - `registered_nodes`, `registered_items`,
   `registered_entities`, grupos;
+- `VoxelArea`, `get_voxel_manip`, `get_content_id`,
+  `get_name_from_content_id`; leitura/edição de buffers e `param2`,
+  escrita no mapa e preservação de metadados;
+- `register_biome`, `register_ore`, `register_decoration`,
+  com armazenamento de definições **sem geração real**;
 - `get_node`, `get_node_or_nil`, `set_node`,
   `swap_node`, `remove_node`, `place_node`, `dig_node`;
 - `get_meta`, `get_node_timer`, `find_nodes_in_area`;
@@ -48,9 +53,9 @@ a partir da raiz do repositório.
   básicos exigidos por mods originais;
 - executor de arquivos reais de mods em `core/modenvironment.lua`,
   com globais separadas e restrição aos caminhos registrados;
-- smoke test de 8 módulos reais: `mcl_init`, `mcl_util`,
+- smoke test de 11 módulos reais: `mcl_init`, `mcl_util`,
   `vl_unittests`, `mcl_colors`, `mcl_sounds`, `mcl_autogroup`,
-  `tga_encoder` e `vl_tuning`;
+  `tga_encoder`, `vl_tuning`, `flowlib`, `vl_legacy` e `controls`;
 - `get_craft_result`, `get_craft_recipe` e `get_all_craft_recipes`;
 - receitas com formato, sem formato, grupos, forno, combustível e
   recipientes retornáveis (subconjunto da API original);
@@ -73,7 +78,7 @@ a partir da raiz do repositório.
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
 A CI também gera um **relatório estático de APIs do VoxeLibre**
-que ainda faltam. A CI executa **apenas oito módulos selecionados**,
+que ainda faltam. A CI executa **apenas onze módulos selecionados**,
 sem iniciar o jogo. O arquivo `VoxeLibre-Real-Mod-Boot.md`
 registra quais módulos e arquivos Lua foram carregados. A presença de uma API
 no relatório não significa compatibilidade semântica completa.
@@ -81,7 +86,8 @@ no relatório não significa compatibilidade semântica completa.
 Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
 `tests/lua_engine_core.lua` e
 `tests/lua_engine_inventory_modloader.lua` e
-`tests/lua_engine_crafting.lua` e `tests/lua_engine_rng.lua`.
+`tests/lua_engine_crafting.lua`, `tests/lua_engine_rng.lua` e
+`tests/lua_engine_voxel.lua`.
 A demonstração gráfica precisa de hardware Vulkan e teste manual.
 
 O VoxeLibre integral continua disponível em `games/voxelibre/`

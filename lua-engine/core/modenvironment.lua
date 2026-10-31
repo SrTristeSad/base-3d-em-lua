@@ -4,6 +4,7 @@
 local Vector=require('core.vector')
 local Bitops=require('core.bitops')
 local PcgRandom=require('core.pcgrandom')
+local Voxel=require('core.voxel')
 local ModEnvironment={}
 ModEnvironment.__index=ModEnvironment
 
@@ -97,6 +98,7 @@ function ModEnvironment.new(runtime)
  env.vector=Vector
  env.ItemStack=runtime.api.ItemStack
  env.PcgRandom=PcgRandom.new
+ env.VoxelArea=Voxel.VoxelArea
  env.DIR_DELIM=package.config:sub(1,1)
  env.Settings=settings_file
  env.table.copy=recursive_copy
