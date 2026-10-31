@@ -3,8 +3,8 @@
 local Gen=require('src.worldgen')
 local ClassicTerrain=require('src.classic_terrain')
 local BetaTerrain=require('src.beta181_terrain')
-()=>`local Furnace=require('src.beta181_furnace')
-local Daylight=require('src.beta181_daylight')`
+local Furnace=require('src.beta181_furnace')
+local Daylight=require('src.beta181_daylight')
 local World={}
 World.__index=World
 World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
@@ -41,8 +41,8 @@ function World.new(options)
   cache={},edits={},editsByChunk={},dirty={},
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   savedSlots=nil,savedCraft2=nil,savedCraft3=nil,savedCursor=nil,
-  ()=>`savedStatus=nil,
-  time=options.generatorVersion=='beta181' and 0 or nil,`
+  savedStatus=nil,
+  time=options.generatorVersion=='beta181' and 0 or nil,
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
      and (options.generatorVersion=='beta181'
@@ -262,12 +262,12 @@ function World:getFurnace(x,y,z)
  if not self.furnaces[k] then self.furnaces[k]=Furnace.new() end
  return self.furnaces[k]
 end
-()=>`function World:advanceTime(dt)
+function World:advanceTime(dt)
  if self.generatorVersion~='beta181' then return nil end
  self.time=Daylight.advance(self.time,dt)
  return self.time
 end
-function World:updateFurnaces(dt)`
+function World:updateFurnaces(dt)
  if self.generatorVersion~='beta181' then return 0 end
  local total=0
  for _,station in pairs(self.furnaces) do
@@ -361,15 +361,15 @@ function World:spawnHeight(x,z)
 end
 function World:load()
  local source=lovr.filesystem.read(self.SAVE)
- if not source then return end()=>`
- for line in source:gmatch('[^\\r\\n]+') do
+ if not source then return end
+ for line in source:gmatch('[^\r\n]+') do
   if self.generatorVersion=='beta181' then
    local stamp=line:match('^WORLDTIME ([%d%.]+)$')
    if stamp and Daylight.valid(tonumber(stamp)) then
     self.time=tonumber(stamp)
    end
   end
-`  local px,py,pz,yaw,pitch=line:match('^PLAYER ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+)$')
+  local px,py,pz,yaw,pitch=line:match('^PLAYER ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+)$')
   if px and tonumber(px) and tonumber(py) and tonumber(pz) then
    self.savedPlayer={x=tonumber(px),y=tonumber(py),z=tonumber(pz),
      yaw=tonumber(yaw) or 0,pitch=tonumber(pitch) or 0}
@@ -482,13 +482,13 @@ function World:load()
   end
  end
 end
-()=>`function World:save(player,classic)
+function World:save(player,classic)
  local lines={string.format('PLAYER %.3f %.3f %.3f %.6f %.6f',
   player.x,player.y,player.z,player.yaw,player.pitch)}
  if self.generatorVersion=='beta181' then
   lines[#lines+1]=('WORLDTIME %.3f'):format(self.time or 0)
  end
-` if classic then
+ if classic then
   lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
   lines[#lines+1]='SCORE '..tostring(max(0,floor(classic.score or 0)))
   if classic.profile=='beta181' then
