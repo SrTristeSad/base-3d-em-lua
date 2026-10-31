@@ -37,6 +37,7 @@ local function stdlib(runtime)
   getmetatable=getmetatable,unpack=unpack or table.unpack,
   math=shallow(math),table=shallow(table),string=shallow(string),
   coroutine=shallow(coroutine),
+  os={time=os.time,date=os.date,difftime=os.difftime,clock=os.clock},
   print=function(...)
    local args={}
    for i=1,select('#',...) do args[#args+1]=tostring(select(i,...)) end
