@@ -195,8 +195,8 @@ function Creatures:update(dt,player,classic)
   else
    if w.lighting and (mob.kind=='Zombie' or mob.kind=='Skeleton') then
     mob.sunTimer=(mob.sunTimer or 0)+dt
-    if mob.sunTimer>=1 then
-     mob.sunTimer=mob.sunTimer-1
+    if mob.sunTimer>=1-0.000001 then
+     mob.sunTimer=math.max(0,mob.sunTimer-1)
      if w.lighting:sunburns(floor(mob.x+.5),
         floor(mob.y+1.5),floor(mob.z+.5)) then
       -- Dano solar inicial, ainda sem partículas de fogo.
