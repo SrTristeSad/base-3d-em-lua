@@ -23,9 +23,11 @@ function Loader.parse(content,legacy)
   hard,optional={},{}
   local hseen,oseen={},{}
   for line in (legacy..'\n'):gmatch('(.-)\n') do
-   local name=line:match('^%s*([%w_%-]+)%s*%?%s*$')
+   local entry=line:match('^%s*(.-)%s*$')
+   local opt=entry:sub(-1)=='?'
+   if opt then entry=entry:sub(1,-2) end
+   local name=entry:match('^([%w_%-]+)$')
    if name then
-    local opt=line:match('%?%s*$')~=nil
     if opt then
      if not oseen[name] then optional[#optional+1]=name;oseen[name]=true end
     elseif not hseen[name] then
