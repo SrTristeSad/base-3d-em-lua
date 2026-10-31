@@ -62,10 +62,11 @@ eq(inv.cursor,nil)
 eq(inv:preview('small').id,50)
 assert(inv:takeOutput('small',false))
 eq(inv.cursor.id,50)
-assert(inv:clickSlot('inventory',3,1,false))
-eq(inv:getSlot(3).id,50)
-assert(inv:place(50,3))
-eq(inv:getSlot(3),nil)
+assert(inv:clickSlot('inventory',4,1,false))
+eq(inv:getSlot(4).id,50)
+assert(inv:place(50,4))
+eq(inv:getSlot(4),nil)
+eq(inv.cursor,nil)
 -- O 3x3 permite picaretas; o 2x2 não.
 inv.craft3[1]={id=7,count=1}
 inv.craft3[2]={id=7,count=1}
