@@ -26,11 +26,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Lua 5.4
-        run: sudo apt-get update -qq && sudo apt-get install -y lua5.4
+        run: sudo apt-get update -qq && sudo apt-get install -y lua5.4 luajit
       - name: Syntax check for standalone Lua engine
         run: find lua-engine -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
       - name: Run runtime/API, mapblock and persistence tests
         run: lua5.4 tests/lua_engine_core.lua
+      - name: Run same API suite on LuaJIT (LÖVR runtime)
+        run: luajit tests/lua_engine_core.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
       - uses: actions/upload-artifact@v4
