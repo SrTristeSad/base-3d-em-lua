@@ -209,9 +209,9 @@ function Beta:consumeFood(index,player)
  return true
 end
 function Beta:canPlace(id)
- return valid(id) and id<=self.MAX_ID and
-   id~=9 and id~=29 and id~=30 and
-   (self.mode=='creative' or self:count(id)>0)
+ return valid(id) and id<=self.MAX_ID and id~=30
+   and ((id~=9 and id~=29) or self.mode=='creative')
+   and (self.mode=='creative' or self:count(id)>0)
 end
 function Beta:consumeSlot(index,count)
  if self.mode=='creative' then return true end

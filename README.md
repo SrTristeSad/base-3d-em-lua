@@ -1,4 +1,4 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 8)
+# Base 3D em Lua — Beta 1.8.1 (Fase 9)
 
 Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta 1.8.1** como referência de comportamento histórico. Não utiliza código, texturas ou outros arquivos da Mojang. **O projeto ainda não é uma reprodução 1:1**: alguns algoritmos e sistemas são aproximações e vários recursos estão pendentes.
 
@@ -6,10 +6,27 @@ Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta
 
 Na página [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions), abra a execução mais recente **aprovada** e baixe um dos artefatos:
 
-- `Base3D-Beta181-Light-Cache-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
-- `Base3D-Beta181-Light-Cache-LOVR` — pacote `.lovr` para executar no motor LÖVR.
+- `Base3D-Beta181-Fluids-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
+- `Base3D-Beta181-Fluids-LOVR` — pacote `.lovr` para executar no motor LÖVR.
 
-Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Light-Cache.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Fluids.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+
+## Fase 9 — agua e lava com propagacao
+
+Agua e lava agora se espalham ao serem colocadas ou reativadas
+por uma alteracao proxima. Os fluidos caem primeiro, fluem
+horizontalmente com alcances diferentes e podem gerar obsidiana,
+pedregulho e pedra ao se encontrar. Correntes possuem niveis
+visuais e estados persistentes no save.
+
+No **modo criativo Beta 1.8.1**, escolha agua ou lava na pagina
+de blocos correspondente para criar fontes e experimentar os fluxos.
+
+A implementacao ainda e parcial: oceanos naturais nao sao
+simulados globalmente e faltam baldes, correnteza no jogador,
+danos, particulas e sons.
+
+[Documentacao da Fase 9](docs/FASE_09_BETA181.md).
 
 ## Fase 8 — cache solar por seções e diagnóstico
 

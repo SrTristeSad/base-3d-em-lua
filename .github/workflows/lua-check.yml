@@ -53,6 +53,8 @@ jobs:
         run: lua5.4 tests/beta181_skylight.lua
       - name: Beta 1.8.1 skylight section cache and LRU regression
         run: lua5.4 tests/beta181_light_cache.lua
+      - name: Beta 1.8.1 water/lava flow, collisions and save regression
+        run: lua5.4 tests/beta181_fluids.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -84,6 +86,10 @@ jobs:
           assert "PLAYERSTATUS" in world
           assert "require('src.beta181_furnace')" in world
           assert "require('src.beta181_lighting')" in world
+          assert "require('src.beta181_fluids')" in world
+          assert "function World:updateFluids(" in world
+          assert "world:updateFluids(dt)" in main
+          assert "FLUID " in world
           assert "function Lighting:skyVisible(" in Path('src/beta181_lighting.lua').read_text()
           assert "function Lighting:skyApprox(" in Path('src/beta181_lighting.lua').read_text()
           assert "function Lighting:skyLight(" in Path('src/beta181_lighting.lua').read_text()
@@ -177,7 +183,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Beta181-Light-Cache.lovr')
+          out=Path('dist/Base3D-Beta181-Fluids.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -214,8 +220,8 @@ jobs:
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Beta181-Light-Cache-LOVR
-          path: dist/Base3D-Beta181-Light-Cache.lovr
+          name: Base3D-Beta181-Fluids-LOVR
+          path: dist/Base3D-Beta181-Fluids.lovr
           if-no-files-found: error
           retention-days: 30
 
@@ -227,7 +233,7 @@ jobs:
       - name: Download verified game package
         uses: actions/download-artifact@v4
         with:
-          name: Base3D-Beta181-Light-Cache-LOVR
+          name: Base3D-Beta181-Fluids-LOVR
           path: game
       - name: Fuse LÖVR runtime with game for Windows x64
         shell: pwsh
@@ -241,7 +247,7 @@ jobs:
           if (-not $runtime) { throw 'The official runtime has no lovr.exe' }
           if (-not $archive) { throw 'The validated game artifact is missing' }
           New-Item -ItemType Directory -Path 'dist/Base3D-Windows' -Force | Out-Null
-          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Beta181-Light-Cache.exe'
+          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Beta181-Fluids.exe'
           # LÖVR supports a fused Windows executable: runtime bytes + .lovr zip.
           $outStream = [System.IO.File]::Create($output)
           try {
@@ -267,7 +273,7 @@ jobs:
           BASE 3D - TESTE WINDOWS (64 bits)
           =================================
           1. Extraia o arquivo ZIP inteiro para uma pasta.
-          2. Execute Base3D-Beta181-Light-Cache.exe.
+          2. Execute Base3D-Beta181-Fluids.exe.
           3. No menu escolha CRIAR NOVO MUNDO e informe uma semente.
           4. Escolha SOBREVIVENCIA ou CRIATIVO. Sem geracao por imagem.
           5. FASE 5: Ciclo dia/noite de 20 minutos; horario e dia salvos.
@@ -295,7 +301,7 @@ jobs:
       - name: Upload Windows portable ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Beta181-Light-Cache-Windows-EXE
+          name: Base3D-Beta181-Fluids-Windows-EXE
           path: dist/Base3D-Windows/
           if-no-files-found: error
           retention-days: 30

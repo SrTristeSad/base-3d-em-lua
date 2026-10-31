@@ -257,6 +257,7 @@ function lovr.update(dt)
        or state=='workbench' or state=='furnace') then
     world:updateFurnaces(dt)
     if world.lighting then world.lighting:tick(dt) end
+    if state=='playing' then world:updateFluids(dt) end
   end
   if state=='playing' then
     player:update(dt,world,classic)

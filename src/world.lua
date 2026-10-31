@@ -5,6 +5,7 @@ local ClassicTerrain=require('src.classic_terrain')
 local BetaTerrain=require('src.beta181_terrain')
 local Furnace=require('src.beta181_furnace')
 local Lighting=require('src.beta181_lighting')
+local Fluids=require('src.beta181_fluids')
 local World={}
 World.__index=World
 World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
@@ -42,7 +43,7 @@ function World.new(options)
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   savedSlots=nil,savedCraft2=nil,savedCraft3=nil,savedCursor=nil,
   savedStatus=nil,
-  lighting=nil,
+  lighting=nil,fluids=nil,
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
      and (options.generatorVersion=='beta181'
@@ -58,6 +59,7 @@ function World.new(options)
  },World)
  if w.generatorVersion=='beta181' then
   w.lighting=Lighting.new(w)
+  w.fluids=Fluids.new(w)
  end
  w:load()
  return w
@@ -230,11 +232,19 @@ function World:get(x,y,z)
  local chunk=self:ensureSection(floor(x/16),floor(y/16),floor(z/16))
  return chunk.data[idxWorld(x,y,z)] or 0
 end
-function World:set(x,y,z,id)
+function World:set(x,y,z,id,fluidState)
  if not self:within(x,y,z) or y==self.YMIN then return false end
  if type(id)~='number' or id~=floor(id) or id<0 or id>self.MAX_ID then return false end
  local previous=self:get(x,y,z)
- if previous==30 or previous==id then return false end
+ if previous==30 then return false end
+ local oldFlow=self.fluids and self.fluids:get(x,y,z)
+ if previous==id then
+  -- A mudanca de nivel importa para a malha, mas nunca converta
+  -- uma fonte permanente em corrente com a mesma ID.
+  if not fluidState or not oldFlow or
+   self.fluids:stateEqual(oldFlow,{id=id,level=fluidState.level,
+      falling=not not fluidState.falling}) then return false end
+ end
  if self.generatorVersion=='beta181' and previous==51 and id~=51 then
   local station=self.furnaces[key(x,y,z)]
   -- Não descartar inventário de fornalha silenciosamente: enquanto
@@ -246,6 +256,7 @@ function World:set(x,y,z,id)
  local ck=chunkKey(cx,cy,cz)
  local i=idxWorld(x,y,z)
  self.cache[ck].data[i]=id==0 and nil or id
+ if self.fluids then self.fluids:setState(x,y,z,id,fluidState) end
  self.edits[key(x,y,z)]=id
  if not self.editsByChunk[ck] then self.editsByChunk[ck]={} end
  self.editsByChunk[ck][i]=id
@@ -258,7 +269,7 @@ function World:set(x,y,z,id)
  if z%16==15 then self.dirty[chunkKey(cx,cy,cz+1)]=true end
  -- Mudancas opacas alteram a luz mesmo sem adicionar uma tocha.
  -- Marque as secoes de TODOS os emissores impactados para remeshing.
- if self.lighting then
+ if self.lighting and previous~=id then
   local affected=self.lighting:onBlockChanged(x,y,z,previous,id)
   if self.lighting.transmits(previous)~=self.lighting.transmits(id) then
    -- Alterar um telhado muda a luz do ceu em toda a coluna.
@@ -279,6 +290,9 @@ function World:set(x,y,z,id)
    end end end
   end
  end
+ if self.fluids then
+  self.fluids:onBlockChanged(x,y,z,previous,id)
+ end
  return true
 end
 function World:getFurnace(x,y,z)
@@ -287,6 +301,10 @@ function World:getFurnace(x,y,z)
  local k=key(x,y,z)
  if not self.furnaces[k] then self.furnaces[k]=Furnace.new() end
  return self.furnaces[k]
+end
+function World:updateFluids(dt)
+ if not self.fluids then return 0 end
+ return self.fluids:step(dt)
 end
 function World:updateFurnaces(dt)
  if self.generatorVersion~='beta181' then return 0 end
@@ -492,6 +510,12 @@ function World:load()
     end
    end
   end
+  local fx,fy,fz,fluidId,level,falling=
+   line:match('^FLUID (%-?%d+) (%-?%d+) (%-?%d+) (%d+) (%d+) ([01])$')
+  if fx and self.fluids then
+   self.fluids:restore(tonumber(fx),tonumber(fy),tonumber(fz),
+     tonumber(fluidId),tonumber(level),falling=='1')
+  end
   local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
   x,y,z,id=tonumber(x),tonumber(y),tonumber(z),tonumber(id)
   if x and y and z and id and self:within(x,y,z) and id<=self.MAX_ID then
@@ -505,6 +529,7 @@ function World:load()
    end
   end
  end
+ if self.fluids then self.fluids:resume() end
 end
 function World:save(player,classic)
  local lines={string.format('PLAYER %.3f %.3f %.3f %.6f %.6f',
@@ -548,6 +573,17 @@ function World:save(player,classic)
  for _,k in ipairs(keys) do
   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   lines[#lines+1]=('BLOCK %s %s %s %d'):format(x,y,z,self.edits[k])
+ end
+ if self.fluids then
+  local fluidKeys={}
+  for k in pairs(self.fluids.states) do fluidKeys[#fluidKeys+1]=k end
+  table.sort(fluidKeys)
+  for _,k in ipairs(fluidKeys) do
+   local state=self.fluids.states[k]
+   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+   lines[#lines+1]=('FLUID %s %s %s %d %d %d'):format(
+     x,y,z,state.id,state.level,state.falling and 1 or 0)
+  end
  end
  if self.generatorVersion=='beta181' then
   local furnaceKeys={}
