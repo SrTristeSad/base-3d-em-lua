@@ -6,7 +6,7 @@ camada de compatibilidade com a API Lua do Luanti e permitir executar
 o VoxeLibre sem o motor original.
 
 **O alvo é compatibilidade 1:1, mas esta fase NÃO é um porte 1:1.**
-Na Fase 7, acrescentamos um gerador **próprio** de chunks em Lua:
+Na Fase 8, executamos três módulos originais adicionais de utilitários e itens: `mcl_worlds`, `mcl_particles` e `mcl_stonecutter`. O código original registra o bloco Stonecutter, suas receitas e callbacks de inventário. Um diagnóstico separado tenta carregar `mcl_core` inteiro, mas não o declara compatível. Continuamos usando o gerador **próprio** de chunks em Lua da Fase 7:
 terreno determinístico por semente, areia, florestas, árvores, pequenas
 cavernas e minérios. Não é o gerador do Minecraft nem do VoxeLibre.
 A marcação de chunks gerados é salva para preservar construções e
@@ -38,6 +38,9 @@ a partir da raiz do repositório.
   `register_craft`;
 - `registered_nodes`, `registered_items`,
   `registered_entities`, grupos;
+- `core/particles.lua`: hash espacial reversível de posições, registro e retirada de emissores de partículas (sem renderizador visual).
+- callbacks de permissão e notificação de operações de inventário,
+  registro da bancada de corte original e receita (sem interface de jogador).
 - `core/worldgen.lua`: geração determinística independente em chunks 16×16,
   biomas simples, cavernas, árvores e minérios; a demo permite usar F7;
 - salvamento de marcação de chunks gerados pelo formato `G` de
@@ -58,9 +61,10 @@ a partir da raiz do repositório.
   básicos exigidos por mods originais;
 - executor de arquivos reais de mods em `core/modenvironment.lua`,
   com globais separadas e restrição aos caminhos registrados;
-- smoke test de 11 módulos reais: `mcl_init`, `mcl_util`,
+- smoke test de 14 módulos reais: `mcl_init`, `mcl_util`,
   `vl_unittests`, `mcl_colors`, `mcl_sounds`, `mcl_autogroup`,
-  `tga_encoder`, `vl_tuning`, `flowlib`, `vl_legacy` e `controls`;
+  `tga_encoder`, `vl_tuning`, `flowlib`, `vl_legacy`, `controls`,
+  `mcl_worlds`, `mcl_particles` e `mcl_stonecutter`;
 - `get_craft_result`, `get_craft_recipe` e `get_all_craft_recipes`;
 - receitas com formato, sem formato, grupos, forno, combustível e
   recipientes retornáveis (subconjunto da API original);
@@ -83,7 +87,7 @@ a partir da raiz do repositório.
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
 A CI também gera um **relatório estático de APIs do VoxeLibre**
-que ainda faltam. A CI executa **apenas onze módulos selecionados**,
+que ainda faltam. A CI executa **apenas catorze módulos selecionados**,
 sem iniciar o jogo. O arquivo `VoxeLibre-Real-Mod-Boot.md`
 registra quais módulos e arquivos Lua foram carregados. A presença de uma API
 no relatório não significa compatibilidade semântica completa.

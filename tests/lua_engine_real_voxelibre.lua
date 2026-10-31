@@ -24,6 +24,9 @@ local paths={
  flowlib='mods/CORE/flowlib',
  vl_legacy='mods/CORE/vl_legacy',
  controls='mods/CORE/controls',
+ mcl_particles='mods/CORE/mcl_particles',
+ mcl_worlds='mods/CORE/mcl_worlds',
+ mcl_stonecutter='mods/ITEMS/mcl_stonecutter',
 }
 local targets={}
 for name,path in pairs(paths) do
@@ -34,7 +37,8 @@ for name,path in pairs(paths) do
  targets[#targets+1]=def
 end
 local ordered=ModLoader.plan(targets)
-local rt=Engine.new({settings={mcl_keepInventory='false'},
+local rt=Engine.new({settings={
+ mcl_keepInventory='false',mcl_node_particles='medium'},
  mapgen={seed=42,mg_name='v7',chunksize=5,mapgen_limit=31000},
  game_info={path=root,title='VoxeLibre'}})
 local runner=Environment.new(rt)
@@ -60,6 +64,41 @@ assert(g.vl_unittests and g.vl_unittests.enabled==false)
 assert(type(g.flowlib.is_water)=='function')
 assert(type(g.vl_legacy.convert_itemstack)=='function')
 assert(type(g.controls.register_on_press)=='function')
+assert(type(g.mcl_particles.add_node_particlespawner)=='function')
+assert(type(g.mcl_worlds.y_to_layer)=='function')
+assert(type(g.mcl_stonecutter.register_recipe)=='function')
+assert(rt.api.registered_nodes['mcl_stonecutter:stonecutter'],
+ 'stonecutter original upstream node not registered')
+assert(rt.api.registered_items['mcl_stonecutter:stonecutter'].groups.pickaxey==1)
+assert(#rt.callbacks.allow_player_inventory_action>=1)
+assert(#rt.callbacks.on_player_inventory_action>=1)
+local layer,dimension=g.mcl_worlds.y_to_layer(g.mcl_vars.mg_overworld_min+80)
+assert(layer==80 and dimension=='overworld')
+local upper=g.mcl_worlds.layer_to_y(80,'overworld')
+assert(upper==g.mcl_vars.mg_overworld_min+80)
+local pp={x=-12,y=14,z=19}
+local hash=rt.api.hash_node_position(pp)
+local unpacked=rt.api.get_position_from_hash(hash)
+assert(unpacked.x==pp.x and unpacked.y==pp.y and unpacked.z==pp.z)
+local id=g.mcl_particles.add_node_particlespawner(pp,{
+ amount=4,time=1,texture='test_particle.png'},'low')
+assert(type(id)=='number' and id>0 and rt.particles:get_spawner(id).amount==4)
+assert(g.mcl_particles.delete_node_particlespawners(pp))
+assert(rt.particles:get_spawner(id)==nil)
+assert(not g.mcl_particles.delete_node_particlespawners(pp))
+local blocked=rt:allowedInventoryAction(nil,'move',nil,{
+ from_list='main',to_list='stonecutter_output',count=3})
+assert(blocked==0,'stonecutter output is write-protected by actual mod callback')
+local permitted=rt:allowedInventoryAction(nil,'move',nil,{
+ from_list='main',to_list='stonecutter_input',count=3})
+assert(permitted==3)
+assert(not pcall(rt.api.show_formspec,'player','stonecutter','size[4,3]'),
+ 'unimplemented GUI must explicitly reject display')
+rt.api.register_node('test:block_for_cutting',{})
+rt.api.register_node('test:cut_block',{})
+g.mcl_stonecutter.register_recipe('test:block_for_cutting','test:cut_block',2)
+assert(g.mcl_stonecutter.registered_recipes['test:block_for_cutting']
+ ['test:cut_block']==2)
 rt.api.register_node('test:water',{groups={water=1,liquid=1}})
 rt.api.register_node('test:old',{})
 rt.api.register_node('test:new',{})
@@ -98,8 +137,14 @@ for _ in pairs(rt.chatcommands) do count=count+1 end
 print(('VOXELIBRE REAL MODS PASS: %d modules, %d source files, %d registered commands')
  :format(#results,runner.read_count,count))
 
+-- Diagnostic only: try the real mcl_core source without disguising missing
+-- gameplay dependencies. A partial failure must not count as a loaded mod.
+local path_core=root..'/mods/ITEMS/mcl_core'
+rt.opts.modpaths.mcl_core=path_core
+local core_ok,core_error=pcall(rt.loadMod,rt,'mcl_core',path_core)
+assert(rt.current_mod==nil,'mod context leaked after probe')
 local report={
- '# VoxeLibre real Lua mod boot — Fase 6','',
+ '# VoxeLibre real Lua mod boot — Fase 8','',
  'Original VoxeLibre code from the pinned Git checkout was executed.',
  'Lua 5.4 and LuaJIT tests must both pass for this report to be published.','',
  ('- Real modules loaded: **%d**'):format(#results),
@@ -107,7 +152,7 @@ local report={
  ('- Registered chat commands: **%d**'):format(count),
  '- Modules: mcl_init, mcl_util, vl_unittests, mcl_colors,',
  '  mcl_sounds, mcl_autogroup, tga_encoder, vl_tuning,',
- '  flowlib, vl_legacy, controls.',
+ '  flowlib, vl_legacy, controls, mcl_particles, mcl_worlds, mcl_stonecutter.',
  '- Luanti binary engine: not used in this module integration test.',
  '- VoxeLibre gameplay: **NOT RUNNING** (only selected Lua modules loaded).',
  '',
@@ -117,6 +162,19 @@ local report={
  '- Real mod loading follows declared dependencies.',
  '- Real flowlib water predicate and vl_legacy inventory conversions passed.',
  '- Real controls callback registrations were verified.',
+ '- Original stonecutter node and craft recipe registered successfully.',
+ '- Actual stonecutter inventory permission callbacks rejected invalid moves.',
+ '- Original mcl_particles particle registration and deletion verified in CPU-side bookkeeping.',
+ '- Original mcl_worlds dimension coordinate conversion verified.',
+ '- The actual player GUI and visual particle renderer are not implemented.',
+ '',
+ '## mcl_core original source probe', '',
+ ('- Init source execution: **%s**'):format(core_ok and
+  'returned (not a verified game)' or 'blocked'),
+ ('- First issue: %s'):format(tostring(core_error or
+  'no Lua error; gameplay and dependencies still unverified')
+  :gsub('[\\r\\n]+',' '):sub(1,900)),
+ '- This is a diagnostic; mcl_core is not counted as a loaded module.',
  '- The original files remain unchanged.',
  '',
  '## Pending', '',

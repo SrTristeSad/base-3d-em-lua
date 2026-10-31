@@ -22,7 +22,7 @@ apenas por existir uma API com os mesmos nomes.
 | Serialização segura, determinística, sem execução de código | Implementada (formato próprio) |
 | Câmera livre, renderização voxel básica, mineração/colocação | Demo LÖVR independente |
 | Loader `mod.conf`, dependências obrigatórias e opcionais | **Parcial, testado; não inicia VoxeLibre** |
-| Onze módulos Lua originais do VoxeLibre | **Inicialização testada em Lua 5.4/LuaJIT, sem gameplay** |
+| Catorze módulos Lua originais do VoxeLibre | **Inicialização e funções específicas testadas em Lua 5.4/LuaJIT, sem gameplay completo** |
 | Jogo VoxeLibre completo no motor Lua | **Não funcional ainda** |
 | VoxelArea, VoxelManip e IDs de conteúdo | **Parcial: buffers, mapblocks, param2 e escrita testados** |
 | Registro de biomas, minérios e decorações | **Definições armazenadas; sem geração real** |
@@ -183,3 +183,12 @@ teste determinístico a partir da semente, com camadas de solo, areia,
 Os testes de integração continuam executando os **11 módulos
 originais** já confirmados na Fase 6; nenhum módulo novo foi declarado
 compatível sem executar seu código original e validar o resultado.
+
+### Fase 8 — três módulos adicionais, bloco de bancada real
+
+- `mcl_worlds`: o código original carrega e conversões de camadas/dimensões foram testadas.
+- `mcl_particles`: o código original registra e elimina emissores em posições de nós usando hash reversível. A camada Lua registra as definições, **não desenha partículas**.
+- `mcl_stonecutter`: o código original registra o nó `mcl_stonecutter:stonecutter`, receitas e callbacks de inventário; o motor avalia permissões e proíbe escrita no slot de saída.
+- **Ainda não existe GUI de bancada de corte, sessão de jogador nem backend de renderização de partículas**; chamadas GUI falham explicitamente em vez de simular sucesso.
+- O teste de integração também tenta executar `mcl_core/init.lua` como diagnóstico depois dos módulos compatíveis e registra o erro observado. Esse probe não conta como módulo carregado nem satisfaz as dependências ainda ausentes.
+- O motor continua **longe da paridade 1:1**. O número de módulos que inicializam não representa quantidade de jogabilidade portada.
