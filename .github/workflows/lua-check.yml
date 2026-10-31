@@ -80,7 +80,8 @@ jobs:
           assert "state=='dead'" in ui
           assert 'function Mesher.buildData(' in Path('src/mesher.lua').read_text()
           assert 'self.world:prune(px,py,pz,half,1)' in Path('src/mesher.lua').read_text()
-          assert 'world:spawnHeight' in player
+          assert 'world:spawnPoint()' in player
+          assert 'function World:spawnPoint(' in world
           assert 'mesher:sync(player.x,player.y,player.z,settings.distance,3)' in main
           assert 'function World:ensureSection(' in world
           assert 'function World:generateSection(' in world
