@@ -9,6 +9,7 @@ on:
       - 'tests/lua_engine_crafting.lua'
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_voxel.lua'
       - 'scripts/audit_voxelibre_api.py'
       - 'scripts/export_lua_engine_api.lua'
       - 'scripts/package_lua_engine.py'
@@ -22,6 +23,7 @@ on:
       - 'tests/lua_engine_crafting.lua'
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_voxel.lua'
       - 'scripts/audit_voxelibre_api.py'
       - 'scripts/export_lua_engine_api.lua'
       - 'scripts/package_lua_engine.py'
@@ -57,6 +59,10 @@ jobs:
         run: lua5.4 tests/lua_engine_rng.lua
       - name: Same PCG32 golden vectors on LuaJIT
         run: luajit tests/lua_engine_rng.lua
+      - name: VoxelManip, IDs, mapblocks and biome registry (Lua 5.4)
+        run: lua5.4 tests/lua_engine_voxel.lua
+      - name: Same voxel tests on LuaJIT
+        run: luajit tests/lua_engine_voxel.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
       - uses: actions/upload-artifact@v4
@@ -128,7 +134,7 @@ jobs:
           persist-credentials: false
       - name: Install Lua for API export
         run: sudo apt-get update -qq && sudo apt-get install -y lua5.4 luajit
-      - name: Boot eight original VoxeLibre mods under Lua 5.4
+      - name: Boot eleven original VoxeLibre mods under Lua 5.4
         run: |
           mkdir -p dist
           lua5.4 tests/lua_engine_real_voxelibre.lua games/voxelibre dist/VoxeLibre-Real-Mod-Boot.md

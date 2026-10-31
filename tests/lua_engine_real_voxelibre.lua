@@ -21,6 +21,9 @@ local paths={
  mcl_autogroup='mods/CORE/mcl_autogroup',
  tga_encoder='mods/CORE/tga_encoder',
  vl_tuning='mods/CORE/vl_tuning',
+ flowlib='mods/CORE/flowlib',
+ vl_legacy='mods/CORE/vl_legacy',
+ controls='mods/CORE/controls',
 }
 local targets={}
 for name,path in pairs(paths) do
@@ -54,6 +57,26 @@ assert(g.mcl_util.djb2_hash('VoxeLibre')==2331368085,
  'original VoxeLibre DJB2 self-test was not preserved')
 assert(type(g.mcl_util.gen_uuid())=='string','original UUID generator not running')
 assert(g.vl_unittests and g.vl_unittests.enabled==false)
+assert(type(g.flowlib.is_water)=='function')
+assert(type(g.vl_legacy.convert_itemstack)=='function')
+assert(type(g.controls.register_on_press)=='function')
+rt.api.register_node('test:water',{groups={water=1,liquid=1}})
+rt.api.register_node('test:old',{})
+rt.api.register_node('test:new',{})
+rt.api.set_node({x=2,y=0,z=0},{name='test:water'})
+assert(g.flowlib.is_water({x=2,y=0,z=0}))
+assert(not g.flowlib.is_lava({x=2,y=0,z=0}))
+g.vl_legacy.register_item_conversion('test:old','test:new')
+local item=rt.api.ItemStack('test:old 3')
+g.vl_legacy.convert_itemstack(item)
+assert(item:get_name()=='test:new' and item:get_count()==3)
+local inv=rt.api.create_detached_inventory('legacy-test')
+inv:set_size('main',2)
+inv:set_stack('main',1,'test:old 5')
+g.vl_legacy.convert_inventory(inv)
+assert(inv:get_stack('main',1):get_name()=='test:new')
+assert(#rt.registry.lbms>=2 and #rt.registry.abms>=1)
+assert(#rt.callbacks.on_joinplayer>=3)
 assert(type(g.mcl_vars)=='table' and type(g.mcl_vars.mg_nether_min)=='number')
 assert(rt.api.get_mapgen_setting('vl_world_version')=='0.93.0-SNAPSHOT')
 local song=g.mcl_sounds.node_sound_stone_defaults({})
@@ -76,14 +99,15 @@ print(('VOXELIBRE REAL MODS PASS: %d modules, %d source files, %d registered com
  :format(#results,runner.read_count,count))
 
 local report={
- '# VoxeLibre real Lua mod boot — Fase 5','',
+ '# VoxeLibre real Lua mod boot — Fase 6','',
  'Original VoxeLibre code from the pinned Git checkout was executed.',
  'Lua 5.4 and LuaJIT tests must both pass for this report to be published.','',
  ('- Real modules loaded: **%d**'):format(#results),
  ('- Real source files executed: **%d**'):format(runner.read_count),
  ('- Registered chat commands: **%d**'):format(count),
  '- Modules: mcl_init, mcl_util, vl_unittests, mcl_colors,',
- '  mcl_sounds, mcl_autogroup, tga_encoder, vl_tuning.',
+ '  mcl_sounds, mcl_autogroup, tga_encoder, vl_tuning,',
+ '  flowlib, vl_legacy, controls.',
  '- Luanti binary engine: not used in this module integration test.',
  '- VoxeLibre gameplay: **NOT RUNNING** (only selected Lua modules loaded).',
  '',
@@ -91,10 +115,12 @@ local report={
  '- Real VoxeLibre hashing asserts and DJB2 golden value passed.',
  '- Real mcl_util UUID generation executed with the Lua PCG32 replacement.',
  '- Real mod loading follows declared dependencies.',
+ '- Real flowlib water predicate and vl_legacy inventory conversions passed.',
+ '- Real controls callback registrations were verified.',
  '- The original files remain unchanged.',
  '',
  '## Pending', '',
- 'Player, entity, mapgen, nodes, VoxelManip, networking, sound and UI',
+ 'Player, entity, full mapgen, lighting, networking, sound and UI',
  'are not functionally compatible with the full VoxeLibre game.',
  'The working playable game still uses Luanti C++ from the separate build.',
 }

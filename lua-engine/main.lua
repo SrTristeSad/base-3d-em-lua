@@ -18,19 +18,25 @@ local palette={
 }
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
+-- Terrain is now constructed through the Lua VoxelManip buffer.
+-- This is STILL a deliberately simple demo terrain, not Luanti mapgen.
 local function createWorld()
+ local vm=api.get_voxel_manip(
+  {x=-12,y=-2,z=-12},{x=12,y=5,z=12})
  for x=-12,12 do for z=-12,12 do
   local h=math.floor(math.sin(x*.28)*1.2+math.cos(z*.25))
   for y=-2,h do
-   api.set_node({x=x,y=y,z=z},{name=y==h and 'lua:grass'
-    or (y>=h-2 and 'lua:dirt' or 'lua:stone')})
+   vm:set_node_at({x=x,y=y,z=z},{
+    name=y==h and 'lua:grass' or
+      (y>=h-2 and 'lua:dirt' or 'lua:stone')})
   end
  end end
  for _,p in ipairs({{-5,3},{4,-3},{7,6}}) do
   for y=1,4 do
-   api.set_node({x=p[1],y=y,z=p[2]},{name='lua:wood'})
+   vm:set_node_at({x=p[1],y=y,z=p[2]},{name='lua:wood'})
   end
  end
+ vm:write_to_map()
 end
 local function look()
  local dx=math.sin(camera.yaw)*math.cos(camera.pitch)

@@ -6,6 +6,7 @@ local ItemStack=require('core.itemstack')
 local Inventory=require('core.inventory')
 local Crafting=require('core.crafting')
 local ModStorage=require('core.modstorage')
+local Voxel=require('core.voxel')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -27,7 +28,8 @@ function Runtime.new(options)
   opts=options or {}, map=Map.new(),clock=0,stepcount=0,
   current_mod=nil,scheduled={},nextTask=0,
   registry={nodes={},items={},tools={},craftitems={},
-    entities={},aliases={},crafts={},abms={},lbms={}},
+    entities={},aliases={},crafts={},abms={},lbms={},
+    biomes={},ores={},decorations={}},
   callbacks={globalstep={},generated={},mods_loaded={},
     on_placenode={},on_dignode={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={}},
@@ -38,6 +40,7 @@ function Runtime.new(options)
  self.api=api
  self.map.registry=self.registry.items
  self.crafting=Crafting.new(self.registry.items,self.registry.aliases)
+ self.content=Voxel.ContentIDs.new()
  api.registered_nodes=self.registry.nodes
  api.registered_items=self.registry.items
  api.registered_entities=self.registry.entities
@@ -46,6 +49,54 @@ function Runtime.new(options)
  api.registered_craftitems=self.registry.craftitems
  api.registered_abms=self.registry.abms
  api.registered_lbms=self.registry.lbms
+ api.registered_biomes=self.registry.biomes
+ api.registered_ores=self.registry.ores
+ api.registered_decorations=self.registry.decorations
+ api.CONTENT_AIR=0
+ api.CONTENT_IGNORE=127
+ local biomeIds,biomeNames,nextBiomeId={}, {},1
+ function api.get_content_id(name)
+  assert(type(name)=='string','content name must be string')
+  local visited={}
+  while self.registry.aliases[name] and not visited[name] do
+   visited[name]=true
+   name=self.registry.aliases[name]
+  end
+  return self.content:get_id(name)
+ end
+ function api.get_name_from_content_id(id)
+  return self.content:get_name(id)
+ end
+ function api.get_voxel_manip(minp,maxp)
+  assert(minp and maxp,
+   'this Lua prototype requires explicit VoxelManip bounds')
+  local manip=Voxel.VoxelManip.new(self.map,self.content)
+  local a,b=manip:read_from_map(minp,maxp)
+  return manip,a,b
+ end
+ function api.register_biome(def)
+  assert(type(def)=='table' and type(def.name)=='string' and def.name~='',
+   'biome must be named')
+  assert(not biomeIds[def.name],'biome already registered')
+  local id=nextBiomeId
+  nextBiomeId=id+1
+  biomeIds[def.name]=id
+  biomeNames[id]=def.name
+  self.registry.biomes[def.name]=opts_copy(def)
+  return id
+ end
+ function api.get_biome_id(name) return biomeIds[name] end
+ function api.get_biome_name(id) return biomeNames[id] end
+ function api.register_ore(def)
+  assert(type(def)=='table' and type(def.ore)=='string',
+   'ore registration requires ore node')
+  self.registry.ores[#self.registry.ores+1]=opts_copy(def)
+ end
+ function api.register_decoration(def)
+  assert(type(def)=='table' and type(def.deco_type)=='string',
+   'decoration type required')
+  self.registry.decorations[#self.registry.decorations+1]=opts_copy(def)
+ end
  api.nodedef_default={stack_max=99}
  api.craftitemdef_default={stack_max=99}
  api.MAP_BLOCKSIZE=16
@@ -176,6 +227,7 @@ function Runtime.new(options)
    if def.pointable==nil then def.pointable=true end
    if def.buildable_to==nil then def.buildable_to=false end
    self.registry.nodes[name]=def
+   self.content:register(name)
   elseif kind=='tool' then
    def.stack_max=def.stack_max or 1
    self.registry.tools[name]=def

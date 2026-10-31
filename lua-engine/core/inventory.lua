@@ -80,6 +80,13 @@ function methods:set_list(name,values)
  self.lists[name]=result
  return true
 end
+function methods:set_lists(lists)
+ assert(type(lists)=='table','inventory lists must be a table')
+ for name,values in pairs(lists) do
+  self:set_list(name,values)
+ end
+ return true
+end
 function methods:is_empty(name)
  local cells=self.lists[name]
  if not cells then return true end
