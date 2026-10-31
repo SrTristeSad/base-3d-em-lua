@@ -46,11 +46,15 @@ function Runtime.new(options)
  api.registered_craftitems=self.registry.craftitems
  api.registered_abms=self.registry.abms
  api.registered_lbms=self.registry.lbms
+ api.nodedef_default={stack_max=99}
+ api.craftitemdef_default={stack_max=99}
  api.MAP_BLOCKSIZE=16
  api.MAX_MAP_GENERATION_LIMIT=31000
  api.features={hud_def_type_field=true}
  api.settings={}
  local settings=self.opts.settings or {}
+ local mapgen=self.opts.mapgen or {}
+ self.opts.mapgen=mapgen
  function api.settings:get(name)
   local v=settings[name]
   if v==nil then return nil end
@@ -124,9 +128,31 @@ function Runtime.new(options)
  end
  function api.get_worldpath() return self.opts.worldpath or 'worlds/lua-engine' end
  function api.get_mapgen_setting(name)
-  local v=self.opts.mapgen and self.opts.mapgen[name]
+  local v=mapgen[name]
   if v==nil then return nil end
   return tostring(v)
+ end
+ function api.set_mapgen_setting(name,value)
+  assert(type(name)=='string' and type(value)=='string',
+   'invalid mapgen setting')
+  mapgen[name]=value
+  return true
+ end
+ function api.get_game_info()
+  local info=self.opts.game_info or {}
+  return {path=info.path or '.',title=info.title or 'Lua Engine',
+   author=info.author or ''}
+ end
+ function api.get_version()
+  -- This is the Lua port version, never a forged Luanti binary version.
+  return {string='0.1.0-lua-port',major=0,minor=1,patch=0,
+    project='lua-engine'}
+ end
+ function api.global_exists(name)
+  assert(type(name)=='string','global name required')
+  -- The mod environment exposes only explicitly supported globals.
+  return type(self.opts.modglobals)=='table'
+    and self.opts.modglobals[name]~=nil or false
  end
  function api.get_gametime() return floor(self.clock) end
  function api.get_timeofday() return (self.clock/1200)%1 end
@@ -145,6 +171,7 @@ function Runtime.new(options)
   def.name=name
   def.groups=opts_copy(def.groups)
   if kind=='node' then
+   if def.stack_max==nil then def.stack_max=api.nodedef_default.stack_max end
    if def.walkable==nil then def.walkable=true end
    if def.pointable==nil then def.pointable=true end
    if def.buildable_to==nil then def.buildable_to=false end
@@ -153,6 +180,7 @@ function Runtime.new(options)
    def.stack_max=def.stack_max or 1
    self.registry.tools[name]=def
   else
+   if def.stack_max==nil then def.stack_max=api.craftitemdef_default.stack_max end
    self.registry.craftitems[name]=def
   end
   self.registry.items[name]=def

@@ -14,6 +14,7 @@ local function read(path)
 end
 local paths={
  mcl_colors='mods/CORE/mcl_colors',
+ mcl_init='mods/CORE/mcl_init',
  mcl_sounds='mods/CORE/mcl_sounds',
  mcl_autogroup='mods/CORE/mcl_autogroup',
  tga_encoder='mods/CORE/tga_encoder',
@@ -28,7 +29,9 @@ for name,path in pairs(paths) do
  targets[#targets+1]=def
 end
 local ordered=ModLoader.plan(targets)
-local rt=Engine.new({settings={mcl_keepInventory='false'}})
+local rt=Engine.new({settings={mcl_keepInventory='false'},
+ mapgen={seed=42,mg_name='v7',chunksize=5,mapgen_limit=31000},
+ game_info={path=root,title='VoxeLibre'}})
 local runner=Environment.new(rt)
 rt.opts.executeMod=function(path,name) return runner:executeMod(path,name) end
 rt.opts.modpaths={
@@ -44,6 +47,8 @@ if not success then
 end
 local g=runner.globals
 assert(g.mcl_colors.WHITE=='#FFFFFF')
+assert(type(g.mcl_vars)=='table' and type(g.mcl_vars.mg_nether_min)=='number')
+assert(rt.api.get_mapgen_setting('vl_world_version')=='0.93.0-SNAPSHOT')
 local song=g.mcl_sounds.node_sound_stone_defaults({})
 assert(song.footstep.name=='default_hard_footstep')
 g.mcl_autogroup.register_diggroup('test_mining',{levels={'iron','gold'}})
@@ -65,11 +70,17 @@ print(('VOXELIBRE REAL MODS PASS: %d modules, %d source files, %d registered com
 
 -- Probe an actual foundational mod in another environment.
 -- A failure here is diagnostic, not a false claim that VoxeLibre runs.
-local probe=Engine.new({mapgen={seed=42,mg_name='v7',chunksize=5,mapgen_limit=31000}})
+local probe=Engine.new({mapgen={seed=42,mg_name='v7',chunksize=5,mapgen_limit=31000},
+ game_info={path=root,title='VoxeLibre'}})
 local pe=Environment.new(probe)
 probe.opts.executeMod=function(path,name) return pe:executeMod(path,name) end
-probe.opts.modpaths={mcl_init=root..'/mods/CORE/mcl_init'}
+probe.opts.modpaths={mcl_init=root..'/mods/CORE/mcl_init',
+ mcl_util=root..'/mods/CORE/mcl_util',
+ vl_unittests=root..'/mods/CORE/vl_unittests'}
 local ok,err=pcall(probe.loadMod,probe,'mcl_init',probe.opts.modpaths.mcl_init)
+if ok then
+ ok,err=pcall(probe.loadMod,probe,'mcl_util',probe.opts.modpaths.mcl_util)
+end
 local report={
  '# VoxeLibre real Lua mod boot — Fase 4','',
  'Executed source files from pinned VoxeLibre Git checkout, not simulations.','',
@@ -80,13 +91,13 @@ local report={
  '- Luanti source engine: **not used** in this integration test.',
  '- VoxeLibre gameplay: **NOT running** (only selected Lua modules loaded).',
  '',
- '## Next foundational mod: mcl_init',
+ '## Next foundational mod: mcl_util',
  '',
  ('- Probe outcome: **%s**'):format(ok and 'loaded' or 'blocked'),
  '- Diagnostic:',
  '',
  '```text',
- tostring(ok and 'mcl_init loaded in isolation; it does not prove complete game compatibility'
+ tostring(ok and 'mcl_init + mcl_util loaded in isolation; this does not prove complete game compatibility'
   or err):gsub('[\r\n]+',' '):sub(1,2000),
  '```',
  '',
@@ -96,4 +107,4 @@ if arg and arg[2] then
  local out=assert(io.open(arg[2],'wb'))
  out:write(table.concat(report,'\n')..'\n');out:close()
 end
-print('mcl_init probe: '..(ok and 'LOADED' or ('BLOCKED '..tostring(err):sub(1,210))))
+print('mcl_util probe: '..(ok and 'LOADED' or ('BLOCKED '..tostring(err):sub(1,210))))
