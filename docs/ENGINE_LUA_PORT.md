@@ -25,7 +25,8 @@ apenas por existir uma API com os mesmos nomes.
 | Compatibilidade com mods do VoxeLibre | **Não funcional ainda** |
 | VoxelManip, Mapgen, biomas, caves e iluminação Luanti | Ausentes |
 | ItemStack, InvRef, listas em nós, detached, metadados e save | **Parcial, testado** |
-| Craft real, desgaste por uso automático e callbacks de inventário | Ausentes |
+| Receitas shaped/shapeless, grupos, forno/combustível, devoluções | **Parcial, testado** |
+| Craft completo, toolrepair, callbacks e transações player | Pendentes |
 | Entidades em mundo, mobs e física completa | Ausentes |
 | Formspec, HUD, chat, multimídia, áudio | Ausentes |
 | Rede, persistência SQLite/LevelDB, servidor multiplayer | Ausentes |
@@ -41,6 +42,8 @@ apenas por existir uma API com os mesmos nomes.
 - `lua-engine/core/itemstack.lua`: valores `ItemStack` copiáveis e metadados.
 - `lua-engine/core/inventory.lua`: listas `InvRef` e inserção com sobras.
 - `lua-engine/core/modloader.lua`: leitura de `mod.conf`, ordenação por dependências e falha explícita.
+- `lua-engine/core/crafting.lua`: registro, consulta, escolha prioritária e execução atômica de receitas.
+- `scripts/audit_voxelibre_api.py`: inspeção estática das chamadas `core.*`/`minetest.*` no VoxeLibre; não mede paridade funcional.
 - `lua-engine/main.lua`: demo independente LÖVR para testarmos o motor.
 - `tests/lua_engine_core.lua`: regressões da API inicial.
 - `scripts/package_lua_engine.py`: gera `.lovr` autônomo.
@@ -62,8 +65,8 @@ terá de ser comprovada, e não pressuposta.
 
 ## Próximos marcos objetivos
 
-1. Concluir integração de `ItemStack`/`InvRef` com crafting real,
-   callbacks de movimentação entre inventários e interação com jogadores.
+1. Completar os callbacks de craft/inventário e toolrepair; conectar
+   o resultado da receita ao inventário do jogador e à interface.
 2. Loader real da árvore de 221 módulos do VoxeLibre, dependências
    e log de chamadas de API ainda não implementadas.
 3. Lua VoxelManip + geração/iluminação e mundos persistentes;

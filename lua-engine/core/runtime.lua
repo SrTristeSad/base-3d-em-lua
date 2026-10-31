@@ -4,6 +4,7 @@ local Map=require('core.map')
 local Vector=require('core.vector')
 local ItemStack=require('core.itemstack')
 local Inventory=require('core.inventory')
+local Crafting=require('core.crafting')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -33,6 +34,7 @@ function Runtime.new(options)
  local api={}
  self.api=api
  self.map.registry=self.registry.items
+ self.crafting=Crafting.new(self.registry.items,self.registry.aliases)
  api.registered_nodes=self.registry.nodes
  api.registered_items=self.registry.items
  api.registered_entities=self.registry.entities
@@ -121,7 +123,22 @@ function Runtime.new(options)
  end
  function api.register_craft(recipe)
   assert(type(recipe)=='table','craft recipe required')
-  self.registry.crafts[#self.registry.crafts+1]=recipe
+  local registered=self.crafting:register(recipe)
+  self.registry.crafts[#self.registry.crafts+1]=registered
+ end
+ function api.get_craft_result(input)
+  return self.crafting:result(input)
+ end
+ function api.get_craft_recipe(output)
+  return self.crafting:one_for(output)
+ end
+ function api.get_all_craft_recipes(output)
+  return self.crafting:all_for(output)
+ end
+ -- Project helper, not part of the Luanti API. Consume a single valid
+ -- crafting recipe only if the destination inventory can accept the output.
+ function api.lua_engine_craft_inventory(inv,source,destination,method)
+  return self.crafting:take(inv,source,destination,method)
  end
  function api.register_globalstep(callback)
   assert(type(callback)=='function')

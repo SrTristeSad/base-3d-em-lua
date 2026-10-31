@@ -37,6 +37,11 @@ a partir da raiz do repositório.
 - `get_meta`, `get_node_timer`, `find_nodes_in_area`;
 - `register_globalstep`, `after`, `register_abm`,
   `register_lbm`, `register_on_generated`;
+- `get_craft_result`, `get_craft_recipe` e `get_all_craft_recipes`;
+- receitas com formato, sem formato, grupos, forno, combustível e
+  recipientes retornáveis (subconjunto da API original);
+- crafting atômico no inventário de teste, sem consumir ingredientes
+  quando o destino não tem espaço;
 - `ItemStack` e `InvRef` (pilhas, metadados, desgaste,
   empilhamento por limite, busca, transferência e listas copiadas);
 - `get_meta(pos):get_inventory()` e inventários destacados;
@@ -53,9 +58,14 @@ a partir da raiz do repositório.
 
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
+A CI também gera um **relatório estático de APIs do VoxeLibre**
+que ainda faltam, sem tentar executar os mods. A presença de uma API
+no relatório não significa compatibilidade semântica completa.
+
 Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
 `tests/lua_engine_core.lua` e
-`tests/lua_engine_inventory_modloader.lua`.
+`tests/lua_engine_inventory_modloader.lua` e
+`tests/lua_engine_crafting.lua`.
 A demonstração gráfica precisa de hardware Vulkan e teste manual.
 
 O VoxeLibre integral continua disponível em `games/voxelibre/`
