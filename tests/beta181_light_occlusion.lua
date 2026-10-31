@@ -36,21 +36,21 @@ equal(light:blockLevel(2,15,0),12,'open doorway')
 fake:set(1,15,0,3,light)
 equal(light:blockLevel(2,15,0),0,'doorway blocked again')
 -- A difusao encontra um caminho que contorna um unico bloco opaco.
-blocks={}
 fake:set(0,15,0,0,light)
+blocks={}
 fake:set(0,15,0,52,light)
 fake:set(1,15,0,3,light)
 equal(light:blockLevel(2,15,0),10,'detour around stone')
 fake:set(1,15,0,0,light)
 equal(light:blockLevel(2,15,0),12,'straight path restored')
 -- Negativos e fronteiras de chunks (x=-1 / x=0).
-blocks={}
 fake:set(0,15,0,0,light)
+blocks={}
 fake:set(-1,15,0,52,light)
 equal(light:blockLevel(0,15,0),13,'crossing chunk boundary')
 fake:set(0,15,0,3,light)
 equal(light:blockLevel(0,15,0),0,'stone on boundary')
-equal(light:blockLevel(1,15,0),11,'route around boundary block')
+equal(light:blockLevel(1,15,0),10,'route around boundary block')
 fake:set(-1,15,0,0,light)
 equal(light.sourceCount,0)
 equal(light:blockLevel(1,15,0),0,'removed torch')
