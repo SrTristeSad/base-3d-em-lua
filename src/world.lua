@@ -3,6 +3,7 @@
 local Gen=require('src.worldgen')
 local ClassicTerrain=require('src.classic_terrain')
 local BetaTerrain=require('src.beta181_terrain')
+local Furnace=require('src.beta181_furnace')
 local World={}
 World.__index=World
 World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
@@ -35,6 +36,7 @@ function World.new(options)
  options=options or {}
  local w=setmetatable({
   blocks={}, -- compatibilidade de leitura, nunca contem o mundo inteiro
+  furnaces={}, -- máquinas persistentes do perfil Beta 1.8.1
   cache={},edits={},editsByChunk={},dirty={},
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   savedSlots=nil,savedCraft2=nil,savedCraft3=nil,savedCursor=nil,
@@ -226,7 +228,15 @@ end
 function World:set(x,y,z,id)
  if not self:within(x,y,z) or y==self.YMIN then return false end
  if type(id)~='number' or id~=floor(id) or id<0 or id>self.MAX_ID then return false end
- if self:get(x,y,z)==30 or self:get(x,y,z)==id then return false end
+ local previous=self:get(x,y,z)
+ if previous==30 or previous==id then return false end
+ if self.generatorVersion=='beta181' and previous==51 and id~=51 then
+  local station=self.furnaces[key(x,y,z)]
+  -- Não descartar inventário de fornalha silenciosamente: enquanto
+  -- houver itens dentro é necessário esvaziá-la antes de desmontar.
+  if station and not station:isEmpty() then return false end
+  self.furnaces[key(x,y,z)]=nil
+ end
  local cx,cy,cz=floor(x/16),floor(y/16),floor(z/16)
  local ck=chunkKey(cx,cy,cz)
  local i=idxWorld(x,y,z)
@@ -242,6 +252,21 @@ function World:set(x,y,z,id)
  if z%16==0 then self.dirty[chunkKey(cx,cy,cz-1)]=true end
  if z%16==15 then self.dirty[chunkKey(cx,cy,cz+1)]=true end
  return true
+end
+function World:getFurnace(x,y,z)
+ if self.generatorVersion~='beta181' or not self:within(x,y,z)
+   or self:get(x,y,z)~=51 then return nil end
+ local k=key(x,y,z)
+ if not self.furnaces[k] then self.furnaces[k]=Furnace.new() end
+ return self.furnaces[k]
+end
+function World:updateFurnaces(dt)
+ if self.generatorVersion~='beta181' then return 0 end
+ local total=0
+ for _,station in pairs(self.furnaces) do
+  total=total+station:update(dt)
+ end
+ return total
 end
 function World:prune(px,py,pz,horizontal,vertical)
  local cx,cy,cz=floor(px/16),floor(py/16),floor(pz/16)
@@ -404,6 +429,35 @@ function World:load()
     self.savedCursor={id=cursorId,count=cursorCount,damage=cursorDamage}
    end
   end
+  if self.generatorVersion=='beta181' then
+   local fx,fy,fz,burn,burnTotal,progress=
+     line:match('^FURNACE (%-?%d+) (%-?%d+) (%-?%d+) ([%d%.]+) ([%d%.]+) ([%d%.]+)$')
+   if fx then
+    fx,fy,fz=tonumber(fx),tonumber(fy),tonumber(fz)
+    if self:within(fx,fy,fz) then
+     local k=key(fx,fy,fz)
+     self.furnaces[k]=self.furnaces[k] or Furnace.new()
+     local f=self.furnaces[k]
+     f.burn=max(0,min(1000,tonumber(burn) or 0))
+     f.burnTotal=max(0,min(1000,tonumber(burnTotal) or 0))
+     f.progress=max(0,min(10,tonumber(progress) or 0))
+    end
+   end
+   local ix,iy,iz,slot,id,count,damage=
+     line:match('^FURNACEITEM (%-?%d+) (%-?%d+) (%-?%d+) (%d+) (%d+) (%d+) (%d+)$')
+   if ix then
+    ix,iy,iz,slot,id,count,damage=
+      tonumber(ix),tonumber(iy),tonumber(iz),tonumber(slot),
+      tonumber(id),tonumber(count),tonumber(damage)
+    if self:within(ix,iy,iz) and slot>=1 and slot<=3
+       and id>=1 and id<=4095 and count>=1 and count<=64
+       and damage>=0 and damage<=65535 then
+     local k=key(ix,iy,iz)
+     self.furnaces[k]=self.furnaces[k] or Furnace.new()
+     self.furnaces[k].slots[slot]={id=id,count=count,damage=damage}
+    end
+   end
+  end
   local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
   x,y,z,id=tonumber(x),tonumber(y),tonumber(z),tonumber(id)
   if x and y and z and id and self:within(x,y,z) and id<=self.MAX_ID then
@@ -453,6 +507,25 @@ function World:save(player,classic)
  for _,k in ipairs(keys) do
   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   lines[#lines+1]=('BLOCK %s %s %s %d'):format(x,y,z,self.edits[k])
+ end
+ if self.generatorVersion=='beta181' then
+  local furnaceKeys={}
+  for k in pairs(self.furnaces) do furnaceKeys[#furnaceKeys+1]=k end
+  table.sort(furnaceKeys)
+  for _,k in ipairs(furnaceKeys) do
+   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+   local f=self.furnaces[k]
+   -- As coordenadas são verificadas sem gerar seções adicionais.
+   lines[#lines+1]=('FURNACE %s %s %s %.3f %.3f %.3f'):format(
+      x,y,z,f.burn,f.burnTotal,f.progress)
+   for i=1,3 do
+    local item=f.slots[i]
+    if item then
+     lines[#lines+1]=('FURNACEITEM %s %s %s %d %d %d %d'):format(
+       x,y,z,i,item.id,item.count,item.damage or 0)
+    end
+   end
+  end
  end
  return lovr.filesystem.write(self.SAVE,table.concat(lines,'\n')..'\n')
 end

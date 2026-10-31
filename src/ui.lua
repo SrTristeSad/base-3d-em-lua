@@ -90,6 +90,12 @@ local function invSlots(state,w,h)
  for n=1,9 do
   slot('inventory',n,w/2+(n-5)*55,h/2+183)
  end
+ if state=='furnace' then
+  slot('furnace',1,w/2-180,h/2-149)
+  slot('furnace',2,w/2-180,h/2-81)
+  slot('furnace',3,w/2+98,h/2-116)
+  return cells
+ end
  local size=state=='workbench' and 3 or 2
  local left=w/2-240
  local top=state=='workbench' and h/2-169 or h/2-155
@@ -102,7 +108,8 @@ local function invSlots(state,w,h)
  return cells
 end
 function UI.inventoryHit(state,x,y,w,h)
- if state~='inventory' and state~='workbench' then return nil end
+ if state~='inventory' and state~='workbench'
+    and state~='furnace' then return nil end
  for _,cell in ipairs(invSlots(state,w,h)) do
   if inside(cell,x,y) then return cell.section,cell.index end
  end
@@ -162,6 +169,59 @@ local function drawInventory(pass,state,classic,w,h)
  end
 end
 
+local function drawFurnace(pass,classic,w,h)
+ local f=classic and classic.openFurnace
+ rect(pass,w/2,h/2,w,h,.035,.05,.07,.89)
+ rect(pass,w/2,h/2,650,530,.16,.18,.21,.99)
+ label(pass,'FORNALHA — FUNDIÇÃO E COZIMENTO',w/2,h/2-231,27,1,.86,.58)
+ label(pass,'E ou ESC: voltar | Shift+clique: transferencia',w/2,h/2-199,
+  15,.82,.88,.92)
+ local mx,my=lovr.system.getMousePosition()
+ for _,cell in ipairs(invSlots('furnace',w,h)) do
+  local stack
+  if cell.section=='inventory' then
+   stack=classic:getSlot(cell.index)
+  elseif f then stack=f.slots[cell.index] end
+  local hover=inside(cell,mx,my)
+  rect(pass,cell.x,cell.y,cell.w,cell.h,
+    hover and .45 or .28,hover and .48 or .31,hover and .53 or .36,1)
+  if stack then
+   label(pass,classic:label(stack.id):sub(1,11),
+     cell.x,cell.y-7,11,1,1,.83)
+   label(pass,tostring(stack.count),cell.x+14,cell.y+14,16,.94,.96,1)
+  end
+ end
+ label(pass,'MATERIAL',w/2-180,h/2-190,15,.92,.95,1)
+ label(pass,'COMBUSTIVEL',w/2-180,h/2-42,15,.92,.95,1)
+ label(pass,'SAIDA',w/2+98,h/2-159,15,.92,.95,1)
+ local burning=f and f:burnRatio() or 0
+ local cooking=f and f:progressRatio() or 0
+ rect(pass,w/2-31,h/2-132,112,17,.12,.13,.14,.97)
+ if cooking>0 then
+  rect(pass,w/2-84+53*cooking,h/2-132,106*cooking,12,
+    .95,.67,.30,1)
+ end
+ label(pass,('COZIMENTO %d%%'):format(math.floor(cooking*100)),
+   w/2-26,h/2-101,14,.94,.91,.85)
+ rect(pass,w/2-180,h/2-109,48,11,.16,.16,.16)
+ if burning>0 then
+  rect(pass,w/2-202+22*burning,h/2-109,44*burning,9,
+    1,.45,.17)
+ end
+ label(pass,('FOGO %d%%'):format(math.floor(burning*100)),
+   w/2-180,h/2-61,13,.98,.81,.57)
+ label(pass,'MOCHILA — 27 ESPACOS',w/2,h/2-30,16,.91,.94,.99)
+ label(pass,'BARRA RAPIDA — 9 ESPACOS',w/2,h/2+139,
+  16,.91,.94,.99)
+ label(pass,'Esquerdo: pegar/trocar | Direito: dividir/uma unidade',
+  w/2,h/2+237,14,.81,.87,.92)
+ if classic.cursor then
+  rect(pass,mx+60,my-22,136,42,.12,.14,.18,.97)
+  label(pass,classic:label(classic.cursor.id):sub(1,17)..
+    ' x'..classic.cursor.count,mx+60,my-22,13,1,.98,.76)
+ end
+end
+
 function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,creatures,
   mesher,showStats,menu)
   local w,h=pass:getDimensions()
@@ -172,6 +232,9 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
   pass:setMaterial()
   if state=='inventory' or state=='workbench' then
     drawInventory(pass,state,classic,w,h)
+    return
+  elseif state=='furnace' then
+    drawFurnace(pass,classic,w,h)
     return
   end
   if state=='playing' then

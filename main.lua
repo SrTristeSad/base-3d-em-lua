@@ -252,6 +252,11 @@ function lovr.load()
 end
 
 function lovr.update(dt)
+  if world and world.generatorVersion=='beta181'
+     and (state=='playing' or state=='inventory'
+       or state=='workbench' or state=='furnace') then
+    world:updateFurnaces(dt)
+  end
   if state=='playing' then
     player:update(dt,world,classic)
     if classic.profile=='beta181' and classic.mode=='survival' then
@@ -323,7 +328,8 @@ function lovr.mousemoved(x,y,dx,dy)
 end
 
 function lovr.mousepressed(x,y,button)
-  if state=='inventory' or state=='workbench' then
+  if state=='inventory' or state=='workbench'
+     or state=='furnace' then
     local w,h=lovr.system.getWindowDimensions()
     local section,index=UI.inventoryHit(state,x,y,w,h)
     if section and classic and classic.profile=='beta181' then
@@ -359,6 +365,13 @@ function lovr.mousepressed(x,y,button)
         if hit and hit.id==50 then
           setState('workbench')
           return
+        elseif hit and hit.id==51 then
+          local station=world:getFurnace(hit.x,hit.y,hit.z)
+          if station then
+            classic.openFurnace=station
+            setState('furnace')
+            return
+          end
         end
       end
       if classic.profile=='beta181' and classic.mode=='survival'
@@ -403,9 +416,10 @@ function lovr.textinput(text)
 end
 
 function lovr.keypressed(key)
- if state=='inventory' or state=='workbench' then
+ if state=='inventory' or state=='workbench' or state=='furnace' then
   if key=='escape' or key=='e' then
     classic:close()
+    classic.openFurnace=nil
     setState('playing')
   end
   return

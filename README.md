@@ -1,104 +1,100 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 3)
+# Base 3D em Lua — Beta 1.8.1 (Fase 4)
 
-Reimplementação **independente** da experiência de Minecraft Java
-Beta 1.8.1, desenvolvida em **Lua + LÖVR 0.19**. Código e arte próprios:
-não redistribui Minecraft ou recursos da Mojang. **Ainda não é uma
-reprodução 1:1**: os algoritmos de mundo, IA, física e aparência estão
-em diferentes estágios de implementação.
+Reimplementação independente em **Lua + LÖVR 0.19**, usando a
+experiência da **Minecraft Java Beta 1.8.1** como referência técnica.
+Não redistribui recursos da Mojang nem pretende representar um produto
+oficial. **Ainda não é uma cópia 1:1**: muitos sistemas continuam
+experimentais ou ausentes.
 
-## Baixar e testar
+## Download
 
-Abra o [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions)
-e escolha a última execução com **sucesso**. No final da página,
-baixe `Base3D-Beta181-Survival-Tools-Windows-EXE` (ZIP) ou
-`Base3D-Beta181-Survival-Tools-LOVR` (.lovr).
+Na [página do GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions),
+abra a execução mais recente aprovada. Baixe um dos artefatos:
 
-Extraia o ZIP inteiro, inclusive as DLLs, e execute
-`Base3D-Beta181-Survival-Tools.exe`. Requer Windows x64 com Vulkan.
-O pacote automatizado compila e testa lógica Lua, **não** valida
-a renderização ou os controles em uma GPU real.
+- `Base3D-Beta181-Furnace-Smelting-Windows-EXE` — Windows 64 bits.
+- `Base3D-Beta181-Furnace-Smelting-LOVR` — projeto `.lovr`.
 
-## Jogar — Fases 1 a 3
+Extraia o ZIP Windows inteiro (inclusive as DLLs) e execute
+`Base3D-Beta181-Furnace-Smelting.exe`. Requer GPU/driver com Vulkan.
+A CI valida sintaxe, lógica e empacotamento, **não a execução real na GPU**.
 
-No menu, **CRIAR NOVO MUNDO**. Informe uma semente (*seed*)
-numérica ou textual e selecione **Sobrevivência**. Novos mundos não
-aceitam geração por imagem; mundos antigos continuam disponíveis.
+## Fase 4: fornalha funcional
 
-| Controle | Ação |
+1. Entre em um mundo Beta 1.8.1, preferencialmente Sobrevivência.
+2. Em uma bancada 3×3, disponha **oito pedregulhos**, deixando o centro
+   vazio. Você receberá uma fornalha.
+3. Coloque-a no terreno e use **clique direito** para abrir sua interface.
+4. Arraste **minério de ferro**, **minério de ouro**, **areia** ou
+   **carne crua** para o espaço **MATERIAL**.
+5. Arraste **carvão**, **troncos**, **tábuas**, **gravetos** ou uma
+   **bancada** para o espaço **COMBUSTÍVEL**.
+6. Aguarde **10 segundos por item**. Uma unidade de carvão dura
+   **80 segundos** (até oito fundições). Retire os produtos à direita.
+
+A fornalha funciona mesmo com a interface fechada enquanto você
+permanece no mundo. A queima do combustível continua mesmo quando a
+entrada acaba, desperdiçando o restante, como no jogo de referência.
+O combustível é consumido no início da queima.
+
+| Entrada | Produto |
 | --- | --- |
-| WASD, mouse, Espaço | Mover, olhar, pular |
-| Shift | Correr enquanto a fome estiver acima de 6 |
-| **Segurar esquerdo** | **Minerar até completar a barra** |
-| **Segurar direito** com alimento na mão | **Comer em 1,6 s** |
+| Minério de ferro | Lingote de ferro |
+| Minério de ouro | Lingote de ouro |
+| Areia | Vidro |
+| Porco cru | Porco assado |
+| Carne bovina crua | Bife |
+| Frango cru | Frango assado |
+
+**Progresso, combustível restante e conteúdo dos três slots são
+salvos individualmente para cada fornalha.** Para evitar perda de
+materiais, temporariamente não é permitido quebrá-la enquanto
+possuir itens. Esvazie-a primeiro.
+
+Os lingotes de ferro agora permitem fabricar **picaretas,
+espadas, machados e pás de ferro** na bancada 3×3. A fundição de ouro
+também funciona. A progressão completa ainda exige sistemas adicionais.
+
+## Controles das fases anteriores
+
+| Controle | Função |
+| --- | --- |
+| WASD, mouse, Espaço | Mover, olhar e pular |
+| Shift | Corrida, limitada por fome |
+| Segurar esquerdo | Minerar progressivamente |
+| Segurar direito com comida | Comer após 1,6 segundo |
 | Direito sobre bancada | Crafting 3×3 |
-| E | Inventário 9+27 e crafting 2×2 |
-| 1–9 / scroll | Slot selecionado da barra rápida |
-| Clique esquerdo no inventário | Pegar ou colocar pilha |
-| Clique direito no inventário | Dividir ou depositar uma unidade |
-| Shift + clique no inventário | Transferência/fabricação rápida |
-| F3 | Estatísticas de chunks |
-| F5 | Primeira/terceira pessoa |
-| F6 | Salvar |
-| Esc | Pausar ou fechar interface |
+| Direito sobre fornalha | Abrir fundição |
+| E | Inventário 36 slots e crafting 2×2 |
+| Esquerdo/direito nos slots | Mover pilha, dividir ou colocar um item |
+| Shift + clique | Transferir itens entre slots |
+| 1–9 / scroll | Selecionar slot rápido |
+| F3 / F5 / F6 | Diagnóstico, câmera e salvar |
+| Esc | Fechar interface ou pausar |
 
-### Mineração e ferramentas — Fase 3
+Mundos novos usam somente **seeds**. Imagens foram retiradas da criação;
+saves antigos, inclusive do perfil Classic 0.30, permanecem legíveis.
 
-- Mineração progressiva enquanto o mouse estiver pressionado.
-  Mudar o alvo, a ferramenta ou soltar o botão interrompe o progresso.
-- Ferramentas de madeira, pedra e ferro diferem em **velocidade**.
-  Madeira: **59 usos**; pedra: **131**; ferro: **250**;
-  diamante: **1561**. O desgaste é salvo por ferramenta.
-- Minérios exigem níveis adequados de picareta para oferecer drops.
-  Sem a ferramenta apropriada, o bloco pode quebrar sem coletar minério.
-- Primeiras receitas para pás e ferramentas de ferro e diamante.
-  **Ainda não existe um forno de fundição funcional.** A progressão
-  completa em Sobrevivência ainda não é possível.
+## Limitações conhecidas
 
-### Fome e alimentação — Fase 3
+As gerações de biomas, cavernas, estruturas e minérios ainda não são
+idênticas às mesmas seeds da Beta. Faltam iluminação, dia/noite,
+IA de mobs historicamente fiel, Nether, camas, líquidos dinâmicos,
+sistema completo de combate e várias receitas e itens da época.
 
-- Dez ícones de fome, **20 pontos**, saturação e exaustão.
-- Comer exige segurar o botão direito **1,6 segundo** e possuir fome.
-  Porcos deixam **carne crua**, que restaura **3 pontos de fome**.
-- Corrida consome mais energia; não é possível correr com fome ≤6.
-  Regeneração gradual de vida se fome ≥18; fome zero causa dano.
-  Nesta versão experimental, a dificuldade é equivalente ao *Normal*
-  para fome: o dano para em um ponto de vida.
-- O status de fome/vida e a condição de cada ferramenta persistem
-  nos arquivos do mundo. Saves mais antigos sem esses campos são aceitos.
-- Ainda não há animações de alimentação, ícones pixel-perfect,
-  efeitos especiais e toda a lista de alimentos históricos.
-
-### Recursos anteriores
-
-- Overworld com oceanos, rios, planícies, florestas, deserto,
-  taiga, pântanos, montanhas, cavernas, árvores e seis minérios.
-- Altura **Y=0–127**; água dos mares até **Y=62**.
-- Inventário **36 slots**, crafting 2×2 e bancada 3×3;
-  tábuas, gravetos, picaretas, machados, espadas, forno, tochas
-  e alguns alimentos/receitas.
-- Saves `beta181` separados dos mundos Classic 0.30 anteriores.
-
-## Pendências importantes
-
-O projeto **não** reproduz ainda seeds idênticas às originais,
-vilas, ravinas/estruturas completas, geração e mob spawning fiéis,
-IA de criaturas, iluminação, clima, líquidos dinâmicos, Nether,
-camas, fornalha com combustível, equipamentos completos ou
-mecânicas de combate e física totalmente fiéis.
-
-As futuras mudanças de [FUTURO.md](FUTURO.md), começando por
-**Cubic Chunks**, serão implementadas somente depois da
-reconstrução do jogo base.
+A interface da fornalha usa uma arte original simplificada em vez da
+interface proprietária do Minecraft. Os blocos têm **IDs internos
+próprios**, diferentes dos IDs históricos em vários casos.
 
 ## Documentação
 
-- [Relatório técnico — Fase 3](docs/FASE_03_BETA181.md)
-- [Inventário e crafting — Fase 2](docs/FASE_02_BETA181.md)
-- [Terreno — Fase 1](docs/FASE_01_BETA181.md)
-- [Planejamento Beta 1.8.1](docs/BASELINE_BETA_181.md)
-- [FUTURO.md](FUTURO.md) — decisões e ideias da comunidade
+- [Relatório técnico — Fase 4: fornalhas](docs/FASE_04_BETA181.md)
+- [Fase 3: mineração e fome](docs/FASE_03_BETA181.md)
+- [Fase 2: inventário](docs/FASE_02_BETA181.md)
+- [Fase 1: terreno](docs/FASE_01_BETA181.md)
+- [Plano de reconstrução](docs/BASELINE_BETA_181.md)
+- [FUTURO.md](FUTURO.md) — **Cubic Chunks somente depois** da
+  reconstrução do jogo-base; outras ideias ainda em análise.
 
-Minecraft é marca de seus titulares. Este projeto não é oficial
-nem associado à Mojang/Microsoft. Uma futura publicação comercial
-precisará utilizar identidade e elementos expressivos próprios
-e de avaliação jurídica especializada.
+Este projeto não é afiliado ou endossado pela Mojang/Microsoft.
+Antes de eventual distribuição comercial, a identidade visual e
+outros elementos expressivos exigem revisão de direitos autorais.

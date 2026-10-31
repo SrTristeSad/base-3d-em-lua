@@ -23,7 +23,7 @@ Beta.labels={
  [271]='Machado de madeira',[272]='Espada de pedra',
  [274]='Picareta de pedra',[275]='Machado de pedra',
  [296]='Trigo',[297]='Pão',[319]='Porco cru',[320]='Porco assado',
- [260]='Maçã',[256]='Pá de ferro',[257]='Picareta de ferro',
+ [266]='Lingote de ouro',[260]='Maçã',[256]='Pá de ferro',[257]='Picareta de ferro',
  [258]='Machado de ferro',[265]='Lingote de ferro',
  [267]='Espada de ferro',[269]='Pá de madeira',[273]='Pá de pedra',
  [276]='Espada de diamante',[277]='Pá de diamante',
@@ -112,6 +112,9 @@ function Beta:getArea(section)
  if section=='inventory' then return self.slots,36 end
  if section=='small' then return self.craft2,4 end
  if section=='table' then return self.craft3,9 end
+ if section=='furnace' and self.openFurnace then
+   return self.openFurnace.slots,3
+ end
  return nil,0
 end
 function Beta:count(id)
@@ -256,6 +259,7 @@ local function validSlot(section,index)
  return section=='inventory' and index>=1 and index<=36
    or section=='small' and index>=1 and index<=4
    or section=='table' and index>=1 and index<=9
+   or section=='furnace' and index>=1 and index<=3
 end
 function Beta:shiftClick(section,index)
  local area=self:getArea(section)
@@ -279,6 +283,9 @@ function Beta:clickSlot(section,index,button,shift)
  if not area or type(index)~='number' or index%1~=0 or
    not validSlot(section,index) then return false end
  if button~=1 and button~=2 then return false end
+ if section=='furnace' and index==3 then
+   return self.openFurnace:takeOutput(self,button,shift)
+ end
  if shift and not self.cursor then return self:shiftClick(section,index) end
  local current=area[index]
  local held=self.cursor
@@ -294,6 +301,9 @@ function Beta:clickSlot(section,index,button,shift)
    if current.count==0 then area[index]=nil end
   end
   return true
+ end
+ if section=='furnace' and not self.openFurnace.accepts(index,held.id) then
+  return false
  end
  if not current then
   local n=button==1 and held.count or 1
