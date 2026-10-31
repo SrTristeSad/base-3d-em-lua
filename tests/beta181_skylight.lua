@@ -32,8 +32,7 @@ eq(light:skyLight(0,10,0),15,'sunlight restored after mining')
 blocks={}
 light.skyColumns={}
 light.skyColumnCount=0
-light.skyCache={}
-light.skyCacheCount=0
+light:clearSkyCache()
 for x=-2,2 do for z=-2,2 do
  fake:set(x,8,z,3)
  fake:set(x,12,z,3)
@@ -63,8 +62,7 @@ eq(light:skyLight(0,10,0),0,'doorway sealed')
 blocks={}
 light.skyColumns={}
 light.skyColumnCount=0
-light.skyCache={}
-light.skyCacheCount=0
+light:clearSkyCache()
 fake:set(-1,25,0,3)
 eq(light:skyTop(-1,0),25,'negative border roof')
 fake:set(-1,25,0,0)

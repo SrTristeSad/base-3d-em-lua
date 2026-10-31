@@ -13,7 +13,7 @@ validar as mecânicas e a aparência.** Já existe um perfil Beta 1.8.1
 experimental no projeto, mas geração, interface e jogabilidade
 ainda não são reproduções completas da versão original.
 
-## Status de implementação — Fases 1 a 7
+## Status de implementação — Fases 1 a 8
 
 A fundação do Overworld está integrada ao jogo com o perfil `beta181`:
 biomas básicos, terreno, mar Y=62, altura 0..127 e minérios. Esta
@@ -56,6 +56,11 @@ difusão limitada da luz através de corredores, com cache e
 invalidação de malhas após construção e mineração.
 
 [Relatório da Fase 7](FASE_07_BETA181.md).
+
+**Fase 8:** cache solar por seção, descarte LRU, invalidação
+horizontal localizada e métricas de desempenho no F3.
+
+[Relatório técnico da Fase 8](FASE_08_BETA181.md).
 
 ## Fase A — baseline Beta 1.8.1
 

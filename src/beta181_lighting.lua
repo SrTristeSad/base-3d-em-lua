@@ -10,12 +10,17 @@ Lighting.EMITTERS={[52]=14,[29]=15}
 local floor,max,min,abs=math.floor,math.max,math.min,math.abs
 local function key(cx,cy,cz) return cx..':'..cy..':'..cz end
 local function coord(x,y,z) return x..','..y..','..z end
+local function sectionIndex(x,y,z)
+ return (y%16)*256+(z%16)*16+(x%16)+1
+end
 local function clamp(x,a,b) return max(a,min(b,x)) end
 function Lighting.new(world)
  return setmetatable({world=world,time=Lighting.INITIAL_TIME,day=0,
   buckets={},sources={},sourceCount=0,
-  skyColumns={},skyColumnCount=0,skyCache={},skyCacheCount=0,
-  skyCacheLimit=12000,skyColumnLimit=10000},Lighting)
+  skyColumns={},skyColumnCount=0,
+  skySections={},skySectionCount=0,skyCacheCount=0,
+  skyCacheLimit=12000,skyColumnLimit=10000,
+  skyCacheClock=0,skyCacheHits=0,skyCacheMisses=0,skyBfsNodes=0},Lighting)
 end
 function Lighting:setTime(value,day)
  if type(value)~='number' or value~=value or value==math.huge
@@ -184,6 +189,67 @@ function Lighting:blockLevel(x,y,z)
  end end end
  return level
 end
+-- Cache dividido por secoes 16x16x16. Indices numericos dos voxels
+-- e descarte LRU por secao evitam apagar toda a regiao ativa.
+function Lighting:clearSkyCache()
+ self.skySections={}
+ self.skySectionCount=0
+ self.skyCacheCount=0
+ self.skyCacheClock=0
+end
+function Lighting:dropSkySection(k)
+ local section=self.skySections[k]
+ if not section then return false end
+ self.skyCacheCount=max(0,self.skyCacheCount-section.count)
+ self.skySectionCount=max(0,self.skySectionCount-1)
+ self.skySections[k]=nil
+ return true
+end
+function Lighting:getCachedSky(x,y,z)
+ local section=self.skySections[key(floor(x/16),floor(y/16),floor(z/16))]
+ if not section then return nil end
+ local value=section.values[sectionIndex(x,y,z)]
+ if value~=nil then
+  self.skyCacheClock=self.skyCacheClock+1
+  section.stamp=self.skyCacheClock
+  self.skyCacheHits=self.skyCacheHits+1
+ end
+ return value
+end
+function Lighting:storeCachedSky(x,y,z,value)
+ local cx,cy,cz=floor(x/16),floor(y/16),floor(z/16)
+ local k=key(cx,cy,cz)
+ local section=self.skySections[k]
+ if not section then
+  section={values={},count=0,cx=cx,cy=cy,cz=cz,stamp=0}
+  self.skySections[k]=section
+  self.skySectionCount=self.skySectionCount+1
+ end
+ local index=sectionIndex(x,y,z)
+ if section.values[index]==nil then
+  section.count=section.count+1
+  self.skyCacheCount=self.skyCacheCount+1
+ end
+ section.values[index]=value
+ self.skyCacheClock=self.skyCacheClock+1
+ section.stamp=self.skyCacheClock
+ local capacity=max(1,self.skyCacheLimit)
+ while self.skyCacheCount>capacity and self.skySectionCount>1 do
+  local victim,oldest=nil,math.huge
+  for candidate,record in pairs(self.skySections) do
+   if candidate~=k and record.stamp<oldest then
+    victim,oldest=candidate,record.stamp
+   end
+  end
+  if not victim then break end
+  self:dropSkySection(victim)
+ end
+end
+function Lighting:skyCacheStats()
+ return {entries=self.skyCacheCount,sections=self.skySectionCount,
+  hits=self.skyCacheHits,misses=self.skyCacheMisses,
+  bfsNodes=self.skyBfsNodes}
+end
 -- Topo opaco real de cada coluna, incluindo edicoes de jogadores.
 -- Cache indexado por coordenadas absolutas e invalidado por edicoes.
 function Lighting:skyTop(x,z)
@@ -236,11 +302,15 @@ function Lighting:skyLight(x,y,z)
  if y>world.YMAX then
   return world:within(x,world.YMAX,z) and 15 or 0
  end
- if not world:within(x,y,z) or
-    not Lighting.transmits(world:get(x,y,z)) then return 0 end
- local position=coord(x,y,z)
- local previous=self.skyCache[position]
+ if not world:within(x,y,z) then return 0 end
+ local previous=self:getCachedSky(x,y,z)
  if previous~=nil then return previous end
+ self.skyCacheMisses=self.skyCacheMisses+1
+ if not Lighting.transmits(world:get(x,y,z)) then
+  self:storeCachedSky(x,y,z,0)
+  return 0
+ end
+ local position=coord(x,y,z)
  local answer=0
  if self:skyVisible(x,y,z) then
   answer=15
@@ -251,6 +321,7 @@ function Lighting:skyLight(x,y,z)
   while head<=#queue do
    local cell=queue[head]
    head=head+1
+   self.skyBfsNodes=self.skyBfsNodes+1
    local distance=cell[4]+1
    if distance<=14 then
     for i=1,6 do
@@ -275,12 +346,7 @@ function Lighting:skyLight(x,y,z)
    if answer>0 then break end
   end
  end
- if self.skyCacheCount>=self.skyCacheLimit then
-  self.skyCache={}
-  self.skyCacheCount=0
- end
- self.skyCache[position]=answer
- self.skyCacheCount=self.skyCacheCount+1
+ self:storeCachedSky(x,y,z,answer)
  return answer
 end
 function Lighting:invalidateSky(x,z)
@@ -289,17 +355,26 @@ function Lighting:invalidateSky(x,z)
   self.skyColumns[k]=nil
   self.skyColumnCount=math.max(0,self.skyColumnCount-1)
  end
- -- Uma edicao muda indiretamente a difusao por varios corredores.
- self.skyCache={}
- self.skyCacheCount=0
+ -- A coluna pode iluminar verticalmente um poco profundo, mas o
+ -- deslocamento lateral de sua luz e limitado a 14 blocos.
+ x,z=floor(x),floor(z)
+ for k,section in pairs(self.skySections) do
+  if section.cx*16<=x+14 and section.cx*16+15>=x-14
+    and section.cz*16<=z+14 and section.cz*16+15>=z-14 then
+   self:dropSkySection(k)
+  end
+ end
 end
 function Lighting:pruneSky(px,pz)
  local cx,cz=floor(px/16),floor(pz/16)
  if self.skyChunkX==cx and self.skyChunkZ==cz then return end
  self.skyChunkX,self.skyChunkZ=cx,cz
- -- Limite nas consultas de regioes que ja sairam do streaming.
- self.skyCache={}
- self.skyCacheCount=0
+ -- Ao atravessar chunks, preserve secoes vizinhas na janela ativa.
+ for k,section in pairs(self.skySections) do
+  if abs(section.cx-cx)>6 or abs(section.cz-cz)>6 then
+   self:dropSkySection(k)
+  end
+ end
  if self.skyColumnCount<2048 then return end
  local filtered,count={},0
  for k,top in pairs(self.skyColumns) do
