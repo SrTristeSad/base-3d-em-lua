@@ -24,5 +24,5 @@ local reload=World.new()
 assert(reload:get(0,y,0)==0, 'blocos alterados nao persistem')
 assert(reload.savedPlayer and math.abs(reload.savedPlayer.y-ground)<.001,
   'posicao nao persistiu')
-assert(reload.dirty['0:0:0'], 'chunk nao marcado para malha')
+assert(reload.cache['0:0:0'], 'secao cubica nao foi carregada sob demanda')
 print('world_basic: OK')
