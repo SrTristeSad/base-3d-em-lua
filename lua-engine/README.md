@@ -37,6 +37,15 @@ a partir da raiz do repositório.
 - `get_meta`, `get_node_timer`, `find_nodes_in_area`;
 - `register_globalstep`, `after`, `register_abm`,
   `register_lbm`, `register_on_generated`;
+- `ItemStack` e `InvRef` (pilhas, metadados, desgaste,
+  empilhamento por limite, busca, transferência e listas copiadas);
+- `get_meta(pos):get_inventory()` e inventários destacados;
+- salvamento de listas de nós e metadados de cada item com
+  retrocompatibilidade com `LUAENGINE 1`;
+- `mod.conf`, dependências obrigatórias/opcionais e
+  carregamento de mods em ordem topológica por
+  [`core/modloader.lua`](core/modloader.lua), ainda sem executar
+  todos os mods do VoxeLibre;
 - `vector.new` e operações vetoriais;
 - armazenamento esparso por **mapblocks 16³**, marcação de
   alterações, persistência de blocos, metadados e timers;
@@ -44,8 +53,9 @@ a partir da raiz do repositório.
 
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
-Os testes de lógica executam sob Lua 5.4:
-`lua5.4 tests/lua_engine_core.lua`.
+Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
+`tests/lua_engine_core.lua` e
+`tests/lua_engine_inventory_modloader.lua`.
 A demonstração gráfica precisa de hardware Vulkan e teste manual.
 
 O VoxeLibre integral continua disponível em `games/voxelibre/`

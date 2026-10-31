@@ -20,7 +20,9 @@ O código independente fica em [`lua-engine/`](lua-engine/README.md).
 
 **Esta versão experimental ainda não executa o VoxeLibre.**
 Já contém armazenamento de blocos, metadados, timers, callbacks,
-registros de nós/itens, serialização e uma cena 3D editável usando
+registros de nós/itens, `ItemStack`, inventários de nós, salvamento
+de inventários e um loader inicial de mods por `mod.conf`, além de
+uma cena 3D editável usando
 o LÖVR somente como backend gráfico.
 
 [Baixar a demonstração Lua para Windows](../../actions/workflows/lua-engine-port.yml)

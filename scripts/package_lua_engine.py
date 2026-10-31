@@ -5,7 +5,8 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import argparse
 
 REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
-            "core/vector.lua", "core/runtime.lua", "core/storage.lua")
+            "core/vector.lua", "core/runtime.lua", "core/storage.lua",
+            "core/itemstack.lua", "core/inventory.lua", "core/modloader.lua")
 
 
 def build(source: Path, output: Path) -> None:

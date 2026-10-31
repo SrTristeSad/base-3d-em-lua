@@ -5,6 +5,7 @@ on:
     paths:
       - 'lua-engine/**'
       - 'tests/lua_engine_core.lua'
+      - 'tests/lua_engine_inventory_modloader.lua'
       - 'scripts/package_lua_engine.py'
       - '.github/workflows/lua-engine-port.yml'
       - 'docs/ENGINE_LUA_PORT.md'
@@ -12,6 +13,7 @@ on:
     paths:
       - 'lua-engine/**'
       - 'tests/lua_engine_core.lua'
+      - 'tests/lua_engine_inventory_modloader.lua'
       - 'scripts/package_lua_engine.py'
       - '.github/workflows/lua-engine-port.yml'
       - 'docs/ENGINE_LUA_PORT.md'
@@ -33,6 +35,10 @@ jobs:
         run: lua5.4 tests/lua_engine_core.lua
       - name: Run same API suite on LuaJIT (LÖVR runtime)
         run: luajit tests/lua_engine_core.lua
+      - name: ItemStack, InvRef, metadata save and dependency loader (Lua 5.4)
+        run: lua5.4 tests/lua_engine_inventory_modloader.lua
+      - name: Same inventory and mod loader tests on LuaJIT
+        run: luajit tests/lua_engine_inventory_modloader.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
       - uses: actions/upload-artifact@v4

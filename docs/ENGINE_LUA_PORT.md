@@ -21,9 +21,11 @@ apenas por existir uma API com os mesmos nomes.
 | Eventos, after(), globalstep, ABM, callbacks | Parcial, com testes |
 | Serialização segura, determinística, sem execução de código | Implementada (formato próprio) |
 | Câmera livre, renderização voxel básica, mineração/colocação | Demo LÖVR independente |
+| Loader `mod.conf`, dependências obrigatórias e opcionais | **Parcial, testado; não inicia VoxeLibre** |
 | Compatibilidade com mods do VoxeLibre | **Não funcional ainda** |
 | VoxelManip, Mapgen, biomas, caves e iluminação Luanti | Ausentes |
-| ItemStack, invref, craft real, ferramentas | Ausentes |
+| ItemStack, InvRef, listas em nós, detached, metadados e save | **Parcial, testado** |
+| Craft real, desgaste por uso automático e callbacks de inventário | Ausentes |
 | Entidades em mundo, mobs e física completa | Ausentes |
 | Formspec, HUD, chat, multimídia, áudio | Ausentes |
 | Rede, persistência SQLite/LevelDB, servidor multiplayer | Ausentes |
@@ -35,7 +37,10 @@ apenas por existir uma API com os mesmos nomes.
 - `lua-engine/core/map.lua`: armazenamento esparso, metadados e timers.
 - `lua-engine/core/runtime.lua`: registro e despachos da API minetest/core.
 - `lua-engine/core/vector.lua`: vetores e operações aritméticas.
-- `lua-engine/core/storage.lua`: save seguro e determinístico.
+- `lua-engine/core/storage.lua`: save seguro e determinístico, incluindo inventários de nós.
+- `lua-engine/core/itemstack.lua`: valores `ItemStack` copiáveis e metadados.
+- `lua-engine/core/inventory.lua`: listas `InvRef` e inserção com sobras.
+- `lua-engine/core/modloader.lua`: leitura de `mod.conf`, ordenação por dependências e falha explícita.
 - `lua-engine/main.lua`: demo independente LÖVR para testarmos o motor.
 - `tests/lua_engine_core.lua`: regressões da API inicial.
 - `scripts/package_lua_engine.py`: gera `.lovr` autônomo.
@@ -57,8 +62,8 @@ terá de ser comprovada, e não pressuposta.
 
 ## Próximos marcos objetivos
 
-1. `ItemStack`, inventário/metadata com inventários,
-   callbacks de interação e crafting equivalente ao Luanti.
+1. Concluir integração de `ItemStack`/`InvRef` com crafting real,
+   callbacks de movimentação entre inventários e interação com jogadores.
 2. Loader real da árvore de 221 módulos do VoxeLibre, dependências
    e log de chamadas de API ainda não implementadas.
 3. Lua VoxelManip + geração/iluminação e mundos persistentes;
