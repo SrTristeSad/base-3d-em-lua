@@ -26,6 +26,17 @@ Embora os testes de lógica e sintaxe sejam executados automaticamente,
 a renderização e os controles ainda precisam ser testados num PC com
 LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
+## Baixar a versao jogavel
+
+Na pagina [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions/workflows/lua-check.yml),
+abra a execucao mais recente **aprovada** e baixe o artefato
+`Base3D-Classic-Creeper-LOVR`. Extraia o arquivo
+`Base3D-Classic-Creeper.lovr`. E um jogo empacotado (ZIP renomeado)
+para o motor LÖVR; no Windows, arraste o arquivo `.lovr` sobre
+`lovr.exe` baixado do site oficial. O pacote inclui as texturas,
+scripts e configuracoes. Nao inclui o executavel do motor nem salva dentro
+do proprio arquivo.
+
 ## Executar
 
 1. Baixe o LÖVR 0.19 em https://lovr.org/ (Vulkan).
@@ -55,6 +66,9 @@ A tela inicial tem **Jogar**, **Configurações** e **Sair**. No menu de pausa, 
 
 - Substitua o visual de cada bloco com um PNG em `assets/textures/NOME.png` (por exemplo, `grass_top.png`, `stone.png`, `wood_side.png`). A lista completa está em `src/textures.lua`. Texturas de 16×16 com transparência ou resoluções maiores são aceitas.
 - Coloque sua **skin de personagem 64×64** em `assets/skins/player.png` e pressione **F5** para vê-la na terceira pessoa.
+- O projeto agora vem com 11 texturas CC0 de blocos do [Kenney Voxel Pack](https://kenney.nl/assets/voxel-pack)
+  (grama, terra, pedra, tronco, folhas, areia, madeira, tijolos e agua).
+  Atribuicao opcional e licenca CC0. Texturas oficiais do Minecraft nao sao redistribuidas.
 - Na ausência de PNGs, a base gera texturas pixeladas originais automaticamente. O projeto funciona sem pacotes externos de arte.
 - Reinicie para recarregar texturas/skins alteradas.
 

@@ -1,7 +1,8 @@
-name: Lua checks
+name: Lua checks and playable package
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   syntax-and-world:
@@ -34,5 +35,37 @@ jobs:
           assert 'function Player:respawn(' in player
           assert 'function Creepers:explode(' in mobs
           assert "state=='dead'" in ui
-          print('Creepers integrados ao jogo: OK')
+          required={'grass_top','grass_side','dirt','stone','wood_side',
+                    'wood_top','leaves','sand','planks','bricks','water'}
+          for item in required:
+            p=Path('assets/textures')/(item+'.png')
+            assert p.read_bytes()[:8]==bytes([137,80,78,71,13,10,26,10]), p
+          print('Sandbox e 11 texturas PNG integrados: OK')
           PY
+      - name: Package runnable LÖVR project
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          out=Path('dist/Base3D-Classic-Creeper.lovr')
+          out.parent.mkdir(parents=True,exist_ok=True)
+          files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
+          files+=sorted(Path('src').rglob('*.lua'))
+          files+=sorted(p for p in Path('assets').rglob('*') if p.is_file())
+          with ZipFile(out,'w',ZIP_DEFLATED,compresslevel=8) as z:
+            for p in files:z.write(p,p.as_posix())
+          with ZipFile(out) as z:
+            assert z.testzip() is None
+            assert 'main.lua' in z.namelist()
+            assert 'conf.lua' in z.namelist()
+            assert 'src/creepers.lua' in z.namelist()
+            assert 'assets/textures/grass_top.png' in z.namelist()
+          print(out,out.stat().st_size,'bytes',len(files),'files')
+          PY
+      - name: Publish playable project
+        uses: actions/upload-artifact@v4
+        with:
+          name: Base3D-Classic-Creeper-LOVR
+          path: dist/Base3D-Classic-Creeper.lovr
+          if-no-files-found: error
+          retention-days: 30

@@ -1,25 +1,29 @@
-# Personalizacao
+# Texturas e skins
 
-Coloque arquivos PNG na pasta correspondente e reinicie o aplicativo.
+As 11 texturas em `assets/textures/*.png` vem do
+[Kenney Voxel Pack](https://kenney.nl/assets/voxel-pack) (licenca CC0).
+Arquivos preservados/adaptados de nome para o loader:
 
-## Texturas de blocos (assets/textures)
+| Arquivo local | Arquivo original |
+| --- | --- |
+| grass_top.png | grass_top.png |
+| grass_side.png | dirt_grass.png |
+| dirt.png | dirt.png |
+| stone.png | stone.png |
+| wood_side.png | trunk_side.png |
+| wood_top.png | trunk_top.png |
+| leaves.png | leaves.png |
+| sand.png | sand.png |
+| planks.png | wood.png |
+| bricks.png | brick_red.png |
+| water.png | water.png |
 
-grass_top.png, grass_side.png, dirt.png, stone.png, wood_side.png,
-wood_top.png, leaves.png, sand.png, planks.png, bricks.png, water.png
+Fonte dos arquivos Kenney: https://github.com/shorepine/kenney/tree/master/2d/Voxel%20Pack/Tiles
 
-Texturas pixel-art 16x16 sao recomendadas. Se um arquivo nao existir,
-uma textura procedimental padrao sera gerada.
+Uso comercial permitido pela CC0. Nenhum asset oficial de Minecraft foi
+incluido. Substitua esses PNGs por suas texturas se desejar (o motor usa
+os nomes do arquivo listados acima).
 
-## Skin de personagem (assets/skins)
-
-player.png — formato 64x64 (layout classico de personagem Minecraft).
-Pressione F5 para alternar para a camera em terceira pessoa e ver a skin.
-
-**Use apenas artes de sua autoria ou com licenca que permita esse uso.**
-A base nao distribui skins nem arquivos do jogo Minecraft.
-
-## Futuras extensoes
-
-O projeto permite evoluir o sistema de blocos, adicionando novas definicoes
-em src/textures.lua e IDs em src/world.lua. Ainda nao ha multiplayer,
-animacoes de personagem, fome, crafting ou sistemas completos de jogo.
+Skin de jogador: para importar PNG 64x64,
+coloque `player.png` em `assets/skins/`. Sem o arquivo, a textura
+original de fallback fica ativa. A skin e visivel ao pressionar F5.
