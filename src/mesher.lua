@@ -44,7 +44,8 @@ local function push(groups,material,face,fixed,u,v,width,height)
   dx,dy,dz=width,height,1
  end
  local dir=SIDES[face]
- local liquidLevel=tonumber(material:match('@f(%d+)#'))
+ local liquidLevel=tonumber(material:match('@f(%d+)#')
+  or material:match('@f(%d+)$'))
  local heightDrop=liquidLevel and liquidLevel/8 or 0
  for _,i in ipairs(TRI) do
   local c=CORNERS[face][i]
