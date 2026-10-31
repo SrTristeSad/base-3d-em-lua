@@ -8,10 +8,14 @@ local Creepers = require('src.creepers')
 local Classic = require('src.classic')
 local Creatures = require('src.creatures')
 local TNT = require('src.tnt')
+local Worlds = require('src.worlds')
 
 local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt
 local autosave=0
 local showStats=false
+local selectedWorld=nil
+local menu={name='',seed='',image='',mode='survival',
+  focus=nil,notice='',selected=nil,entries={},page=1,images={},imagePage=1}
 local state = 'title'
 local previous = 'title'
 local settings = {
@@ -52,14 +56,127 @@ local function setState(next)
   lovr.system.setMouseMode(next=='playing' and 'relative' or 'normal')
 end
 local function saveWorld()
-  if world and player then
+  if selectedWorld and world and player then
     local ok,err=world:save(player,classic)
     if not ok then print('Nao foi possivel salvar o mundo:',err) end
   end
 end
+local function releaseSession()
+ if mesher then
+  for _,chunk in pairs(mesher.chunks) do
+   for _,mesh in ipairs(chunk.meshes) do mesh:release() end
+  end
+ end
+end
+local function useWorld(options,entry)
+ releaseSession()
+ selectedWorld=entry
+ world=World.new(options)
+ player=Player.new(world)
+ classic=Classic.new(world.savedMode or (entry and entry.mode) or 'creative',
+   lovr.filesystem.isFile(world.SAVE) and world.savedItems or nil,
+   world.savedScore)
+ mesher=Mesher.new(world,tiles,Textures.faces)
+ mesher:sync(player.x,player.y,player.z,settings.distance,6)
+ creepers=Creepers.new(world)
+ creatures=Creatures.new(world)
+ tnt=TNT.new(world)
+ menu.selected=entry
+ autosave=0
+end
+local function refreshWorlds()
+ menu.entries=Worlds.list()
+end
+local function openWorldById(id)
+ refreshWorlds()
+ for _,entry in ipairs(menu.entries) do
+  if entry.id==id then
+   local opts,err=Worlds.open(entry)
+   if not opts then menu.notice=err or 'Nao foi possivel abrir mundo';return false end
+   saveWorld()
+   useWorld(opts,entry)
+   menu.notice=''
+   return true
+  end
+ end
+ menu.notice='Mundo nao encontrado'
+ return false
+end
+
 local function action(a)
   if a=='play' or a=='resume' then
-    setState('playing')
+    if selectedWorld then setState('playing') else setState('create') end
+  elseif a=='create' then
+    menu.name='';menu.seed='';menu.image='';menu.focus=nil
+    menu.notice=''
+    setState('create')
+  elseif a=='create_world' then
+    menu.focus=nil
+    local options,entry=Worlds.create(menu.name,menu.seed,menu.image,menu.mode)
+    if not options then
+      menu.notice=entry or 'Erro ao criar mundo'
+    else
+      saveWorld()
+      useWorld(options,entry)
+      refreshWorlds()
+      menu.notice=''
+      setState('playing')
+    end
+  elseif a=='images' then
+    lovr.filesystem.createDirectory('maps')
+    local files=lovr.filesystem.getDirectoryItems('maps') or {}
+    menu.images={}
+    for _,filename in ipairs(files) do
+      if filename:lower():match('%.png$') or filename:lower():match('%.jpe?g$') then
+        if lovr.filesystem.isFile('maps/'..filename) then
+          menu.images[#menu.images+1]=filename
+        end
+      end
+    end
+    table.sort(menu.images)
+    menu.imagePage=1
+    menu.notice=#menu.images==0 and
+      'Nenhum PNG/JPG na pasta maps. Pode testar a imagem exemplo.' or ''
+    setState('imagelist')
+  elseif a=='imageprev' then
+    menu.imagePage=math.max(1,menu.imagePage-1)
+  elseif a=='imagenext' then
+    menu.imagePage=menu.imagePage+1
+  elseif a=='backcreate' then
+    menu.notice=''
+    setState('create')
+  elseif a:sub(1,10)=='pickimage:' then
+    local filename=a:sub(11)
+    for _,available in ipairs(menu.images) do
+      if available==filename then
+        menu.image='maps/'..available
+        menu.notice='Imagem selecionada: '..available
+        setState('create')
+        break
+      end
+    end
+  elseif a=='demoimage' then
+    menu.image='assets/worlds/demo.png'
+    menu.notice='Imagem exemplo carregada. A seed tambem afeta o terreno.'
+  elseif a=='newmode' then
+    menu.mode=menu.mode=='survival' and 'creative' or 'survival'
+  elseif a=='worldlist' then
+    refreshWorlds()
+    menu.notice=''
+    menu.page=1
+    setState('worldlist')
+  elseif a=='next' then
+    menu.page=menu.page+1
+  elseif a=='previous' then
+    menu.page=math.max(1,menu.page-1)
+  elseif a:sub(1,6)=='field:' then
+    local field=a:sub(7)
+    if field=='name' or field=='seed' or field=='image' then
+      menu.focus=field
+      menu.notice=''
+    end
+  elseif a:sub(1,5)=='load:' then
+    if openWorldById(tonumber(a:sub(6))) then setState('playing') end
   elseif a=='pause' then
     setState('pause')
   elseif a=='mode' then
@@ -81,6 +198,7 @@ local function action(a)
     setState(previous)
   elseif a=='title' then
     saveWorld()
+    menu.focus=nil
     setState('title')
   elseif a=='save' then
     saveWorld()
@@ -108,16 +226,21 @@ function lovr.load()
   if settings.fullscreen then lovr.system.setWindowFullscreen(true) end
   lovr.graphics.setBackgroundColor(.49,.72,.91)
   tiles=Textures.load()
-  world=World.new()
-  player=Player.new(world)
-  mesher=Mesher.new(world,tiles,Textures.faces)
-  -- Compila apenas os chunks proximos. O restante chega gradualmente.
-  mesher:sync(player.x,player.y,player.z,settings.distance,6)
-  classic=Classic.new(world.savedMode,world.savedItems,world.savedScore)
-  creepers=Creepers.new(world)
-  creatures=Creatures.new(world)
-  tnt=TNT.new(world)
   avatar=Avatar.new()
+  refreshWorlds()
+  if #menu.entries>0 then
+    local item=menu.entries[#menu.entries]
+    local options,err=Worlds.open(item)
+    if options then
+      useWorld(options,item)
+    else
+      menu.notice=err or 'O mundo selecionado nao abriu'
+    end
+  end
+  if not world then
+    useWorld({seed='preview',savePath='worlds/__preview__.sav'},nil)
+    classic.mode='creative'
+  end
   setState('title')
 end
 
@@ -134,16 +257,19 @@ function lovr.update(dt)
       autosave=0
       saveWorld()
     end
-  elseif state=='title' then
-    -- Preenche o panorama do menu com orcamento minimo por quadro.
-    mesher:sync(13,3,17,settings.distance,2)
+  elseif state=='title' or state=='create' or state=='worldlist'
+      or state=='imagelist' or state=='settings' then
+    -- Preenche o panorama atras do menu, sem simular inimigos.
+    mesher:sync(player.x,player.y,player.z,settings.distance,2)
   end
 end
 
 function lovr.draw(pass)
   local cx,cy,cz,tx,ty,tz
-  if state=='title' then
-    cx,cy,cz,tx,ty,tz=13,13,17,0,3,0
+  if state=='title' or state=='create' or state=='worldlist'
+      or state=='imagelist' or state=='settings' then
+    cx,cy,cz,tx,ty,tz=player.x+13,player.y+10,player.z+17,
+      player.x,player.y,player.z
   else
     cx,cy,cz,tx,ty,tz=player:camera()
   end
@@ -171,7 +297,7 @@ function lovr.draw(pass)
   end
   pass:setViewCull(false)
   UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels,creepers,classic,creatures,
-    mesher,showStats)
+    mesher,showStats,menu)
 end
 
 function lovr.mousemoved(x,y,dx,dy)
@@ -198,7 +324,7 @@ function lovr.mousepressed(x,y,button)
     end
   else
     local w,h=lovr.system.getWindowDimensions()
-    local a=UI.click(state,settings,x,y,w,h,classic)
+    local a=UI.click(state,settings,x,y,w,h,classic,menu)
     if a then action(a) end
   end
 end
@@ -209,11 +335,37 @@ function lovr.wheelmoved(dx,dy)
   end
 end
 
+function lovr.textinput(text)
+ if state~='create' or not menu.focus then return end
+ local maxLen=menu.focus=='image' and 110 or 56
+ if type(text)=='string' and #text<12 then
+  local value=menu[menu.focus]..text:gsub('[\r\n|]','')
+  menu[menu.focus]=value:sub(1,maxLen)
+ end
+end
+
 function lovr.keypressed(key)
-  if key=='escape' then
+ if state=='create' and menu.focus then
+  if key=='return' or key=='kpenter' then menu.focus=nil;return end
+  if key=='backspace' then
+   local value=menu[menu.focus]
+   if utf8 and utf8.offset then
+    local index=utf8.offset(value,-1)
+    menu[menu.focus]=index and value:sub(1,index-1) or ''
+   else menu[menu.focus]=value:sub(1,-2) end
+   return
+  elseif key=='tab' then
+   local order={name='seed',seed='image',image='name'}
+   menu.focus=order[menu.focus]
+   return
+  end
+ end
+ if key=='escape' then
     if state=='playing' then action('pause')
     elseif state=='pause' then action('resume')
     elseif state=='settings' then action('back')
+    elseif state=='imagelist' then action('backcreate')
+    elseif state=='create' or state=='worldlist' then action('title')
     end
     return
   end

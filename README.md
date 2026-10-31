@@ -2,7 +2,28 @@
 
 Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** (Windows/Linux/macOS). Não precisa do Roblox nem de Minecraft.
 
-**Versão jogável em desenvolvimento:** mundo procedural com streaming de chunks 16×16, 64×64 blocos carregados por padrão, árvores, terreno e água decorativa; renderização GPU com greedy meshing; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
+**Versão jogável em desenvolvimento:** tela inicial, criação de mundos, geração por seed ou imagem e mundo procedural com streaming de chunks 16×16, 64×64 blocos carregados por padrão, árvores, terreno e água decorativa; renderização GPU com greedy meshing; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
+
+## Novidade — Criar mundo com semente ou imagem
+
+A tela inicial agora permite **criar, selecionar e continuar mundos
+independentes**, no estilo de menu do Minecraft Classic.
+
+- Escolha um nome, uma semente **numérica ou em texto** e Criativo/Sobrevivência.
+- O mesmo texto/semente produz o mesmo terreno (versão fixa do gerador);
+  sementes diferentes geram mundos diferentes.
+- Opcional: **use uma imagem PNG ou JPG para gerar o mapa**. Cores e
+  brilho influenciam vales, lagos, florestas, desertos e neve; a
+  topografia continua procedural para parecer um mundo natural.
+- Inclui uma **imagem de exemplo pronta** para testar imediatamente
+  sem copiar nenhum arquivo externo.
+- Para fotos pessoais, coloque o PNG/JPG na pasta `maps` do save
+  e selecione na interface. O save memoriza uma amostra de 64×64
+  pixels, para a foto original não precisar continuar disponível.
+- Os arquivos de mundos ficam em `worlds/` e não sobrescrevem o
+  `world.sav` antigo. O sistema suporta até 96 mundos listados.
+
+**Guia completo:** [Sementes e imagens](docs/SEMENTES_E_IMAGENS.md).
 
 ## Referencia escolhida: Minecraft Classic 0.30
 
@@ -110,8 +131,8 @@ LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
 Na pagina [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions/workflows/lua-check.yml),
 abra a execucao mais recente **aprovada** e baixe o artefato
-`Base3D-Cubic-Chunks-LOVR`. Extraia o arquivo
-`Base3D-Cubic-Chunks.lovr`. E um jogo empacotado (ZIP renomeado)
+`Base3D-Sementes-Imagens-LOVR`. Extraia o arquivo
+`Base3D-Sementes-Imagens.lovr`. E um jogo empacotado (ZIP renomeado)
 para o motor LÖVR; no Windows, arraste o arquivo `.lovr` sobre
 `lovr.exe` baixado do site oficial. O pacote inclui as texturas,
 scripts e configuracoes. Nao inclui o executavel do motor nem salva dentro

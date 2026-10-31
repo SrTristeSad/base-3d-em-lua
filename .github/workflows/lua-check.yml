@@ -25,6 +25,10 @@ jobs:
         run: lua5.4 tests/streaming_64.lua
       - name: Cubic chunks 3D and vertical streaming tests
         run: lua5.4 tests/cubic_chunks_3d.lua
+      - name: Seeds, image worlds and creation menu
+        run: |
+          lua5.4 tests/worldgen_seed.lua
+          lua5.4 tests/worlds_menu.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -65,7 +69,13 @@ jobs:
           assert 'T.MAX_ID=46' in Path('src/textures.lua').read_text()
           assert "require('src.classic')" in main
           assert "classic=Classic.new(world.savedMode" in main
-          assert "UI.click(state,settings,x,y,w,h,classic)" in main
+          assert "UI.click(state,settings,x,y,w,h,classic,menu)" in main
+          assert "require('src.worlds')" in main
+          assert 'Worlds.create(menu.name,menu.seed,menu.image,menu.mode)' in main
+          assert 'function Gen.fromImage(' in Path('src/worldgen.lua').read_text()
+          assert 'function Worlds.open(' in Path('src/worlds.lua').read_text()
+          assert "state=='create'" in main
+          assert 'assets/worlds/demo.png' in main
           assert "world:save(player,classic)" in main
           assert "classic:mine(id)" in player
           assert "classic:place(id)" in player
@@ -79,14 +89,16 @@ jobs:
           for item in required:
             p=Path('assets/textures')/(item+'.png')
             assert p.read_bytes()[:8]==bytes([137,80,78,71,13,10,26,10]), p
-          print('Sandbox Classic 0.30 e 23 texturas PNG integrados: OK')
+          demo=Path('assets/worlds/demo.png')
+          assert demo.read_bytes()[:8]==bytes([137,80,78,71,13,10,26,10])
+          print('Classic 0.30, 23 texturas e imagem de exemplo: OK')
           PY
       - name: Package runnable LÖVR project
         run: |
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Cubic-Chunks.lovr')
+          out=Path('dist/Base3D-Sementes-Imagens.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -104,12 +116,15 @@ jobs:
             assert 'src/mesher.lua' in z.namelist()
             assert 'src/world.lua' in z.namelist()
             assert 'assets/textures/grass_top.png' in z.namelist()
+            assert 'assets/worlds/demo.png' in z.namelist()
+            assert 'src/worldgen.lua' in z.namelist()
+            assert 'src/worlds.lua' in z.namelist()
           print(out,out.stat().st_size,'bytes',len(files),'files')
           PY
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Cubic-Chunks-LOVR
-          path: dist/Base3D-Cubic-Chunks.lovr
+          name: Base3D-Sementes-Imagens-LOVR
+          path: dist/Base3D-Sementes-Imagens.lovr
           if-no-files-found: error
           retention-days: 30

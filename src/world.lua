@@ -1,5 +1,6 @@
 -- Streaming voxel infinito em chunks 16x16. Terreno deterministico, edits persistentes.
 -- Apenas os chunks proximos ao player ficam residentes; o save guarda diferencias.
+local Gen=require('src.worldgen')
 local World={}
 World.__index=World
 World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
@@ -28,12 +29,16 @@ end
 local function idxWorld(x,y,z)
  return index(x%16,y,z%16)
 end
-function World.new()
+function World.new(options)
+ options=options or {}
  local w=setmetatable({
   blocks={}, -- compatibilidade de leitura, nunca contem o mundo inteiro
   cache={},edits={},editsByChunk={},dirty={},
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
-  generatedTotal=0,evictedTotal=0
+  generatedTotal=0,evictedTotal=0,
+  gen=options.seed~=nil and not options.legacy
+     and Gen.new(options.seed,options.image) or nil,
+  SAVE=options.savePath or World.SAVE
  },World)
  w:load()
  return w
@@ -47,6 +52,14 @@ end
 -- Gera um bloco novo na memoria de chunk, sem inserir no save.
 function World:generateSection(cx,cy,cz)
  local data={}
+ local function column(x,z)
+  if self.gen then return self.gen:column(x,z) end
+  return height(x,z),'grass'
+ end
+ local function random(x,z,salt)
+  if self.gen then return self.gen:random(x,z,salt or 0) end
+  return rng(x,z)
+ end
  local sx,sz,y0=cx*16,cz*16,cy*16
  local y1=y0+15
  local function cell(x,y,z)
@@ -65,11 +78,16 @@ function World:generateSection(cx,cy,cz)
  -- Geometria natural: estratos, zonas alagadas e superficies variaveis.
  for x=sx,sx+15 do
   for z=sz,sz+15 do
-   local h=height(x,z)
+   local h,biome=column(x,z)
    for y=math.max(World.YMIN,y0),math.min(h,y1) do
-    local id=(y==h and 1) or (y>=h-2 and 2) or 3
+    local top=(biome=='desert' and 6) or (biome=='snow' and 31)
+      or (h>26 and 3) or 1
+    local middle=(biome=='desert' and 6) or 2
+    local id=(y==h and top) or (y>=h-2 and middle) or 3
     if y<h-5 and y>World.YMIN+1 then
-      local n=sin(x*.131+y*.071)+cos(z*.137-y*.08)+sin(y*.24+x*.037-z*.04)
+      local salt=self.gen and self.gen.seed*.000001 or 0
+      local n=sin(x*.131+y*.071+salt)+cos(z*.137-y*.08-salt)
+        +sin(y*.24+x*.037-z*.04+salt)
       if n>2.08 then id=0 end
     end
     if id~=0 then fill(x,y,z,id) end
@@ -80,8 +98,10 @@ function World:generateSection(cx,cy,cz)
  -- Centros de arvore com margem de 2 blocos: sem cortes nas bordas.
  for x=sx-2,sx+17 do
   for z=sz-2,sz+17 do
-   local h=height(x,z)
-   if h>1 and rng(x,z)>.987 and (abs(x)>4 or abs(z)>4) then
+   local h,biome=column(x,z)
+   local treeChance=biome=='forest' and .970 or .990
+   if h>1 and biome~='desert' and biome~='snow'
+     and random(x,z,512)>treeChance and (abs(x)>4 or abs(z)>4) then
     for y=h+1,h+4 do fill(x,y,z,4) end
     for yy=h+3,h+5 do
      for xx=x-2,x+2 do
@@ -99,8 +119,8 @@ function World:generateSection(cx,cy,cz)
  -- Veios minerais: centros adjacentes tambem atravessam fronteiras.
  for x=sx-1,sx+16 do
   for z=sz-1,sz+16 do
-   local h=height(x,z)
-   local ore=rng(x+831,z-551)
+   local h=column(x,z)
+   local ore=random(x+831,z-551,779)
    local y=h-3
    if y>World.YMIN and y>=y0 and y<=y1 and ore>.961 then
     local id=14
@@ -108,7 +128,7 @@ function World:generateSection(cx,cy,cz)
     for ox=-1,1 do
      for oz=-1,1 do
       local xx,zz=x+ox,z+oz
-      if rng(xx+ox*7,zz+oz*11)>.39 and cell(xx,y,zz)==3 then
+      if random(xx+ox*7,zz+oz*11,907)>.39 and cell(xx,y,zz)==3 then
        fill(xx,y,zz,id)
       end
      end
@@ -120,9 +140,10 @@ function World:generateSection(cx,cy,cz)
  for x=sx,sx+15 do
   for z=sz,sz+15 do
    if abs(x)>4 or abs(z)>4 then
-    local h=height(x,z)
-    local decoration=rng(x+183,z+937)
-    if h>1 and h+1<=World.YMAX and cell(x,h,z)==1
+    local h,biome=column(x,z)
+    local decoration=random(x+183,z+937,1013)
+    if h>1 and h+1<=World.YMAX and biome~='desert'
+      and biome~='snow' and cell(x,h,z)==1
        and cell(x,h+1,z)==0 then
      if decoration>.991 then fill(x,h+1,z,24)
      elseif decoration>.982 then fill(x,h+1,z,25)
