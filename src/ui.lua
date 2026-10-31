@@ -76,6 +76,84 @@ function UI.click(state,settings,x,y,w,h,classic,menu)
   end
 end
 
+-- A mesma geometria rege clique e desenho: não há zonas cegas.
+local function invSlots(state,w,h)
+ local cells={}
+ local function slot(area,index,x,y)
+  cells[#cells+1]={section=area,index=index,x=x,y=y,w=49,h=49}
+ end
+ for n=1,27 do
+  local column=(n-1)%9
+  local row=math.floor((n-1)/9)
+  slot('inventory',n+9,w/2+(column-4)*55,h/2+8+row*55)
+ end
+ for n=1,9 do
+  slot('inventory',n,w/2+(n-5)*55,h/2+183)
+ end
+ local size=state=='workbench' and 3 or 2
+ local left=w/2-240
+ local top=state=='workbench' and h/2-169 or h/2-155
+ for n=1,size*size do
+  local col=(n-1)%size
+  local row=math.floor((n-1)/size)
+  slot(size==3 and 'table' or 'small',n,left+col*55,top+row*55)
+ end
+ slot('output',1,w/2+88,h/2-118)
+ return cells
+end
+function UI.inventoryHit(state,x,y,w,h)
+ if state~='inventory' and state~='workbench' then return nil end
+ for _,cell in ipairs(invSlots(state,w,h)) do
+  if inside(cell,x,y) then return cell.section,cell.index end
+ end
+ return nil
+end
+local function drawInventory(pass,state,classic,w,h)
+ local isTable=state=='workbench'
+ rect(pass,w/2,h/2,w,h,.04,.06,.09,.86)
+ rect(pass,w/2,h/2,650,530,.17,.19,.21,.99)
+ label(pass,isTable and 'BANCADA DE TRABALHO - 3 x 3'
+   or 'INVENTARIO - 2 x 2',w/2,h/2-232,26,1,.9,.6)
+ label(pass,'Clique E ou ESC para voltar | Esquerdo: pegar/trocar | Direito: dividir',
+   w/2,h/2-201,14,.82,.87,.9)
+ local output,recipe=classic:preview(isTable and 'table' or 'small')
+ for _,cell in ipairs(invSlots(state,w,h)) do
+  local stack
+  if cell.section=='output' then
+   stack=output
+  elseif cell.section=='inventory' then
+   stack=classic:getSlot(cell.index)
+  else
+   local area=classic:getArea(cell.section)
+   stack=area[cell.index]
+  end
+  local mx,my=lovr.system.getMousePosition()
+  local hover=inside(cell,mx,my)
+  rect(pass,cell.x,cell.y,cell.w,cell.h,
+    hover and .45 or .28,hover and .48 or .31,hover and .53 or .35,1)
+  if stack then
+   local name=classic:label(stack.id)
+   label(pass,name:sub(1,11),cell.x,cell.y-6,11,1,1,.83)
+   label(pass,tostring(stack.count),cell.x+14,cell.y+14,16,.95,.99,1)
+  end
+ end
+ label(pass,'CRAFTING',w/2-157,h/2-190,17,.91,.95,1)
+ label(pass,'RESULTADO',w/2+88,h/2-160,13,.91,.95,1)
+ if output and recipe then
+  label(pass,recipe,w/2+105,h/2-73,14,.95,.89,.61)
+ end
+ label(pass,'MOCHILA - 27 ESPACOS',w/2,h/2-30,16,.9,.93,.99)
+ label(pass,'BARRA RAPIDA - 9 ESPACOS',w/2,h/2+139,16,.9,.93,.99)
+ label(pass,'SHIFT + clique: transferir pilha | No resultado: fabricar maximo',
+   w/2,h/2+236,14,.82,.87,.91)
+ if classic.cursor then
+  local mx,my=lovr.system.getMousePosition()
+  local held=classic.cursor
+  rect(pass,mx+52,my-25,126,41,.10,.13,.18,.95)
+  label(pass,classic:label(held.id):sub(1,18)..' x'..held.count,mx+52,my-25,13,1,.98,.76)
+ end
+end
+
 function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,creatures,
   mesher,showStats,menu)
   local w,h=pass:getDimensions()
@@ -84,6 +162,10 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
   pass:setDepthTest()
   pass:setDepthWrite(false)
   pass:setMaterial()
+  if state=='inventory' or state=='workbench' then
+    drawInventory(pass,state,classic,w,h)
+    return
+  end
   if state=='playing' then
     rect(pass,w/2,h/2,3,20,.98,.99,1)
     rect(pass,w/2,h/2,20,3,.98,.99,1)
@@ -91,21 +173,28 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
     rect(pass,w/2,h-52,slotCount*69+24,67,.05,.07,.10,.84)
     for i,id in ipairs(hotbar) do
       local x=w/2+(i-(slotCount+1)/2)*69
+      local beta=classic and classic.profile=='beta181'
+      local item=beta and classic.mode=='survival' and classic:getSlot(i) or nil
+      if beta and classic.mode=='survival' then id=item and item.id or 0 end
       local selected=player.selected==i
       rect(pass,x,h-52,62,55,
         selected and .93 or .16,selected and .77 or .22,
         selected and .34 or .27,selected and .95 or .87)
       rect(pass,x,h-52,55,48,.13,.16,.21)
-      label(pass,i..'  '..(labels[id] or ('Bloco '..id)),x,h-58,11)
+      local display=(beta and classic:label(id) or
+        (labels[id] or ('Bloco '..id)))
+      if id==0 then display='Vazio' end
+      label(pass,i..' '..display:sub(1,11),x,h-58,11)
       if classic and classic.mode=='survival' then
-        local count=classic:count(id) or 0
-        label(pass,tostring(count),x,h-38,14,
+        local count=beta and (item and item.count or 0)
+          or (classic:count(id) or 0)
+        label(pass,count>0 and tostring(count) or '',x,h-38,14,
           count>0 and .92 or .66,count>0 and .95 or .71,.86)
       end
     end
     local beta=classic and classic.profile=='beta181'
     label(pass,beta
-      and 'WASD mover | F3 desempenho | Esq. minerar | Dir. construir | TAB blocos | F6 salvar'
+      and 'E inventario | WASD mover | Esq. minerar | Dir. construir | F6 salvar'
       or 'WASD mover | F3 desempenho | Esq. atacar/minerar | Dir. construir | TAB pagina | E cogumelo',
       w/2,28,15,.9,.96,1)
     -- Vida inicial: dez coracoes. Dano e morte sao calculados no jogador.
@@ -137,8 +226,13 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
     if creatures then nearby=nearby+creatures:count() end
     if classic and classic.mode=='creative' then nearby=0 end
     label(pass,'Criaturas: '..nearby..'  |  F6 salvar',w-119,92,15,.86,.98,.83)
-    label(pass,'BARRA '..require('src.textures').currentPage..'/'..
-      #require('src.textures').pages..'  |  TAB para trocar',w/2,h-104,14,.96,.94,.70)
+    if beta and classic.mode=='survival' then
+      label(pass,'E: INVENTARIO 36 ESPACOS | USE BANCADA PARA CRAFT 3x3',
+        w/2,h-104,14,.96,.94,.70)
+    else
+      label(pass,'BARRA '..require('src.textures').currentPage..'/'..
+        #require('src.textures').pages..'  |  TAB para trocar',w/2,h-104,14,.96,.94,.70)
+    end
     if mesher then
       local size=settings.distance*32+32
       label(pass,'Mundo dinamico '..size..'x'..size..

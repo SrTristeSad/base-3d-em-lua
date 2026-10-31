@@ -37,6 +37,7 @@ function World.new(options)
   blocks={}, -- compatibilidade de leitura, nunca contem o mundo inteiro
   cache={},edits={},editsByChunk={},dirty={},
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
+  savedSlots=nil,savedCraft2=nil,savedCraft3=nil,savedCursor=nil,
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
      and (options.generatorVersion=='beta181'
@@ -343,6 +344,38 @@ function World:load()
    item,count=tonumber(item),tonumber(count)
    if item>=1 and item<=self.MAX_ID then self.savedItems[item]=min(99,count) end
   end
+  local slot,id,n=line:match('^SLOT (%d+) (%d+) (%d+)$')
+  if slot then
+   slot,id,n=tonumber(slot),tonumber(id),tonumber(n)
+   if slot>=1 and slot<=36 and id>=1 and id<=4095 and n>=1 and n<=64 then
+    self.savedSlots=self.savedSlots or {}
+    self.savedSlots[slot]={id=id,count=n}
+   end
+  end
+  local area,index,gridId,quantity=
+    line:match('^(CRAFT2) (%d+) (%d+) (%d+)$')
+  if not area then
+   area,index,gridId,quantity=
+      line:match('^(CRAFT3) (%d+) (%d+) (%d+)$')
+  end
+  if area then
+   index,gridId,quantity=tonumber(index),tonumber(gridId),tonumber(quantity)
+   local size=area=='CRAFT2' and 4 or 9
+   if index>=1 and index<=size and gridId>=1 and gridId<=4095
+      and quantity>=1 and quantity<=64 then
+     local name=area=='CRAFT2' and 'savedCraft2' or 'savedCraft3'
+     self[name]=self[name] or {}
+     self[name][index]={id=gridId,count=quantity}
+   end
+  end
+  local cursorId,cursorCount=line:match('^CURSOR (%d+) (%d+)$')
+  if cursorId then
+   cursorId,cursorCount=tonumber(cursorId),tonumber(cursorCount)
+   if cursorId>=1 and cursorId<=4095 and cursorCount>=1 and
+     cursorCount<=64 then
+    self.savedCursor={id=cursorId,count=cursorCount}
+   end
+  end
   local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
   x,y,z,id=tonumber(x),tonumber(y),tonumber(z),tonumber(id)
   if x and y and z and id and self:within(x,y,z) and id<=self.MAX_ID then
@@ -360,9 +393,26 @@ function World:save(player,classic)
  if classic then
   lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
   lines[#lines+1]='SCORE '..tostring(max(0,floor(classic.score or 0)))
-  for id=1,self.MAX_ID do
-   local count=max(0,min(99,floor((classic.items or {})[id] or 0)))
-   if count>0 then lines[#lines+1]=('ITEM %d %d'):format(id,count) end
+  if classic.profile=='beta181' then
+   local function slotLine(tag,index,stack)
+    if stack and type(stack.id)=='number' and type(stack.count)=='number'
+       and stack.count>=1 then
+     lines[#lines+1]=('%s %d %d %d'):format(
+       tag,index,stack.id,math.min(64,math.floor(stack.count)))
+    end
+   end
+   for i=1,36 do slotLine('SLOT',i,classic.slots[i]) end
+   for i=1,4 do slotLine('CRAFT2',i,classic.craft2[i]) end
+   for i=1,9 do slotLine('CRAFT3',i,classic.craft3[i]) end
+   if classic.cursor then
+    lines[#lines+1]=('CURSOR %d %d'):format(
+      classic.cursor.id,classic.cursor.count)
+   end
+  else
+   for id=1,self.MAX_ID do
+    local count=max(0,min(99,floor((classic.items or {})[id] or 0)))
+    if count>0 then lines[#lines+1]=('ITEM %d %d'):format(id,count) end
+   end
   end
  end
  local keys={}

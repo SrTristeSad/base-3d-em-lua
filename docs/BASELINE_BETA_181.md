@@ -9,17 +9,25 @@ sem copiar o código, sons, texturas, modelos ou outros arquivos
 proprietários da Mojang.
 
 **Não declarar o jogo como cópia fiel ou 98% concluída antes de
-validar as mecânicas e a aparência.** O estado atual do repositório
-continua sendo um protótipo Classic 0.30 e não implementa Beta 1.8.1.
+validar as mecânicas e a aparência.** Já existe um perfil Beta 1.8.1
+experimental no projeto, mas geração, interface e jogabilidade
+ainda não são reproduções completas da versão original.
 
-## Status de implementação — Fase 1
+## Status de implementação — Fases 1 e 2
 
 A fundação do Overworld está integrada ao jogo com o perfil `beta181`:
 biomas básicos, terreno, mar Y=62, altura 0..127 e minérios. Esta
 implementação é própria e **ainda não reproduz as mesmas seeds ou os
 sistemas completos da versão original**.
 
-[Ver os recursos implementados e pendências](FASE_01_BETA181.md).
+[Ver a Fase 1](FASE_01_BETA181.md).
+
+**Fase 2:** o inventário foi substituído por slots individuais 9+27,
+pilhas de 64, manipulação por mouse e crafting básico 2×2/3×3.
+Bancadas de trabalho já abrem a grade 3×3. Ainda faltam itens,
+receitas, ferramentas com durabilidade, fome e fornalha funcional.
+
+[Ver detalhes, receitas e limitações da Fase 2](FASE_02_BETA181.md).
 
 ## Fase A — baseline Beta 1.8.1
 

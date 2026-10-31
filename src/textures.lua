@@ -1,7 +1,7 @@
 -- Catalogo de blocos Classic 0.30 preservando IDs do primeiro prototipo.
 -- O bloco 9 e agua desde os saves antigos e nao foi renumerado.
 local T={}
-T.MAX_ID=49
+T.MAX_ID=52
 T.names={
  'grass_top','grass_side','dirt','stone','wood_side','wood_top',
  'leaves','sand','planks','bricks','water','cobble','gravel',
@@ -13,7 +13,9 @@ T.names={
  'cloth_lime','cloth_pink','cloth_gray','cloth_light_gray',
  'cloth_cyan','cloth_purple','cloth_blue','cloth_brown',
  'cloth_green','cloth_red','cloth_black',
- 'diamond_ore','redstone_ore','lapis_ore'
+ 'diamond_ore','redstone_ore','lapis_ore',
+ 'crafting_side','crafting_top','furnace_side','furnace_top',
+ 'furnace_front','torch'
 }
 T.colors={
  grass_top={.34,.65,.23},grass_side={.43,.59,.25},dirt={.44,.31,.20},
@@ -36,7 +38,10 @@ T.colors={
  cloth_blue={.24,.32,.67},cloth_brown={.47,.30,.19},
  cloth_green={.29,.48,.26},cloth_red={.72,.25,.23},cloth_black={.15,.15,.18},
  diamond_ore={.24,.78,.78},redstone_ore={.68,.18,.16},
- lapis_ore={.20,.29,.72}
+ lapis_ore={.20,.29,.72},
+ crafting_side={.55,.36,.18},crafting_top={.66,.49,.25},
+ furnace_side={.43,.43,.42},furnace_top={.49,.49,.47},
+ furnace_front={.33,.33,.32},torch={.96,.74,.22}
 }
 local function sides(key) return {key,key,key,key,key,key} end
 T.faces={
@@ -75,6 +80,14 @@ T.faces[49]=sides('lapis_ore')
 T.labels[47]='Minerio diamante'
 T.labels[48]='Minerio redstone'
 T.labels[49]='Minerio lapis'
+T.faces[50]={'crafting_side','crafting_side','crafting_top','planks',
+ 'crafting_side','crafting_side'}
+T.faces[51]={'furnace_front','furnace_side','furnace_top','stone',
+ 'furnace_side','furnace_side'}
+T.faces[52]=sides('torch')
+T.labels[50]='Bancada de trabalho'
+T.labels[51]='Fornalha'
+T.labels[52]='Tocha'
 T.pages={
  {1,2,3,4,5,6,7,8},
  {10,11,12,13,14,15,16,17},
@@ -90,7 +103,8 @@ T.betaPages={
  {17,18,19,20,21,22,23,24,25},
  {26,27,28,29,30,31,32,33,34},
  {35,36,37,38,39,40,41,42,43},
- {44,45,46,7,8,9,10,16,22}
+ {44,45,46,7,8,9,10,16,22},
+ {50,51,52,7,10,4,14,47,48}
 }
 T.currentPage=1
 T.hotbar={}

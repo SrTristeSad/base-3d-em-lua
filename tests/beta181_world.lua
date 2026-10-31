@@ -47,7 +47,7 @@ assert(entry and entry.generatorVersion=='beta181' and options.generatorVersion=
 assert(not Worlds.create('Foto','teste','maps/figura.png','survival'))
 assert(not files['worlds/000001.map'],'Mundo novo não usa PNG/JPG')
 local world=World.new(options)
-assert(world.YMIN==0 and world.YMAX==127 and world.MAX_ID==49)
+assert(world.YMIN==0 and world.YMAX==127 and world.MAX_ID==52)
 assert(not world:within(0,-1,0) and not world:within(0,128,0))
 assert(world:get(0,0,0)==30,'Camada inferior deve ser rocha-mãe')
 assert(world:get(0,127,0)==0,'Mundo deve estar vazio em Y 127')

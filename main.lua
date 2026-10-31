@@ -85,8 +85,16 @@ local function useWorld(options,entry)
  player=Player.new(world)
  Textures.setProfile(world.generatorVersion)
  if world.generatorVersion=='beta181' then
+   local persisted
+   if world.savedSlots or world.savedCraft2 or world.savedCraft3
+     or world.savedCursor then
+     persisted={slots=world.savedSlots or {},craft2=world.savedCraft2,
+       craft3=world.savedCraft3,cursor=world.savedCursor}
+   else
+     persisted=world.savedItems
+   end
    classic=BetaItems.new(world.savedMode or (entry and entry.mode) or 'creative',
-     lovr.filesystem.isFile(world.SAVE) and world.savedItems or nil)
+     persisted)
  else
    classic=Classic.new(world.savedMode or (entry and entry.mode) or 'creative',
      lovr.filesystem.isFile(world.SAVE) and world.savedItems or nil,
@@ -165,7 +173,7 @@ local function action(a)
   elseif a=='mode' then
     local next=classic.mode=='survival' and 'creative' or 'survival'
     if world.generatorVersion=='beta181' then
-      classic=BetaItems.new(next,classic.items)
+      classic.mode=next
     else
       classic=Classic.new(next,classic.items,classic.score)
     end
@@ -306,6 +314,21 @@ function lovr.mousemoved(x,y,dx,dy)
 end
 
 function lovr.mousepressed(x,y,button)
+  if state=='inventory' or state=='workbench' then
+    local w,h=lovr.system.getWindowDimensions()
+    local section,index=UI.inventoryHit(state,x,y,w,h)
+    if section and classic and classic.profile=='beta181' then
+      local shift=lovr.system.isKeyDown('lshift','rshift')
+      if section=='output' then
+        if button==1 or button==2 then
+          classic:takeOutput(state=='workbench' and 'table' or 'small',shift)
+        end
+      else
+        classic:clickSlot(section,index,button,shift)
+      end
+    end
+    return
+  end
   if state=='playing' then
     if button==1 then
       local attacked=false
@@ -317,6 +340,13 @@ function lovr.mousepressed(x,y,button)
         player:edit(world,button,Textures.hotbar,classic,tnt)
       end
     elseif button==2 then
+      if classic.profile=='beta181' then
+        local hit=player:raycast(world,5)
+        if hit and hit.id==50 then
+          setState('workbench')
+          return
+        end
+      end
       if not tnt:defuse(player,classic) then
         player:edit(world,button,Textures.hotbar,classic,tnt)
       end
@@ -344,6 +374,13 @@ function lovr.textinput(text)
 end
 
 function lovr.keypressed(key)
+ if state=='inventory' or state=='workbench' then
+  if key=='escape' or key=='e' then
+    classic:close()
+    setState('playing')
+  end
+  return
+ end
  if state=='create' and menu.focus then
   if key=='return' or key=='kpenter' then menu.focus=nil;return end
   if key=='backspace' then
@@ -375,10 +412,16 @@ function lovr.keypressed(key)
   if key=='f3' then
     showStats=not showStats
   elseif key=='tab' then
-    Textures.nextPage(1)
-    player.selected=1
+    if classic.profile~='beta181' or classic.mode=='creative' then
+      Textures.nextPage(1)
+      player.selected=1
+    end
   elseif key=='e' then
-    classic:eat(player)
+    if classic.profile=='beta181' then
+      setState('inventory')
+    else
+      classic:eat(player)
+    end
   elseif key=='f5' then
     player.third=not player.third
   elseif key=='f6' then

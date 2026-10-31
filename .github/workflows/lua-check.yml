@@ -96,7 +96,7 @@ jobs:
           assert 'tnt:defuse(player,classic)' in main
           assert 'function World:explode(' in world
           assert 'Classic.MAX_ID=46' in Path('src/classic.lua').read_text()
-          assert 'T.MAX_ID=49' in Path('src/textures.lua').read_text()
+          assert 'T.MAX_ID=52' in Path('src/textures.lua').read_text()
           assert "require('src.classic')" in main
           assert "classic=Classic.new(world.savedMode" in main
           assert "UI.click(state,settings,x,y,w,h,classic,menu)" in main

@@ -138,10 +138,16 @@ function Player:edit(world,button,hotbar,classic,tnt)
     if math.abs(x-self.x)<.8 and math.abs(z-self.z)<.8
       and y<self.y+1.8 and y>self.y-1 then return false end
     local id=hotbar[self.selected]
-    if not id then return false end
+    if classic and classic.profile=='beta181'
+      and classic.mode=='survival' then
+      local stack=classic:getSlot(self.selected)
+      id=stack and stack.id
+    end
+    if not id or id>world.MAX_ID then return false end
     if classic and not classic:canPlace(id) then return false end
     if world:set(x,y,z,id) then
-      if classic then classic:place(id) end
+      if classic then classic:place(id,
+        classic.profile=='beta181' and self.selected or nil) end
       return true
     end
   end
