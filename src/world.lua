@@ -246,9 +246,6 @@ function World:set(x,y,z,id)
  local ck=chunkKey(cx,cy,cz)
  local i=idxWorld(x,y,z)
  self.cache[ck].data[i]=id==0 and nil or id
- if self.lighting then
-  self.lighting:updateSource(x,y,z,previous,id)
- end
  self.edits[key(x,y,z)]=id
  if not self.editsByChunk[ck] then self.editsByChunk[ck]={} end
  self.editsByChunk[ck][i]=id
@@ -259,12 +256,20 @@ function World:set(x,y,z,id)
  if y%16==15 then self.dirty[chunkKey(cx,cy+1,cz)]=true end
  if z%16==0 then self.dirty[chunkKey(cx,cy,cz-1)]=true end
  if z%16==15 then self.dirty[chunkKey(cx,cy,cz+1)]=true end
- -- Emissao de luz pode alcancar os chunks adjacentes no eixo 3D.
- if self.lighting and
-    (self.lighting.EMITTERS[previous] or self.lighting.EMITTERS[id]) then
-  for dx=-1,1 do for dy=-1,1 do for dz=-1,1 do
-   self.dirty[chunkKey(cx+dx,cy+dy,cz+dz)]=true
-  end end end
+ -- Mudancas opacas alteram a luz mesmo sem adicionar uma tocha.
+ -- Marque as secoes de TODOS os emissores impactados para remeshing.
+ if self.lighting then
+  local affected=self.lighting:onBlockChanged(x,y,z,previous,id)
+  for _,light in ipairs(affected) do
+   local r=light.power
+   local x0,x1=floor((light.x-r)/16),floor((light.x+r)/16)
+   local z0,z1=floor((light.z-r)/16),floor((light.z+r)/16)
+   local y0=max(floor(self.YMIN/16),floor((light.y-r)/16))
+   local y1=min(floor(self.YMAX/16),floor((light.y+r)/16))
+   for lx=x0,x1 do for ly=y0,y1 do for lz=z0,z1 do
+    self.dirty[chunkKey(lx,ly,lz)]=true
+   end end end
+  end
  end
  return true
 end
