@@ -7,6 +7,7 @@ local Inventory=require('core.inventory')
 local Crafting=require('core.crafting')
 local ModStorage=require('core.modstorage')
 local Voxel=require('core.voxel')
+local Particles=require('core.particles')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -32,9 +33,10 @@ function Runtime.new(options)
     biomes={},ores={},decorations={}},
   callbacks={globalstep={},generated={},mods_loaded={},
     on_placenode={},on_dignode={},on_joinplayer={},
-    on_dieplayer={},on_leaveplayer={},on_player_receive_fields={}},
+    on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
+    allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
-  chatcommands={}
+  chatcommands={},particles=Particles.new()
  },Runtime)
  local api={}
  self.api=api
@@ -160,6 +162,42 @@ function Runtime.new(options)
   assert(type(callback)=='function')
   self.callbacks.on_player_receive_fields[
    #self.callbacks.on_player_receive_fields+1]=callback
+ end
+ function api.register_allow_player_inventory_action(callback)
+  assert(type(callback)=='function')
+  local t=self.callbacks.allow_player_inventory_action
+  t[#t+1]=callback
+ end
+ function api.register_on_player_inventory_action(callback)
+  assert(type(callback)=='function')
+  local t=self.callbacks.on_player_inventory_action
+  t[#t+1]=callback
+ end
+ -- Storage registration can be exercised by mods even though no player
+ -- renderer, HUD, or formspec backend exists in this port.
+ function api.show_formspec()
+  error('formspec renderer and player sessions are not implemented',2)
+ end
+ function api.colorize(color,message)
+  assert(type(color)=='string' and type(message)=='string',
+   'colorize expects color and message strings')
+  local esc=string.char(27)
+  return esc..'(c@'..color..')'..message..esc..'(E)'
+ end
+ function api.hash_node_position(pos)
+  return Particles.hash_node_position(pos)
+ end
+ function api.get_position_from_hash(hash)
+  return Particles.get_position_from_hash(hash)
+ end
+ function api.add_particlespawner(def)
+  return self.particles:add_spawner(def)
+ end
+ function api.delete_particlespawner(id)
+  return self.particles:delete_spawner(id)
+ end
+ function api.add_particle(def)
+  return self.particles:add_particle(def)
  end
  -- For use when an actual player/HUD backend exists; registration
  -- alone must never invent a player or pretend to emit sound.
@@ -507,6 +545,25 @@ function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
 end
 -- Explicit event dispatch for tests and future player integration.
+-- Count-restrictions from upstream callbacks are combined conservatively.
+-- This checks permissions only: actual moving/taking must be performed by
+-- a future player backend after this preflight succeeds.
+function Runtime:allowedInventoryAction(player,action,inventory,info)
+ assert(type(action)=='string' and type(info)=='table',
+  'invalid inventory action')
+ local count=info.count or (info.stack and info.stack:get_count()) or 0
+ assert(type(count)=='number' and count>=0 and count==math.floor(count),
+  'invalid action count')
+ for _,callback in ipairs(self.callbacks.allow_player_inventory_action) do
+  local result=callback(player,action,inventory,info)
+  if result~=nil then
+   assert(type(result)=='number' and result>=0
+    and result==math.floor(result),'invalid inventory allowance')
+   count=math.min(count,result)
+  end
+ end
+ return count
+end
 function Runtime:emit(event,...)
  local callbacks=self.callbacks[event]
  assert(callbacks,'unknown runtime event: '..tostring(event))
