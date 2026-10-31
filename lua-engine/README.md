@@ -6,9 +6,11 @@ camada de compatibilidade com a API Lua do Luanti e permitir executar
 o VoxeLibre sem o motor original.
 
 **O alvo é compatibilidade 1:1, mas esta fase NÃO é um porte 1:1.**
-Na Fase 4 executamos os arquivos reais de seis mods utilitários e de inicialização do
-VoxeLibre em Lua, com contexto de mod isolado, e documentamos o
-primeiro bloqueio encontrado em `mcl_init`.
+Na Fase 5, o carregador passa a executar os arquivos originais de oito
+mods do VoxeLibre, incluindo `mcl_util` e `vl_unittests`.
+A implementação também introduz operações de bits portáveis e
+um gerador PCG32 com estado de 64 bits em duas partes de 32 bits,
+testado contra sequências determinísticas de referência.
 A versão atual roda apenas uma demonstração independente.
 
 ## Experimentar
@@ -40,6 +42,8 @@ a partir da raiz do repositório.
 - `get_meta`, `get_node_timer`, `find_nodes_in_area`;
 - `register_globalstep`, `after`, `register_abm`,
   `register_lbm`, `register_on_generated`;
+- `bit` (operações de 32 bits) e `PcgRandom` PCG32
+  com `next`, `rand_normal_dist`, `get_state` e `set_state`;
 - `get_mod_storage`, `register_chatcommand` e callbacks de eventos
   básicos exigidos por mods originais;
 - executor de arquivos reais de mods em `core/modenvironment.lua`,
@@ -76,7 +80,7 @@ no relatório não significa compatibilidade semântica completa.
 Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
 `tests/lua_engine_core.lua` e
 `tests/lua_engine_inventory_modloader.lua` e
-`tests/lua_engine_crafting.lua`.
+`tests/lua_engine_crafting.lua` e `tests/lua_engine_rng.lua`.
 A demonstração gráfica precisa de hardware Vulkan e teste manual.
 
 O VoxeLibre integral continua disponível em `games/voxelibre/`
