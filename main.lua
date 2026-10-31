@@ -16,6 +16,7 @@ local MobSpawn = require('src.mob_spawning')
 
 local world,mesher,player,avatar,tiles,creepers,classic,creatures,tnt,mobSkins,spawner
 local ignoreMouseMove=false
+local leftHeld,rightHeld=false,false
 local autosave=0
 local showStats=false
 local selectedWorld=nil
@@ -61,6 +62,10 @@ local function loadSettings()
 end
 
 local function setState(next)
+  if next~='playing' then
+    leftHeld,rightHeld=false,false
+    if player then player:stopMining();player:stopEating() end
+  end
   ignoreMouseMove=next=='playing'
   state=next
   lovr.system.setMouseMode(next=='playing' and 'relative' or 'normal')
@@ -248,7 +253,11 @@ end
 
 function lovr.update(dt)
   if state=='playing' then
-    player:update(dt,world)
+    player:update(dt,world,classic)
+    if classic.profile=='beta181' and classic.mode=='survival' then
+      player:updateMining(dt,world,classic,leftHeld)
+      player:updateEating(dt,classic,rightHeld)
+    end
     if spawner then spawner:sync(player,dt,classic) end
     creepers:update(dt,player,classic)
     creatures:update(dt,player,classic)
@@ -336,7 +345,12 @@ function lovr.mousepressed(x,y,button)
         attacked=creepers:hit(player,1,classic)
           or creatures:hit(player,classic)
       end
-      if not attacked then
+      if classic.profile=='beta181' and classic.mode=='survival' then
+        leftHeld=not attacked
+        if attacked then
+          classic:wearTool(player.selected,1)
+        end
+      elseif not attacked then
         player:edit(world,button,Textures.hotbar,classic,tnt)
       end
     elseif button==2 then
@@ -347,6 +361,11 @@ function lovr.mousepressed(x,y,button)
           return
         end
       end
+      if classic.profile=='beta181' and classic.mode=='survival'
+        and player:beginEating(classic) then
+        rightHeld=true
+        return
+      end
       if not tnt:defuse(player,classic) then
         player:edit(world,button,Textures.hotbar,classic,tnt)
       end
@@ -356,6 +375,16 @@ function lovr.mousepressed(x,y,button)
     local a=UI.click(state,settings,x,y,w,h,classic,menu)
     if a then action(a) end
   end
+end
+
+function lovr.mousereleased(x,y,button)
+ if button==1 then
+  leftHeld=false
+  if player then player:stopMining() end
+ elseif button==2 then
+  rightHeld=false
+  if player then player:stopEating() end
+ end
 end
 
 function lovr.wheelmoved(dx,dy)

@@ -41,6 +41,8 @@ jobs:
         run: lua5.4 tests/beta181_world.lua
       - name: Beta 1.8.1 inventory, crafting, cursor and saving
         run: lua5.4 tests/beta181_inventory.lua
+      - name: Beta 1.8.1 mining, tool wear, hunger and saves
+        run: lua5.4 tests/beta181_survival.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -63,6 +65,14 @@ jobs:
           assert "require('src.beta181_terrain')" in world
           assert "Terrain:generateSection(" in Path('src/beta181_terrain.lua').read_text()
           assert "require('src.beta181_items')" in main
+          assert "require('src.beta181_survival')" in Path('src/player.lua').read_text()
+          assert "function Player:updateMining(" in player
+          assert "function Player:updateEating(" in player
+          assert "player:updateMining(dt,world,classic,leftHeld)" in main
+          assert "player:updateEating(dt,classic,rightHeld)" in main
+          assert "function lovr.mousereleased(" in main
+          assert "PLAYERSTATUS" in world
+          assert "local Rules=require('src.beta181_survival')" in Path('src/beta181_items.lua').read_text()
           assert "require('src.beta181_crafting')" in Path('src/beta181_items.lua').read_text()
           assert "UI.inventoryHit(state,x,y,w,h)" in main
           assert "classic:takeOutput(" in main
@@ -137,7 +147,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Beta181-Inventory-Crafting.lovr')
+          out=Path('dist/Base3D-Beta181-Survival-Tools.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -165,14 +175,15 @@ jobs:
             assert 'src/beta181_terrain.lua' in z.namelist()
             assert 'src/beta181_items.lua' in z.namelist()
             assert 'src/beta181_crafting.lua' in z.namelist()
+            assert 'src/beta181_survival.lua' in z.namelist()
             assert 'assets/skins/mobs/README.md' in z.namelist()
           print(out,out.stat().st_size,'bytes',len(files),'files')
           PY
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Beta181-Inventory-Crafting-LOVR
-          path: dist/Base3D-Beta181-Inventory-Crafting.lovr
+          name: Base3D-Beta181-Survival-Tools-LOVR
+          path: dist/Base3D-Beta181-Survival-Tools.lovr
           if-no-files-found: error
           retention-days: 30
 
@@ -184,7 +195,7 @@ jobs:
       - name: Download verified game package
         uses: actions/download-artifact@v4
         with:
-          name: Base3D-Beta181-Inventory-Crafting-LOVR
+          name: Base3D-Beta181-Survival-Tools-LOVR
           path: game
       - name: Fuse LÖVR runtime with game for Windows x64
         shell: pwsh
@@ -198,7 +209,7 @@ jobs:
           if (-not $runtime) { throw 'The official runtime has no lovr.exe' }
           if (-not $archive) { throw 'The validated game artifact is missing' }
           New-Item -ItemType Directory -Path 'dist/Base3D-Windows' -Force | Out-Null
-          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Beta181-Inventory-Crafting.exe'
+          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Beta181-Survival-Tools.exe'
           # LÖVR supports a fused Windows executable: runtime bytes + .lovr zip.
           $outStream = [System.IO.File]::Create($output)
           try {
@@ -224,16 +235,19 @@ jobs:
           BASE 3D - TESTE WINDOWS (64 bits)
           =================================
           1. Extraia o arquivo ZIP inteiro para uma pasta.
-          2. Execute Base3D-Beta181-Inventory-Crafting.exe.
+          2. Execute Base3D-Beta181-Survival-Tools.exe.
           3. No menu escolha CRIAR NOVO MUNDO e informe uma semente.
           4. Escolha SOBREVIVENCIA ou CRIATIVO. Sem geracao por imagem.
-          5. Beta 1.8.1 FASE 2: inventario 36 slots (E), craft 2x2,
-             bancada de trabalho 3x3 ao clicar com o direito nela.
-          6. Clique esquerdo move a pilha, direito divide ou coloca uma
-             unidade; Shift+clique transfere pilha ou fabrica ate o limite.
-          7. Jogo ainda em desenvolvimento; fome, ferramentas funcionais,
-             Nether e camas ainda NAO estao implementados.
-          8. E possivel jogar sem Minecraft ou Roblox instalados.
+          5. FASE 3: Inventario E, 2x2 ou bancada 3x3, 36 slots.
+          6. Mineracao: segure o botao esquerdo ate a barra completar.
+          7. Durabilidade: madeira 59 usos, pedra 131; picaretas
+             corretas sao necessarias para coletar minérios.
+          8. Fome: mate porcos para obter carne crua, selecione-a e
+             SEGURE o botao direito por 1.6 segundos para comer.
+          9. Regeneracao se fome>=18; fome baixa impede corrida rapida.
+          10. Ainda NAO ha fornalha funcional, biomas exatos, Nether,
+              camas, ferramentas completas ou mobs historicos fieis.
+          11. Esta build e um prototipo experimental independente.
 
           Exige Windows 10+ 64 bits e GPU/driver compatível com Vulkan.
           O Microsoft Visual C++ Runtime pode ser necessario.
@@ -247,7 +261,7 @@ jobs:
       - name: Upload Windows portable ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Beta181-Inventory-Crafting-Windows-EXE
+          name: Base3D-Beta181-Survival-Tools-Windows-EXE
           path: dist/Base3D-Windows/
           if-no-files-found: error
           retention-days: 30

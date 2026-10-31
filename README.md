@@ -1,88 +1,104 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 2)
+# Base 3D em Lua — Beta 1.8.1 (Fase 3)
 
-Reimplementação **independente em Lua + LÖVR 0.19** da experiência de
-Minecraft Java Beta 1.8.1. Sem redistribuir código, texturas, som ou
-arquivos proprietários da Mojang. **Ainda não é uma cópia 1:1**.
+Reimplementação **independente** da experiência de Minecraft Java
+Beta 1.8.1, desenvolvida em **Lua + LÖVR 0.19**. Código e arte próprios:
+não redistribui Minecraft ou recursos da Mojang. **Ainda não é uma
+reprodução 1:1**: os algoritmos de mundo, IA, física e aparência estão
+em diferentes estágios de implementação.
 
-## Baixar e jogar
+## Baixar e testar
 
-Acesse as [compilações GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions)
-e abra a execução mais recente aprovada. Baixe:
-- **Windows:** `Base3D-Beta181-Inventory-Crafting-Windows-EXE` (ZIP).
-- **LÖVR:** `Base3D-Beta181-Inventory-Crafting-LOVR` (`.lovr`).
+Abra o [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions)
+e escolha a última execução com **sucesso**. No final da página,
+baixe `Base3D-Beta181-Survival-Tools-Windows-EXE` (ZIP) ou
+`Base3D-Beta181-Survival-Tools-LOVR` (.lovr).
 
-Extraia o ZIP inteiro. Execute `Base3D-Beta181-Inventory-Crafting.exe`
-mantendo os DLLs na mesma pasta. Requer Windows x64 e driver com Vulkan.
+Extraia o ZIP inteiro, inclusive as DLLs, e execute
+`Base3D-Beta181-Survival-Tools.exe`. Requer Windows x64 com Vulkan.
+O pacote automatizado compila e testa lógica Lua, **não** valida
+a renderização ou os controles em uma GPU real.
 
-Crie um mundo **Beta 1.8.1** usando uma **seed** numérica ou textual,
-em Criativo ou Sobrevivência. O gerador não aceita mais imagens novas;
-saves antigos com imagem continuam legíveis.
+## Jogar — Fases 1 a 3
 
-## Fase 2 — Inventário e crafting
-
-No **Sobrevivência**, `E` abre o inventário, com **9 slots de hotbar,
-27 de mochila e crafting 2×2**. O botão direito do mouse sobre uma
-**bancada de trabalho** (construída com quatro tábuas) abre o
-**crafting 3×3**.
+No menu, **CRIAR NOVO MUNDO**. Informe uma semente (*seed*)
+numérica ou textual e selecione **Sobrevivência**. Novos mundos não
+aceitam geração por imagem; mundos antigos continuam disponíveis.
 
 | Controle | Ação |
 | --- | --- |
-| E | Abrir/fechar inventário |
-| Esc | Fechar inventário ou pausar |
-| Clique esquerdo no inventário | Pegar, colocar ou trocar pilha |
-| Clique direito no inventário | Dividir pilha ou colocar uma unidade |
-| Shift + clique | Transferir pilha; ao fabricar, repetir até o limite |
-| Clique na saída do crafting | Fabricar receita com ingredientes dispostos na grade |
-| 1–9 / scroll | Selecionar slot rápido |
-| WASD, mouse, espaço | Movimento e câmera |
-| F3 | Diagnóstico de chunks |
-| F5 | Alternar primeira/terceira pessoa |
-| F6 | Salvar mundo |
+| WASD, mouse, Espaço | Mover, olhar, pular |
+| Shift | Correr enquanto a fome estiver acima de 6 |
+| **Segurar esquerdo** | **Minerar até completar a barra** |
+| **Segurar direito** com alimento na mão | **Comer em 1,6 s** |
+| Direito sobre bancada | Crafting 3×3 |
+| E | Inventário 9+27 e crafting 2×2 |
+| 1–9 / scroll | Slot selecionado da barra rápida |
+| Clique esquerdo no inventário | Pegar ou colocar pilha |
+| Clique direito no inventário | Dividir ou depositar uma unidade |
+| Shift + clique no inventário | Transferência/fabricação rápida |
+| F3 | Estatísticas de chunks |
+| F5 | Primeira/terceira pessoa |
+| F6 | Salvar |
+| Esc | Pausar ou fechar interface |
 
-**Receitas implementadas:** tronco → 4 tábuas; duas tábuas →
-4 gravetos; bancada de trabalho; carvão + graveto → 4 tochas;
-picaretas, espadas e machados de madeira/pedra; fornalha; pão.
-A **fornalha ainda não cozinha itens**, e as ferramentas ainda
-não possuem velocidade/durabilidade fiéis.
+### Mineração e ferramentas — Fase 3
 
-**Itens salvam por slot**, incluindo as grades e o item segurado
-pelo cursor. Pilhas comuns têm limite de 64, ferramentas não empilham.
-Os saves de inventário simplificado da Fase 1 são migrados na abertura.
-Se a mochila estiver cheia, ingredientes não são apagados ao fechar
-a interface.
+- Mineração progressiva enquanto o mouse estiver pressionado.
+  Mudar o alvo, a ferramenta ou soltar o botão interrompe o progresso.
+- Ferramentas de madeira, pedra e ferro diferem em **velocidade**.
+  Madeira: **59 usos**; pedra: **131**; ferro: **250**;
+  diamante: **1561**. O desgaste é salvo por ferramenta.
+- Minérios exigem níveis adequados de picareta para oferecer drops.
+  Sem a ferramenta apropriada, o bloco pode quebrar sem coletar minério.
+- Primeiras receitas para pás e ferramentas de ferro e diamante.
+  **Ainda não existe um forno de fundição funcional.** A progressão
+  completa em Sobrevivência ainda não é possível.
 
-## Terreno da Fase 1
+### Fome e alimentação — Fase 3
 
-- Mundo por seed com biomas: oceano, rio, planície, deserto, taiga,
-  floresta, pântano e Extreme Hills.
-- Altura Y=0–127, mar até Y=62, cavernas, árvores e minérios.
-- Spawn preferencial em terra firme.
-- Mundos Classic anteriores mantêm seu perfil e limites.
-- Seções 16×16×16 continuam na infraestrutura experimental do
-  renderizador. **Cubic Chunks com altura expandida ainda é uma
-  melhoria futura**, não foi antecipada.
+- Dez ícones de fome, **20 pontos**, saturação e exaustão.
+- Comer exige segurar o botão direito **1,6 segundo** e possuir fome.
+  Porcos deixam **carne crua**, que restaura **3 pontos de fome**.
+- Corrida consome mais energia; não é possível correr com fome ≤6.
+  Regeneração gradual de vida se fome ≥18; fome zero causa dano.
+  Nesta versão experimental, a dificuldade é equivalente ao *Normal*
+  para fome: o dano para em um ponto de vida.
+- O status de fome/vida e a condição de cada ferramenta persistem
+  nos arquivos do mundo. Saves mais antigos sem esses campos são aceitos.
+- Ainda não há animações de alimentação, ícones pixel-perfect,
+  efeitos especiais e toda a lista de alimentos históricos.
 
-## Falta para reproduzir a Beta 1.8.1
+### Recursos anteriores
 
-Fome, ferramentas com durabilidade, mineração por tempo, crafting e
-fornalha completos, todos os itens e receitas originais, modelos e
-inteligência dos mobs, iluminação, ciclo dia/noite, fluidos, clima,
-estruturas, Nether, camas e detalhes de física e interface. O
-gerador atual também **não reproduz as mesmas seeds da Mojang**.
+- Overworld com oceanos, rios, planícies, florestas, deserto,
+  taiga, pântanos, montanhas, cavernas, árvores e seis minérios.
+- Altura **Y=0–127**; água dos mares até **Y=62**.
+- Inventário **36 slots**, crafting 2×2 e bancada 3×3;
+  tábuas, gravetos, picaretas, machados, espadas, forno, tochas
+  e alguns alimentos/receitas.
+- Saves `beta181` separados dos mundos Classic 0.30 anteriores.
 
-Os testes automatizados cobrem Lua puro e empacotamento, mas
-**não executam o jogo em GPU real**. O desempenho, a visibilidade,
-o input e a interface precisam de validação manual no Windows.
+## Pendências importantes
+
+O projeto **não** reproduz ainda seeds idênticas às originais,
+vilas, ravinas/estruturas completas, geração e mob spawning fiéis,
+IA de criaturas, iluminação, clima, líquidos dinâmicos, Nether,
+camas, fornalha com combustível, equipamentos completos ou
+mecânicas de combate e física totalmente fiéis.
+
+As futuras mudanças de [FUTURO.md](FUTURO.md), começando por
+**Cubic Chunks**, serão implementadas somente depois da
+reconstrução do jogo base.
 
 ## Documentação
 
-- [Fase 2 — Inventário e crafting](docs/FASE_02_BETA181.md)
-- [Fase 1 — Terreno](docs/FASE_01_BETA181.md)
-- [Plano de reconstrução](docs/BASELINE_BETA_181.md)
-- [FUTURO.md](FUTURO.md) — Cubic Chunks confirmado depois da
-  reconstrução; outras ideias da comunidade ainda em análise.
-- [Histórico Classic 0.30](docs/RECONSTRUCAO_CLASSIC_030.md)
+- [Relatório técnico — Fase 3](docs/FASE_03_BETA181.md)
+- [Inventário e crafting — Fase 2](docs/FASE_02_BETA181.md)
+- [Terreno — Fase 1](docs/FASE_01_BETA181.md)
+- [Planejamento Beta 1.8.1](docs/BASELINE_BETA_181.md)
+- [FUTURO.md](FUTURO.md) — decisões e ideias da comunidade
 
-**Projeto não afiliado, autorizado ou endossado pela Mojang/Microsoft.**
-Antes de uma publicação comercial, revisar a identidade e o uso de
-elementos expressivos com profissional de propriedade intelectual.
+Minecraft é marca de seus titulares. Este projeto não é oficial
+nem associado à Mojang/Microsoft. Uma futura publicação comercial
+precisará utilizar identidade e elementos expressivos próprios
+e de avaliação jurídica especializada.

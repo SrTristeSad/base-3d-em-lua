@@ -75,8 +75,16 @@ assert(restored.gen:height(300,-175)==world.gen:height(300,-175))
 assert(world:cacheCount()>0)
 local beta=Items.new('survival')
 assert(beta.MAX_STACK==64 and not beta:canPlace(47))
-assert(beta:mine(47) and beta:count(264)==1,
- 'Minério de diamante deve soltar diamante, não minério')
+assert(beta:mine(47) and beta:count(264)==0,
+ 'Diamante exige picareta de ferro')
+assert(beta:grant(257,1))
+local pick
+for i=1,36 do
+ local stack=beta:getSlot(i)
+ if stack and stack.id==257 then pick=i;break end
+end
+assert(pick and beta:mine(47,pick) and beta:count(264)==1,
+ 'Picareta de ferro deve coletar diamante')
 assert(not beta:canPlace(264),'Diamante é um item')
 beta:grant(47,1)
 assert(beta:place(47) and beta:count(47)==0)

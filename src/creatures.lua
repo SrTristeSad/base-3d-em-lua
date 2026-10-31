@@ -133,7 +133,15 @@ function Creatures:hit(player,classic)
   if classic then
    local data=self.SPECIES[nearest.kind]
    classic:award(data.points)
-   if data.drop then
+   if classic.profile=='beta181' then
+    if nearest.kind=='Pig' then
+      classic:grant(319,2) -- porco cru: alimentacao Beta 1.8.1
+    elseif nearest.kind=='Sheep' then
+      classic:grant(31,1)
+    elseif nearest.kind=='Zombie' then
+      classic:grant(367,1) -- carne podre
+    end
+   elseif data.drop then
     classic:grant(data.drop,nearest.kind=='Pig' and 2 or 1)
    end
   end

@@ -38,6 +38,7 @@ function World.new(options)
   cache={},edits={},editsByChunk={},dirty={},
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   savedSlots=nil,savedCraft2=nil,savedCraft3=nil,savedCursor=nil,
+  savedStatus=nil,
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
      and (options.generatorVersion=='beta181'
@@ -335,6 +336,17 @@ function World:load()
    self.savedPlayer={x=tonumber(px),y=tonumber(py),z=tonumber(pz),
      yaw=tonumber(yaw) or 0,pitch=tonumber(pitch) or 0}
   end
+  local hp,hunger,saturation,exhaustion=
+    line:match('^PLAYERSTATUS ([%d%.]+) ([%d%.]+) ([%d%.]+) ([%d%.]+)$')
+  if hp and self.generatorVersion=='beta181' then
+   hp,hunger,saturation,exhaustion=tonumber(hp),tonumber(hunger),
+     tonumber(saturation),tonumber(exhaustion)
+   if hp and hunger and saturation and exhaustion then
+    self.savedStatus={health=max(0,min(20,hp)),
+     hunger=max(0,min(20,hunger)),saturation=max(0,min(20,saturation)),
+     exhaustion=max(0,min(4,exhaustion))}
+   end
+  end
   local mode=line:match('^MODE (survival)$') or line:match('^MODE (creative)$')
   if mode then self.savedMode=mode end
   local score=line:match('^SCORE (%d+)$')
@@ -344,36 +356,52 @@ function World:load()
    item,count=tonumber(item),tonumber(count)
    if item>=1 and item<=self.MAX_ID then self.savedItems[item]=min(99,count) end
   end
-  local slot,id,n=line:match('^SLOT (%d+) (%d+) (%d+)$')
+  local slot,id,n,damage=line:match('^SLOT (%d+) (%d+) (%d+) (%d+)$')
+  if not slot then slot,id,n=line:match('^SLOT (%d+) (%d+) (%d+)$') end
   if slot then
-   slot,id,n=tonumber(slot),tonumber(id),tonumber(n)
-   if slot>=1 and slot<=36 and id>=1 and id<=4095 and n>=1 and n<=64 then
+   slot,id,n,damage=tonumber(slot),tonumber(id),tonumber(n),tonumber(damage) or 0
+   if slot>=1 and slot<=36 and id>=1 and id<=4095
+      and n>=1 and n<=64 and damage>=0 and damage<=65535 then
     self.savedSlots=self.savedSlots or {}
-    self.savedSlots[slot]={id=id,count=n}
+    self.savedSlots[slot]={id=id,count=n,damage=damage}
    end
   end
-  local area,index,gridId,quantity=
-    line:match('^(CRAFT2) (%d+) (%d+) (%d+)$')
+  local area,index,gridId,quantity,damage=
+    line:match('^(CRAFT2) (%d+) (%d+) (%d+) (%d+)$')
+  if not area then
+   area,index,gridId,quantity,damage=
+      line:match('^(CRAFT3) (%d+) (%d+) (%d+) (%d+)$')
+  end
+  if not area then
+   area,index,gridId,quantity=
+      line:match('^(CRAFT2) (%d+) (%d+) (%d+)$')
+  end
   if not area then
    area,index,gridId,quantity=
       line:match('^(CRAFT3) (%d+) (%d+) (%d+)$')
   end
   if area then
-   index,gridId,quantity=tonumber(index),tonumber(gridId),tonumber(quantity)
+   index,gridId,quantity,damage=tonumber(index),tonumber(gridId),
+     tonumber(quantity),tonumber(damage) or 0
    local size=area=='CRAFT2' and 4 or 9
    if index>=1 and index<=size and gridId>=1 and gridId<=4095
-      and quantity>=1 and quantity<=64 then
+      and quantity>=1 and quantity<=64 and damage>=0 and damage<=65535 then
      local name=area=='CRAFT2' and 'savedCraft2' or 'savedCraft3'
      self[name]=self[name] or {}
-     self[name][index]={id=gridId,count=quantity}
+     self[name][index]={id=gridId,count=quantity,damage=damage}
    end
   end
-  local cursorId,cursorCount=line:match('^CURSOR (%d+) (%d+)$')
+  local cursorId,cursorCount,cursorDamage=
+    line:match('^CURSOR (%d+) (%d+) (%d+)$')
+  if not cursorId then
+    cursorId,cursorCount=line:match('^CURSOR (%d+) (%d+)$')
+  end
   if cursorId then
-   cursorId,cursorCount=tonumber(cursorId),tonumber(cursorCount)
+   cursorId,cursorCount,cursorDamage=tonumber(cursorId),
+     tonumber(cursorCount),tonumber(cursorDamage) or 0
    if cursorId>=1 and cursorId<=4095 and cursorCount>=1 and
-     cursorCount<=64 then
-    self.savedCursor={id=cursorId,count=cursorCount}
+     cursorCount<=64 and cursorDamage>=0 and cursorDamage<=65535 then
+    self.savedCursor={id=cursorId,count=cursorCount,damage=cursorDamage}
    end
   end
   local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
@@ -394,19 +422,23 @@ function World:save(player,classic)
   lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
   lines[#lines+1]='SCORE '..tostring(max(0,floor(classic.score or 0)))
   if classic.profile=='beta181' then
+   lines[#lines+1]=('PLAYERSTATUS %.2f %.2f %.2f %.3f'):format(
+    player.health or 20,player.hunger or 20,player.saturation or 5,
+    player.exhaustion or 0)
    local function slotLine(tag,index,stack)
     if stack and type(stack.id)=='number' and type(stack.count)=='number'
        and stack.count>=1 then
-     lines[#lines+1]=('%s %d %d %d'):format(
-       tag,index,stack.id,math.min(64,math.floor(stack.count)))
+     lines[#lines+1]=('%s %d %d %d %d'):format(
+       tag,index,stack.id,math.min(64,math.floor(stack.count)),
+       math.min(65535,math.max(0,math.floor(stack.damage or 0))))
     end
    end
    for i=1,36 do slotLine('SLOT',i,classic.slots[i]) end
    for i=1,4 do slotLine('CRAFT2',i,classic.craft2[i]) end
    for i=1,9 do slotLine('CRAFT3',i,classic.craft3[i]) end
    if classic.cursor then
-    lines[#lines+1]=('CURSOR %d %d'):format(
-      classic.cursor.id,classic.cursor.count)
+    lines[#lines+1]=('CURSOR %d %d %d'):format(
+      classic.cursor.id,classic.cursor.count,classic.cursor.damage or 0)
    end
   else
    for id=1,self.MAX_ID do

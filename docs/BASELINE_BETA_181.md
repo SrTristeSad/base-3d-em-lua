@@ -13,7 +13,7 @@ validar as mecânicas e a aparência.** Já existe um perfil Beta 1.8.1
 experimental no projeto, mas geração, interface e jogabilidade
 ainda não são reproduções completas da versão original.
 
-## Status de implementação — Fases 1 e 2
+## Status de implementação — Fases 1, 2 e 3
 
 A fundação do Overworld está integrada ao jogo com o perfil `beta181`:
 biomas básicos, terreno, mar Y=62, altura 0..127 e minérios. Esta
@@ -28,6 +28,12 @@ Bancadas de trabalho já abrem a grade 3×3. Ainda faltam itens,
 receitas, ferramentas com durabilidade, fome e fornalha funcional.
 
 [Ver detalhes, receitas e limitações da Fase 2](FASE_02_BETA181.md).
+
+**Fase 3:** mineração mantendo clique pressionado, tempo por dureza
+ e ferramenta, desgaste por uso, alimentação após 1,6 s, pontos de
+ fome, saturação, exaustão, regeneração e persistência.
+
+[Ver limitações e testes da Fase 3](FASE_03_BETA181.md).
 
 ## Fase A — baseline Beta 1.8.1
 

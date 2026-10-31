@@ -135,6 +135,14 @@ local function drawInventory(pass,state,classic,w,h)
    local name=classic:label(stack.id)
    label(pass,name:sub(1,11),cell.x,cell.y-6,11,1,1,.83)
    label(pass,tostring(stack.count),cell.x+14,cell.y+14,16,.95,.99,1)
+   local Rules=require('src.beta181_survival')
+   local durability=Rules.maxDurability(stack.id)
+   if durability then
+    local rest=math.max(0,durability-(stack.damage or 0))
+    rect(pass,cell.x,cell.y+21,40,3,.18,.19,.20,1)
+    rect(pass,cell.x-20+20*rest/durability,cell.y+21,
+      40*rest/durability,3,.32,.82,.34,1)
+   end
   end
  end
  label(pass,'CRAFTING',w/2-157,h/2-190,17,.91,.95,1)
@@ -190,11 +198,20 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
           or (classic:count(id) or 0)
         label(pass,count>0 and tostring(count) or '',x,h-38,14,
           count>0 and .92 or .66,count>0 and .95 or .71,.86)
+        if beta and item then
+          local wear,total=classic:toolDamage(i)
+          if total then
+            local fraction=math.max(0,1-wear/total)
+            rect(pass,x,h-26,49,4,.14,.14,.15)
+            rect(pass,x-24.5+24.5*fraction,h-26,49*fraction,4,
+              .36,.85,.39)
+          end
+        end
       end
     end
     local beta=classic and classic.profile=='beta181'
     label(pass,beta
-      and 'E inventario | WASD mover | Esq. minerar | Dir. construir | F6 salvar'
+      and 'E inventario | Segure Esq. para minerar | Segure Dir. para comer | Shift correr'
       or 'WASD mover | F3 desempenho | Esq. atacar/minerar | Dir. construir | TAB pagina | E cogumelo',
       w/2,28,15,.9,.96,1)
     -- Vida inicial: dez coracoes. Dano e morte sao calculados no jogador.
@@ -209,6 +226,20 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
       end
     end
     label(pass,'VIDA '..health..'/20',112,119,15,1,.86,.82)
+    if beta and classic.mode=='survival' then
+      local food=player.hunger or 20
+      for i=1,10 do
+        local fx=w-28-(10-i)*27
+        local amount=math.max(0,math.min(2,food-(i-1)*2))
+        rect(pass,fx,146,22,22,.23,.19,.13,.95)
+        if amount>0 then
+          rect(pass,fx,146,amount==2 and 17 or 9,17,
+            .95,.69,.25,.99)
+        end
+      end
+      label(pass,'FOME '..math.floor(food)..'/20',w-150,174,
+        14,.96,.85,.66)
+    end
     if classic then
       label(pass,(beta and 'BETA 1.8.1 (PROTOTIPO)' or 'CLASSIC 0.30')..
         ' | '..(classic.mode=='creative' and 'CRIATIVO' or 'SOBREVIVENCIA'),
@@ -246,6 +277,21 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
     if hit then
       label(pass,'Alvo: '..(labels[hit.id] or 'Bloco')..'  ['..hit.x..','..hit.y..','..hit.z..']',
       w/2,58,16,1,1,.6)
+      if beta and classic.mode=='survival' and player.mining then
+        local progress=player:miningFraction()
+        rect(pass,w/2,h/2+33,112,10,.15,.14,.12,.90)
+        if progress>0 then
+          rect(pass,w/2-52+52*progress,h/2+33,
+            104*progress,7,.95,.77,.40,.95)
+        end
+        label(pass,('MINERANDO %d%%'):format(math.floor(progress*100)),
+          w/2,h/2+53,15,1,.9,.64)
+      end
+    end
+    if beta and player.eating then
+      local fraction=math.min(1,(player.eating.elapsed or 0)/1.6)
+      label(pass,('COMENDO %d%%'):format(math.floor(fraction*100)),
+        w/2,h/2+80,14,.97,.78,.51)
     end
     return
   end

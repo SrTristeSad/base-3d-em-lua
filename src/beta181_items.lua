@@ -2,6 +2,7 @@
 -- IDs de blocos do protótipo permanecem estáveis; novos itens utilizam
 -- IDs de itens históricos da Java onde possível, sem recursos proprietários.
 local Crafting=require('src.beta181_crafting')
+local Rules=require('src.beta181_survival')
 local Beta={}
 Beta.__index=Beta
 Beta.profile='beta181'
@@ -22,11 +23,16 @@ Beta.labels={
  [271]='Machado de madeira',[272]='Espada de pedra',
  [274]='Picareta de pedra',[275]='Machado de pedra',
  [296]='Trigo',[297]='Pão',[319]='Porco cru',[320]='Porco assado',
- [331]='Redstone',[351]='Lápis-lazúli'
+ [260]='Maçã',[256]='Pá de ferro',[257]='Picareta de ferro',
+ [258]='Machado de ferro',[265]='Lingote de ferro',
+ [267]='Espada de ferro',[269]='Pá de madeira',[273]='Pá de pedra',
+ [276]='Espada de diamante',[277]='Pá de diamante',
+ [278]='Picareta de diamante',[279]='Machado de diamante',
+ [363]='Carne bovina crua',[364]='Bife',[365]='Frango cru',
+ [366]='Frango assado',[367]='Carne podre',[331]='Redstone',[351]='Lápis-lazúli'
 }
-Beta.unstackable={
- [268]=true,[270]=true,[271]=true,[272]=true,[274]=true,[275]=true
-}
+Beta.unstackable={}
+for id in pairs(Rules.tools) do Beta.unstackable[id]=true end
 Beta.DROPS={
  [1]=2,[3]=10,[14]=263,[47]=264,[48]=331,[49]=351
 }
@@ -35,7 +41,7 @@ local function valid(id)
    and id>=1 and (id<=Beta.MAX_ID or Beta.labels[id]~=nil)
 end
 local function copy(stack)
- if stack then return {id=stack.id,count=stack.count} end
+ if stack then return {id=stack.id,count=stack.count,damage=stack.damage or 0} end
 end
 local function stackLimit(id)
  return Beta.unstackable[id] and 1 or 64
@@ -54,7 +60,8 @@ function Beta.new(mode,saved)
     if type(stack)=='table' and valid(stack.id) and
       type(stack.count)=='number' and stack.count>=1 then
       self.slots[i]={id=stack.id,
-        count=math.min(stackLimit(stack.id),math.floor(stack.count))}
+        count=math.min(stackLimit(stack.id),math.floor(stack.count)),
+        damage=math.min(65535,math.max(0,math.floor(tonumber(stack.damage) or 0)))}
     end
    end
    for _,key in ipairs({'craft2','craft3'}) do
@@ -64,14 +71,16 @@ function Beta.new(mode,saved)
      if type(stack)=='table' and valid(stack.id) and
        type(stack.count)=='number' and stack.count>=1 then
       self[key][i]={id=stack.id,
-        count=math.min(stackLimit(stack.id),math.floor(stack.count))}
+        count=math.min(stackLimit(stack.id),math.floor(stack.count)),
+        damage=math.min(65535,math.max(0,math.floor(tonumber(stack.damage) or 0)))}
      end
     end
    end
    if type(saved.cursor)=='table' and valid(saved.cursor.id)
       and type(saved.cursor.count)=='number' and saved.cursor.count>=1 then
     self.cursor={id=saved.cursor.id,
-      count=math.min(stackLimit(saved.cursor.id),math.floor(saved.cursor.count))}
+      count=math.min(stackLimit(saved.cursor.id),math.floor(saved.cursor.count)),
+      damage=math.min(65535,math.max(0,math.floor(tonumber(saved.cursor.damage) or 0)))}
    end
   else
    -- Migração do inventário provisório de pilhas agrupadas por ID.
@@ -114,7 +123,7 @@ function Beta:count(id)
  end
  return total
 end
-function Beta:insert(id,amount,from,to)
+function Beta:insert(id,amount,from,to,damage)
  if not valid(id) then return false,amount end
  amount=math.floor(tonumber(amount) or 0)
  if amount<=0 then return false,amount end
@@ -123,7 +132,8 @@ function Beta:insert(id,amount,from,to)
  local limit=stackLimit(id)
  for i=from,to do
   local s=self.slots[i]
-  if s and s.id==id and s.count<limit then
+  if s and s.id==id and s.count<limit and
+     (not Beta.unstackable[id]) then
    local n=math.min(remaining,limit-s.count)
    s.count=s.count+n
    remaining=remaining-n
@@ -133,7 +143,7 @@ function Beta:insert(id,amount,from,to)
  for i=from,to do
   if not self.slots[i] then
    local n=math.min(remaining,limit)
-   self.slots[i]={id=id,count=n}
+   self.slots[i]={id=id,count=n,damage=damage or 0}
    remaining=remaining-n
    if remaining==0 then return true,0 end
   end
@@ -158,10 +168,42 @@ end
 function Beta:canMine(id)
  return valid(id) and id~=9 and id~=29 and id~=30
 end
-function Beta:mine(id)
+function Beta:mine(id,slot)
  if not self:canMine(id) then return false end
  if self.mode=='creative' then return true end
- return self:grant(self.DROPS[id] or id,1)
+ local held=self:getSlot(slot or 1)
+ local toolId=held and held.id or nil
+ if Rules.canHarvest(id,toolId) then
+  self:grant(self.DROPS[id] or id,1)
+ end
+ self:wearTool(slot or 1,1)
+ return true
+end
+function Beta:wearTool(index,amount)
+ if self.mode=='creative' then return false end
+ local stack=self:getSlot(index)
+ if not stack then return false end
+ local durability=Rules.maxDurability(stack.id)
+ if not durability then return false end
+ stack.damage=(stack.damage or 0)+(amount or 1)
+ if stack.damage>=durability then
+  self.slots[index]=nil
+  return true -- ferramenta se quebrou
+ end
+ return false
+end
+function Beta:toolDamage(index)
+ local stack=self:getSlot(index)
+ if not stack then return 0,nil end
+ return stack.damage or 0,Rules.maxDurability(stack.id)
+end
+function Beta:consumeFood(index,player)
+ if self.mode~='survival' then return false end
+ local stack=self:getSlot(index)
+ if not stack or not Rules.foodData(stack.id) then return false end
+ if not Rules.eat(player,stack.id) then return false end
+ self:consumeSlot(index,1)
+ return true
 end
 function Beta:canPlace(id)
  return valid(id) and id<=self.MAX_ID and
@@ -197,14 +239,14 @@ function Beta:award() end
 -- se estiver cheio, mantém itens na grade salva, sem excluí-los.
 function Beta:close()
  if self.cursor and self:capacity(self.cursor.id)>=self.cursor.count then
-  self:insert(self.cursor.id,self.cursor.count)
+  self:insert(self.cursor.id,self.cursor.count,nil,nil,self.cursor.damage)
   self.cursor=nil
  end
  for _,grid in ipairs({self.craft2,self.craft3}) do
   for i=1,9 do
    local s=grid[i]
    if s and self:capacity(s.id)>=s.count then
-    self:insert(s.id,s.count)
+    self:insert(s.id,s.count,nil,nil,s.damage)
     grid[i]=nil
    end
   end
@@ -222,12 +264,12 @@ function Beta:shiftClick(section,index)
  if section=='inventory' then
   local from,to=index<=9 and 10 or 1,index<=9 and 36 or 9
   local before=item.count
-  local _,left=self:insert(item.id,item.count,from,to)
+  local _,left=self:insert(item.id,item.count,from,to,item.damage)
   if left==before then return false end
   if left==0 then area[index]=nil else item.count=left end
   return true
  end
- local _,left=self:insert(item.id,item.count)
+ local _,left=self:insert(item.id,item.count,nil,nil,item.damage)
  if left==item.count then return false end
  if left==0 then area[index]=nil else item.count=left end
  return true
@@ -247,7 +289,7 @@ function Beta:clickSlot(section,index,button,shift)
    area[index]=nil
   else
    local amount=math.ceil(current.count/2)
-   self.cursor={id=current.id,count=amount}
+   self.cursor={id=current.id,count=amount,damage=current.damage or 0}
    current.count=current.count-amount
    if current.count==0 then area[index]=nil end
   end
@@ -255,7 +297,7 @@ function Beta:clickSlot(section,index,button,shift)
  end
  if not current then
   local n=button==1 and held.count or 1
-  area[index]={id=held.id,count=n}
+  area[index]={id=held.id,count=n,damage=held.damage or 0}
   held.count=held.count-n
   if held.count<=0 then self.cursor=nil end
   return true
@@ -302,5 +344,5 @@ function Beta:takeOutput(section,shift)
  end
  return crafted>0,crafted
 end
-function Beta:eat() return false end -- fome/alimentação na fase posterior
+function Beta:eat(player,index) return self:consumeFood(index or 1,player) end
 return Beta
