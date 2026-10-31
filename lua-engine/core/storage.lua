@@ -61,6 +61,15 @@ function Storage.encode(map)
    end
   end
  end
+ -- Optional generated-chunk markers prevent overwriting mined blocks on reload.
+ for _,k in ipairs(keys(map.generatedChunks or {})) do
+  local cx,cz=k:match('^(%-?%d+),(%-?%d+)$')
+  assert(cx and cz,'invalid generated chunk key')
+  local seed=map.generatedChunks[k]
+  assert(type(seed)=='number' and seed==math.floor(seed)
+   and seed>=0 and seed<=2147483646,'invalid generated chunk seed')
+  lines[#lines+1]=('G %d %d %d'):format(tonumber(cx),tonumber(cz),seed)
+ end
  for _,k in ipairs(keys(map.timers)) do
   local x,y,z=coords(k)
   local t=map.timers[k]
@@ -85,8 +94,17 @@ function Storage.decode(data)
     finished=true
    else
     assert(not finished,'data after END')
-    local tag,x,y,z,rest=line:match('^([NMTLIF]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
-    assert(tag,'malformed save at line '..lineNo)
+    local cx,cz,seed=line:match('^G (%-?%d+) (%-?%d+) (%d+)$')
+    if cx then
+     cx,cz,seed=tonumber(cx),tonumber(cz),tonumber(seed)
+     assert(cx>=-1936 and cx<=1936 and cz>=-1936 and
+      cz<=1936 and seed<=2147483646,'invalid generated chunk marker')
+     local chunk=cx..','..cz
+     assert(map.generatedChunks[chunk]==nil,'duplicate generated chunk')
+     map.generatedChunks[chunk]=seed
+    else
+     local tag,x,y,z,rest=line:match('^([NMTLIF]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
+     assert(tag,'malformed save at line '..lineNo)
     local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
     if tag=='N' then
      local name,p1,p2=rest:match('^(%S+) (%d+) (%d+)$')
@@ -128,6 +146,7 @@ function Storage.decode(data)
      assert(timeout and elapsed and timeout>0 and elapsed>=0,'invalid timer')
      map:get_timer(p):set(timeout,elapsed)
     end
+    end -- optional G record
    end
   end
  end

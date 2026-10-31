@@ -10,6 +10,8 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_voxel.lua'
+      - 'tests/lua_engine_worldgen.lua'
+      - 'scripts/mcl_core_dependencies.py'
       - 'scripts/audit_voxelibre_api.py'
       - 'scripts/export_lua_engine_api.lua'
       - 'scripts/package_lua_engine.py'
@@ -24,6 +26,8 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_voxel.lua'
+      - 'tests/lua_engine_worldgen.lua'
+      - 'scripts/mcl_core_dependencies.py'
       - 'scripts/audit_voxelibre_api.py'
       - 'scripts/export_lua_engine_api.lua'
       - 'scripts/package_lua_engine.py'
@@ -63,6 +67,10 @@ jobs:
         run: lua5.4 tests/lua_engine_voxel.lua
       - name: Same voxel tests on LuaJIT
         run: luajit tests/lua_engine_voxel.lua
+      - name: Deterministic chunk terrain and persistence (Lua 5.4)
+        run: lua5.4 tests/lua_engine_worldgen.lua
+      - name: Same worldgen tests on LuaJIT
+        run: luajit tests/lua_engine_worldgen.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
       - uses: actions/upload-artifact@v4
@@ -148,11 +156,17 @@ jobs:
             --game games/voxelibre \
             --supported dist/lua-engine-api-exports.txt \
             --output dist/VoxeLibre-Lua-API-Audit.md
+      - name: Analyze full required dependency chain for upstream mcl_core
+        run: |
+          python3 scripts/mcl_core_dependencies.py \
+            --game games/voxelibre --mod mcl_core \
+            --output dist/VoxeLibre-mcl_core-Dependencies.md
       - uses: actions/upload-artifact@v4
         with:
           name: VoxeLibre-Lua-API-Compatibility-Audit
           path: |
             dist/VoxeLibre-Lua-API-Audit.md
             dist/VoxeLibre-Real-Mod-Boot.md
+            dist/VoxeLibre-mcl_core-Dependencies.md
           if-no-files-found: error
           retention-days: 30

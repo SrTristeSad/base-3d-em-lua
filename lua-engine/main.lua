@@ -2,6 +2,7 @@
 -- NAO carrega VoxeLibre nesta fase: o conjunto da API ainda e parcial.
 local Runtime=require('core.runtime')
 local Storage=require('core.storage')
+local Worldgen=require('core.worldgen')
 local engine=Runtime.new()
 engine:installGlobals()
 local api=engine.api
@@ -10,11 +11,21 @@ api.register_node('lua:grass',{description='Grass',groups={crumbly=1},
 api.register_node('lua:dirt',{description='Dirt',groups={crumbly=3}})
 api.register_node('lua:stone',{description='Stone',groups={cracky=3}})
 api.register_node('lua:wood',{description='Wood',groups={choppy=2}})
+api.register_node('lua:leaves',{description='Leaves',groups={snappy=3}})
+api.register_node('lua:sand',{description='Sand',groups={crumbly=3}})
+api.register_node('lua:water',{description='Water',groups={water=1,liquid=1},
+ walkable=false})
+api.register_node('lua:coal_ore',{description='Coal Ore',groups={cracky=2}})
+local generator=Worldgen.new(engine,{seed=42})
 local palette={
  ['lua:grass']={.35,.66,.27},
  ['lua:dirt']={.47,.31,.19},
  ['lua:stone']={.48,.49,.51},
- ['lua:wood']={.65,.46,.24}
+ ['lua:wood']={.65,.46,.24},
+ ['lua:leaves']={.19,.51,.24},
+ ['lua:sand']={.83,.73,.43},
+ ['lua:water']={.17,.37,.81},
+ ['lua:coal_ore']={.24,.27,.31}
 }
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
@@ -63,7 +74,8 @@ local function target()
 end
 function lovr.load()
  local map=Storage.load(savepath,lovr.filesystem)
- if map then engine.map=map else createWorld() end
+ if map then engine.map=map;engine.map.registry=engine.registry.items
+ else createWorld() end
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
@@ -97,7 +109,13 @@ function lovr.mousepressed(x,y,button)
  end
 end
 function lovr.keypressed(key)
- if key=='f6' then
+ if key=='f7' then
+  local cx=math.floor(camera.x/16)
+  local cz=math.floor(camera.z/16)
+  local ok,generated,writes=pcall(generator.generate,generator,cx,cz)
+  if not ok then print('chunk generation failed:',generated)
+  else print('chunk',cx,cz,generated and 'generated' or 'already generated',writes) end
+ elseif key=='f6' then
   local ok,err=Storage.save(engine.map,savepath,lovr.filesystem)
   if not ok then print('save failed',err) end
  elseif key=='escape' then

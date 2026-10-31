@@ -6,11 +6,12 @@ camada de compatibilidade com a API Lua do Luanti e permitir executar
 o VoxeLibre sem o motor original.
 
 **O alvo é compatibilidade 1:1, mas esta fase NÃO é um porte 1:1.**
-Na Fase 6, o núcleo passou a dispor de VoxelArea, VoxelManip com
-buffers por mapblocks e identificadores de conteúdo, além de registros
-de biomas, minérios e decorações. **A execução real de geração de biomas
-e minérios ainda não existe.** O teste de inicialização inclui onze
-módulos originais, entre eles flowlib, vl_legacy e controls.
+Na Fase 7, acrescentamos um gerador **próprio** de chunks em Lua:
+terreno determinístico por semente, areia, florestas, árvores, pequenas
+cavernas e minérios. Não é o gerador do Minecraft nem do VoxeLibre.
+A marcação de chunks gerados é salva para preservar construções e
+remoções de blocos quando o mundo é reaberto. A cadeia de dependências
+reais do módulo `mcl_core` é auditada, mas ele ainda não executa.
 A versão atual roda apenas uma demonstração independente.
 
 ## Experimentar
@@ -21,7 +22,7 @@ extraia os arquivos e execute `Motor-Lua-Demo.exe`.
 
 **Controles:** mouse para olhar, WASD para voar, Espaço sobe,
 Ctrl desce, Shift acelera, botão esquerdo quebra bloco,
-direito coloca pedra, F6 salva o mapa; Escape libera o cursor.
+direito coloca pedra, F6 salva o mapa, **F7 gera o chunk 16×16 sob a câmera**; Escape libera o cursor.
 
 O motor 3D usa o runtime **LÖVR 0.19** como camada nativa de
 renderização, entrada e janela. Todo o mapa, registro de blocos,
@@ -37,6 +38,10 @@ a partir da raiz do repositório.
   `register_craft`;
 - `registered_nodes`, `registered_items`,
   `registered_entities`, grupos;
+- `core/worldgen.lua`: geração determinística independente em chunks 16×16,
+  biomas simples, cavernas, árvores e minérios; a demo permite usar F7;
+- salvamento de marcação de chunks gerados pelo formato `G` de
+  `LUAENGINE 1`, com leitura dos saves antigos;
 - `VoxelArea`, `get_voxel_manip`, `get_content_id`,
   `get_name_from_content_id`; leitura/edição de buffers e `param2`,
   escrita no mapa e preservação de metadados;
@@ -86,8 +91,8 @@ no relatório não significa compatibilidade semântica completa.
 Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
 `tests/lua_engine_core.lua` e
 `tests/lua_engine_inventory_modloader.lua` e
-`tests/lua_engine_crafting.lua`, `tests/lua_engine_rng.lua` e
-`tests/lua_engine_voxel.lua`.
+`tests/lua_engine_crafting.lua`, `tests/lua_engine_rng.lua`,
+`tests/lua_engine_voxel.lua` e `tests/lua_engine_worldgen.lua`.
 A demonstração gráfica precisa de hardware Vulkan e teste manual.
 
 O VoxeLibre integral continua disponível em `games/voxelibre/`
