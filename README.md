@@ -1,8 +1,18 @@
-# Base 3D em Lua — Classic Sandbox com Creepers
+# Base 3D em Lua — Reconstrução Beta 1.8.1 (em desenvolvimento)
 
 Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** (Windows/Linux/macOS). Não precisa do Roblox nem de Minecraft.
 
 **Versão jogável em desenvolvimento:** tela inicial, criação de mundos, geração por seed ou imagem e mundo procedural com streaming de chunks 16×16, 64×64 blocos carregados por padrão, árvores, terreno e água decorativa; renderização GPU com greedy meshing; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
+
+## Nova referência: Minecraft Beta 1.8.1
+
+A próxima etapa é uma **reconstrução independente da Beta 1.8.1**
+em Lua/LÖVR, antes de implementar Cubic Chunks e geração de mundo
+aprimorada. **A versão jogável atual ainda é o protótipo Classic 0.30**,
+não uma reprodução Beta 1.8.1.
+
+Leia o [plano de reconstrução e critérios de fidelidade](docs/BASELINE_BETA_181.md).
+Os saves existentes não serão migrados automaticamente.
 
 ## Novidade — Criar mundo com semente ou imagem
 
