@@ -48,8 +48,9 @@ a partir da raiz do repositório.
   básicos exigidos por mods originais;
 - executor de arquivos reais de mods em `core/modenvironment.lua`,
   com globais separadas e restrição aos caminhos registrados;
-- smoke test de 6 módulos reais: `mcl_colors`, `mcl_sounds`,
-  `mcl_autogroup`, `tga_encoder`, `vl_tuning`;
+- smoke test de 8 módulos reais: `mcl_init`, `mcl_util`,
+  `vl_unittests`, `mcl_colors`, `mcl_sounds`, `mcl_autogroup`,
+  `tga_encoder` e `vl_tuning`;
 - `get_craft_result`, `get_craft_recipe` e `get_all_craft_recipes`;
 - receitas com formato, sem formato, grupos, forno, combustível e
   recipientes retornáveis (subconjunto da API original);
@@ -72,9 +73,9 @@ a partir da raiz do repositório.
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
 A CI também gera um **relatório estático de APIs do VoxeLibre**
-que ainda faltam. A CI executa **apenas seis módulos selecionados**,
-sem iniciar o jogo. O arquivo de diagnóstico `VoxeLibre-Real-Mod-Boot.md`
-identifica o resultado de tentativa isolada de `mcl_init`. A presença de uma API
+que ainda faltam. A CI executa **apenas oito módulos selecionados**,
+sem iniciar o jogo. O arquivo `VoxeLibre-Real-Mod-Boot.md`
+registra quais módulos e arquivos Lua foram carregados. A presença de uma API
 no relatório não significa compatibilidade semântica completa.
 
 Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
