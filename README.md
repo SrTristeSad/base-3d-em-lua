@@ -12,6 +12,23 @@ do jogo, e desenvolver nossas alterações em cima dela.
 > (por exemplo, mudanças de geração e Cubic Chunks) ainda será
 > definida e implementada, não está presente por padrão.
 
+## Novo desenvolvimento: motor Luanti em Lua (experimental)
+
+Começamos a reconstrução de um motor voxel **em Lua**, visando
+compatibilidade progressiva com a API Luanti e o VoxeLibre.
+O código independente fica em [`lua-engine/`](lua-engine/README.md).
+
+**Esta versão experimental ainda não executa o VoxeLibre.**
+Já contém armazenamento de blocos, metadados, timers, callbacks,
+registros de nós/itens, serialização e uma cena 3D editável usando
+o LÖVR somente como backend gráfico.
+
+[Baixar a demonstração Lua para Windows](../../actions/workflows/lua-engine-port.yml)
+e [acompanhar a matriz de compatibilidade](docs/ENGINE_LUA_PORT.md).
+
+A distribuição funcional e completa com o Luanti original continua
+disponível abaixo, sem alterações.
+
 ## Baixar e jogar no Windows
 
 1. Vá à [aba Actions — VoxeLibre completo](../../actions/workflows/voxelibre-windows.yml)

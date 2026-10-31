@@ -1,0 +1,53 @@
+# Motor Luanti em Lua — implementação incremental
+
+Este diretório contém a **primeira implementação própria de um
+motor voxel em Lua**, cujo objetivo de longo prazo é oferecer uma
+camada de compatibilidade com a API Lua do Luanti e permitir executar
+o VoxeLibre sem o motor original.
+
+**O alvo é compatibilidade 1:1, mas esta fase NÃO é um porte 1:1.**
+A versão atual roda apenas uma demonstração independente.
+
+## Experimentar
+
+Baixe o pacote `Motor-Lua-Experimental-Windows-x64` na
+[workflow de builds](../.github/workflows/lua-engine-port.yml),
+extraia os arquivos e execute `Motor-Lua-Demo.exe`.
+
+**Controles:** mouse para olhar, WASD para voar, Espaço sobe,
+Ctrl desce, Shift acelera, botão esquerdo quebra bloco,
+direito coloca pedra, F6 salva o mapa; Escape libera o cursor.
+
+O motor 3D usa o runtime **LÖVR 0.19** como camada nativa de
+renderização, entrada e janela. Todo o mapa, registro de blocos,
+API inicial, eventos e persistência foi escrito em Lua.
+
+Para rodar com LÖVR instalado, execute `lovr lua-engine`
+a partir da raiz do repositório.
+
+## API já implementada (subconjunto)
+
+- `core` / `minetest`, `register_node`, `register_tool`,
+  `register_craftitem`, `register_entity`, `register_alias`,
+  `register_craft`;
+- `registered_nodes`, `registered_items`,
+  `registered_entities`, grupos;
+- `get_node`, `get_node_or_nil`, `set_node`,
+  `swap_node`, `remove_node`, `place_node`, `dig_node`;
+- `get_meta`, `get_node_timer`, `find_nodes_in_area`;
+- `register_globalstep`, `after`, `register_abm`,
+  `register_lbm`, `register_on_generated`;
+- `vector.new` e operações vetoriais;
+- armazenamento esparso por **mapblocks 16³**, marcação de
+  alterações, persistência de blocos, metadados e timers;
+- configuração básica, log e APIs de registro de callbacks.
+
+[Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
+
+Os testes de lógica executam sob Lua 5.4:
+`lua5.4 tests/lua_engine_core.lua`.
+A demonstração gráfica precisa de hardware Vulkan e teste manual.
+
+O VoxeLibre integral continua disponível em `games/voxelibre/`
+através de submódulo Git. **Não removemos o pacote funcional
+Luanti + VoxeLibre** enquanto o novo motor não executar esse jogo.

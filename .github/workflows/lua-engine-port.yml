@@ -1,0 +1,92 @@
+name: Luanti Lua Engine Port - API and Windows Demo
+
+on:
+  push:
+    paths:
+      - 'lua-engine/**'
+      - 'tests/lua_engine_core.lua'
+      - 'scripts/package_lua_engine.py'
+      - '.github/workflows/lua-engine-port.yml'
+      - 'docs/ENGINE_LUA_PORT.md'
+  pull_request:
+    paths:
+      - 'lua-engine/**'
+      - 'tests/lua_engine_core.lua'
+      - 'scripts/package_lua_engine.py'
+      - '.github/workflows/lua-engine-port.yml'
+      - 'docs/ENGINE_LUA_PORT.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.4
+        run: sudo apt-get update -qq && sudo apt-get install -y lua5.4
+      - name: Syntax check for standalone Lua engine
+        run: find lua-engine -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
+      - name: Run runtime/API, mapblock and persistence tests
+        run: lua5.4 tests/lua_engine_core.lua
+      - name: Build stand-alone lovr archive
+        run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Motor-Lua-Experimental-LOVR
+          path: dist/Motor-Lua-Demo.lovr
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-demo:
+    needs: api-tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Lua game archive
+        run: python scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
+      - name: Download LÖVR 0.19 Windows runtime and assemble fused .exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-WebRequest -Uri 'https://github.com/bjornbytes/lovr/releases/download/v0.19.0/lovr-v0.19.0-win64.zip' -OutFile 'lovr-runtime.zip'
+          Expand-Archive -Path 'lovr-runtime.zip' -DestinationPath 'runtime'
+          $runtime = Get-ChildItem 'runtime' -Filter 'lovr.exe' -Recurse -File | Select-Object -First 1
+          if (-not $runtime) { throw 'Cannot find lovr.exe in official runtime' }
+          $output = Join-Path (Get-Location) 'dist/Motor-Lua-Demo.exe'
+          $outStream = [System.IO.File]::Create($output)
+          try {
+            $exe = [System.IO.File]::OpenRead($runtime.FullName)
+            try { $exe.CopyTo($outStream) } finally { $exe.Dispose() }
+            $game = [System.IO.File]::OpenRead((Join-Path (Get-Location) 'dist/Motor-Lua-Demo.lovr'))
+            try { $game.CopyTo($outStream) } finally { $game.Dispose() }
+          } finally { $outStream.Dispose() }
+          Get-ChildItem $runtime.DirectoryName -Filter '*.dll' -File | Copy-Item -Destination 'dist'
+          if (@(Get-ChildItem 'dist' -Filter '*.dll').Count -lt 1) { throw 'Missing DLLs' }
+          if ((Get-Item $output).Length -le $runtime.Length) { throw 'Fused EXE is incomplete' }
+      - name: Explain experimental status
+        shell: pwsh
+        run: |
+          @'
+          EXPERIMENTAL LUA ENGINE - DEMO
+          ==============================
+          Run Motor-Lua-Demo.exe after extracting the entire ZIP.
+          WASD: move | mouse: look | Space/Ctrl: up/down | Shift: sprint
+          Left click: remove node | Right click: place stone | F6: save
+
+          IMPORTANT: Does not run VoxeLibre yet.
+          Not a complete or 1:1 Luanti engine.
+          Only a basic render and tested Lua API prototype.
+          Windows 64-bit and Vulkan-capable graphics are required.
+          '@ | Set-Content -Path 'dist/LEIA-ME.txt' -Encoding UTF8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Motor-Lua-Experimental-Windows-x64
+          path: |
+            dist/Motor-Lua-Demo.exe
+            dist/*.dll
+            dist/LEIA-ME.txt
+          if-no-files-found: error
+          retention-days: 30
