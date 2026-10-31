@@ -116,11 +116,11 @@ local report={
  '- Real mcl_util UUID generation executed with the Lua PCG32 replacement.',
  '- Real mod loading follows declared dependencies.',
  '- Real flowlib water predicate and vl_legacy inventory conversions passed.',
- '- Real controls callback registrations were verified.'
+ '- Real controls callback registrations were verified.',
  '- The original files remain unchanged.',
  '',
  '## Pending', '',
- 'Player, entity, mapgen, nodes, VoxelManip, networking, sound and UI',
+ 'Player, entity, full mapgen, lighting, networking, sound and UI',
  'are not functionally compatible with the full VoxeLibre game.',
  'The working playable game still uses Luanti C++ from the separate build.',
 }
