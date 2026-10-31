@@ -31,10 +31,10 @@ eq(inv.cursor.id,7)
 eq(inv.cursor.count,4)
 eq(inv.craft2[1].count,1,
  'Fabricar com dois troncos deve consumir apenas um')
-assert(inv:clickSlot('small',1,1,false))
+assert(inv:clickSlot('inventory',2,1,false)) -- guardar 4 tábuas
+assert(inv:clickSlot('small',1,1,false)) -- pegar tronco restante
 assert(inv:clickSlot('inventory',1,1,false))
 eq(inv.craft2[1],nil)
-assert(inv:clickSlot('inventory',2,1,false))
 eq(inv:getSlot(2).count,4)
 -- Divide pilhas: 4 tábuas -> 2 na mão, 2 no slot.
 assert(inv:clickSlot('inventory',2,2,false))
