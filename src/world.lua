@@ -111,7 +111,7 @@ end
 function World:set(x, y, z, id)
   if not self:within(x,y,z) or y == self.YMIN then return false end
   if type(id)~='number' or id~=id or id%1~=0 or id<0 or id>46 then return false end
-  if self:get(x,y,z)==30 then return false -- Rocha-mae permanente
+  if self:get(x,y,z)==30 then return false end -- Rocha-mae permanente
   if self:get(x,y,z) == id then return false end
   local k = key(x,y,z)
   self.blocks[k] = id == 0 and nil or id
