@@ -57,6 +57,8 @@ function Mesher.buildData(world,cx,cy,cz,faces)
  local groups={}
  local total=0
  local x0,y0,z0=cx*world.CHUNK,cy*world.CHUNK,cz*world.CHUNK
+ local lighting=world.generatorVersion=='beta181' and world.lighting
+ local columnCache={}
  for face,dir in ipairs(SIDES) do
   local fixedMin,fixedMax,us,vs,uCount,vCount
   if face<=2 then
@@ -84,7 +86,19 @@ function Mesher.buildData(world,cx,cy,cz,faces)
      local neighbor=world:get(x+dir[1],y+dir[2],z+dir[3])
      if visible(id,neighbor) then
       local row=faces[id]
-      if row then mask[v*uCount+u+1]=row[face] end
+      if row then
+       local material=row[face]
+       if lighting then
+        -- Separa faces com iluminacao distinta sem regenerar a malha
+        -- a cada segundo: so o multiplicador de luz solar muda.
+        local sky=lighting:skyApprox(x+dir[1],y+dir[2],z+dir[3],
+          columnCache) and 1 or 0
+        local light=lighting:blockLevel(x+dir[1],y+dir[2],z+dir[3])
+        local bucket=math.min(3,math.floor((light+2)/4))
+        material=material..'#'..sky..'#'..bucket
+       end
+       mask[v*uCount+u+1]=material
+      end
      end
     end
    end
@@ -136,15 +150,20 @@ function Mesher:rebuild(cx,cy,cz)
   for _,mesh in ipairs(old.meshes) do mesh:release() end
   self.quads=self.quads-old.quads
  end
- local meshes={}
+ local meshes,lights={},{}
  for material,vertices in pairs(groups) do
   if #vertices>0 then
+   local name,sky,bucket=material:match('^(.-)#([01])#(%d+)$')
    local mesh=lovr.graphics.newMesh(FORMAT,vertices,{storage='gpu'})
-   mesh:setMaterial(self.textures[material])
+   mesh:setMaterial(self.textures[name or material])
    meshes[#meshes+1]=mesh
+   if sky then
+    lights[#meshes]={sky=sky=='1',block=tonumber(bucket)*4}
+   end
   end
  end
- self.chunks[id]={meshes=meshes,quads=quads,cx=cx,cy=cy,cz=cz}
+ self.chunks[id]={meshes=meshes,lightInfo=lights,quads=quads,
+  cx=cx,cy=cy,cz=cz}
  self.quads=self.quads+quads
  self.rebuilds=self.rebuilds+1
  self.world.dirty[id]=nil
@@ -210,8 +229,20 @@ function Mesher:sync(px,py,pz,view,budget)
  return loaded
 end
 function Mesher:draw(pass)
+ local lighting=self.world.lighting
+ local daytime=lighting and lighting:dayFactor() or 1
  for _,chunk in pairs(self.chunks) do
-  for _,mesh in ipairs(chunk.meshes) do pass:draw(mesh) end
+  for i,mesh in ipairs(chunk.meshes) do
+   local info=chunk.lightInfo and chunk.lightInfo[i]
+   if lighting and info then
+    local block=math.min(1,(info.block or 0)/15)
+    local ambient=info.sky and daytime or .13
+    local light=math.max(ambient,.12+block*.85)
+    pass:setColor(light,light,light,1)
+   end
+   pass:draw(mesh)
+  end
  end
+ if lighting then pass:setColor(1,1,1,1) end
 end
 return Mesher

@@ -1,100 +1,56 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 4)
+# Base 3D em Lua — Beta 1.8.1 (Fase 5)
 
-Reimplementação independente em **Lua + LÖVR 0.19**, usando a
-experiência da **Minecraft Java Beta 1.8.1** como referência técnica.
-Não redistribui recursos da Mojang nem pretende representar um produto
-oficial. **Ainda não é uma cópia 1:1**: muitos sistemas continuam
-experimentais ou ausentes.
+Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta 1.8.1** como referência de comportamento histórico. Não utiliza código, texturas ou outros arquivos da Mojang. **O projeto ainda não é uma reprodução 1:1**: alguns algoritmos e sistemas são aproximações e vários recursos estão pendentes.
 
-## Download
+## Baixar a versão jogável
 
-Na [página do GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions),
-abra a execução mais recente aprovada. Baixe um dos artefatos:
+Na página [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions), abra a execução mais recente **aprovada** e baixe um dos artefatos:
 
-- `Base3D-Beta181-Furnace-Smelting-Windows-EXE` — Windows 64 bits.
-- `Base3D-Beta181-Furnace-Smelting-LOVR` — projeto `.lovr`.
+- `Base3D-Beta181-DayNight-Lighting-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
+- `Base3D-Beta181-DayNight-Lighting-LOVR` — pacote `.lovr` para executar no motor LÖVR.
 
-Extraia o ZIP Windows inteiro (inclusive as DLLs) e execute
-`Base3D-Beta181-Furnace-Smelting.exe`. Requer GPU/driver com Vulkan.
-A CI valida sintaxe, lógica e empacotamento, **não a execução real na GPU**.
+Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-DayNight-Lighting.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
 
-## Fase 4: fornalha funcional
+## Fase 5 — luz, dia/noite e criaturas
 
-1. Entre em um mundo Beta 1.8.1, preferencialmente Sobrevivência.
-2. Em uma bancada 3×3, disponha **oito pedregulhos**, deixando o centro
-   vazio. Você receberá uma fornalha.
-3. Coloque-a no terreno e use **clique direito** para abrir sua interface.
-4. Arraste **minério de ferro**, **minério de ouro**, **areia** ou
-   **carne crua** para o espaço **MATERIAL**.
-5. Arraste **carvão**, **troncos**, **tábuas**, **gravetos** ou uma
-   **bancada** para o espaço **COMBUSTÍVEL**.
-6. Aguarde **10 segundos por item**. Uma unidade de carvão dura
-   **80 segundos** (até oito fundições). Retire os produtos à direita.
+**Novos mundos Beta 1.8.1** começam durante a manhã. A cada **20 minutos de jogo ativo** transcorre um dia completo (24.000 ticks, 20 ticks/s). O tempo progride no mundo e nas interfaces de inventário, bancada e fornalha; fica **pausado no menu de pausa**.
 
-A fornalha funciona mesmo com a interface fechada enquanto você
-permanece no mundo. A queima do combustível continua mesmo quando a
-entrada acaba, desperdiçando o restante, como no jogo de referência.
-O combustível é consumido no início da queima.
+- Dia, pôr do sol, noite e amanhecer, com transições graduais de cor do céu e brilho.
+- **Relógio e número de dias salvos**, de forma compatível com saves das fases anteriores.
+- **Tochas (bloco 52)** iluminam a geometria próxima; retirar uma tocha atualiza as malhas afetadas. Luz local usa uma **aproximação radial por distância Manhattan**, ainda sem propagação com bloqueio de paredes.
+- **O renderizador diferencia exterior e subsolo**, aplicando tonalidade diurna/noturna e luz local nas superfícies. A identificação visual de luz solar usa a altura do terreno natural e ainda não cobre todos os poços cavados, telhados ou transparências.
+- **Mobs passivos** são tentados em terrenos iluminados; **hostis** em locais escuros. Regiões já visitadas voltam a receber tentativas quando o dia muda para noite ou vice-versa.
+- **Zumbis e esqueletos** expostos diretamente ao sol sofrem dano periódico; creepers não queimam. Há verificação real de blocos acima dos mobs para reconhecer abrigos.
+- O HUD exibe **dia, horário aproximado, fase e nível da luz do céu**.
 
-| Entrada | Produto |
+Os mobs ainda são provisórios: faltam geração subterrânea completa, a distribuição de spawn original, efeitos visuais de fogo, comportamento complexo, iluminação por voxel com propagação/oclusão, sombras e animações finais.
+
+## Recursos das fases 1–4
+
+O Overworld possui seeds determinísticas, altura Y=0–127, mares até Y=62, biomas, cavernas, árvores e minérios. O **inventário com 36 slots** contém crafting 2×2 e bancada 3×3. Mineração por tempo, desgaste de ferramentas, fome e comida estão disponíveis. **Fornalhas** fundem minérios e cozinham alimentos, consumindo combustível e preservando seu progresso ao salvar.
+
+### Controles
+
+| Controle | Ação |
 | --- | --- |
-| Minério de ferro | Lingote de ferro |
-| Minério de ouro | Lingote de ouro |
-| Areia | Vidro |
-| Porco cru | Porco assado |
-| Carne bovina crua | Bife |
-| Frango cru | Frango assado |
+| WASD + mouse | Andar e olhar |
+| Espaço / Shift | Pular / correr |
+| Segurar botão esquerdo | Minerar por tempo |
+| Segurar direito com comida | Comer |
+| Botão direito sobre bancada/fornalha | Abrir crafting/fundição |
+| E | Abrir/fechar inventário |
+| 1–9 / scroll | Seleção na hotbar |
+| F3 / F5 / F6 | Estatísticas / câmera / salvar |
+| Esc | Pausa, inclusive do relógio |
 
-**Progresso, combustível restante e conteúdo dos três slots são
-salvos individualmente para cada fornalha.** Para evitar perda de
-materiais, temporariamente não é permitido quebrá-la enquanto
-possuir itens. Esvazie-a primeiro.
+## Compatibilidade e desenvolvimento
 
-Os lingotes de ferro agora permitem fabricar **picaretas,
-espadas, machados e pás de ferro** na bancada 3×3. A fundição de ouro
-também funciona. A progressão completa ainda exige sistemas adicionais.
+- **Classic 0.30** e saves antigos permanecem no perfil anterior, sem relógio ou luz dinâmica.
+- A nova versão cria mundos somente com **seeds**, não com PNG/JPG. Imagens antigas de saves legados permanecem legíveis.
+- O formato `DAYTIME <tick> <dia>` é adicionado apenas aos saves Beta; saves sem essa linha iniciam com horário padrão.
+- O registro de tochas usa as coordenadas salvas de edições de blocos. A iluminação local é reconstruída ao carregar o mundo.
+- Arquivos e testes em `src/beta181_lighting.lua`, `tests/beta181_lighting.lua`, `src/mesher.lua`, `src/mob_spawning.lua` e `src/creatures.lua`.
 
-## Controles das fases anteriores
+Documentação: [Fase 5](docs/FASE_05_BETA181.md), [Fase 4](docs/FASE_04_BETA181.md), [plano Beta](docs/BASELINE_BETA_181.md), [FUTURO.md](FUTURO.md). **Cubic Chunks** é a primeira melhoria aprovada *para depois* da reprodução do jogo-base.
 
-| Controle | Função |
-| --- | --- |
-| WASD, mouse, Espaço | Mover, olhar e pular |
-| Shift | Corrida, limitada por fome |
-| Segurar esquerdo | Minerar progressivamente |
-| Segurar direito com comida | Comer após 1,6 segundo |
-| Direito sobre bancada | Crafting 3×3 |
-| Direito sobre fornalha | Abrir fundição |
-| E | Inventário 36 slots e crafting 2×2 |
-| Esquerdo/direito nos slots | Mover pilha, dividir ou colocar um item |
-| Shift + clique | Transferir itens entre slots |
-| 1–9 / scroll | Selecionar slot rápido |
-| F3 / F5 / F6 | Diagnóstico, câmera e salvar |
-| Esc | Fechar interface ou pausar |
-
-Mundos novos usam somente **seeds**. Imagens foram retiradas da criação;
-saves antigos, inclusive do perfil Classic 0.30, permanecem legíveis.
-
-## Limitações conhecidas
-
-As gerações de biomas, cavernas, estruturas e minérios ainda não são
-idênticas às mesmas seeds da Beta. Faltam iluminação, dia/noite,
-IA de mobs historicamente fiel, Nether, camas, líquidos dinâmicos,
-sistema completo de combate e várias receitas e itens da época.
-
-A interface da fornalha usa uma arte original simplificada em vez da
-interface proprietária do Minecraft. Os blocos têm **IDs internos
-próprios**, diferentes dos IDs históricos em vários casos.
-
-## Documentação
-
-- [Relatório técnico — Fase 4: fornalhas](docs/FASE_04_BETA181.md)
-- [Fase 3: mineração e fome](docs/FASE_03_BETA181.md)
-- [Fase 2: inventário](docs/FASE_02_BETA181.md)
-- [Fase 1: terreno](docs/FASE_01_BETA181.md)
-- [Plano de reconstrução](docs/BASELINE_BETA_181.md)
-- [FUTURO.md](FUTURO.md) — **Cubic Chunks somente depois** da
-  reconstrução do jogo-base; outras ideias ainda em análise.
-
-Este projeto não é afiliado ou endossado pela Mojang/Microsoft.
-Antes de eventual distribuição comercial, a identidade visual e
-outros elementos expressivos exigem revisão de direitos autorais.
+**Ainda faltam:** algoritmo exato de seeds e biomas, vários itens e estruturas, sistema de luz voxel completo, clima, água/lava dinâmica, camas, Nether, física e mobs historicamente fiéis. O jogo não é oficial nem afiliado à Mojang/Microsoft. Uma futura distribuição comercial necessita de identidade própria e avaliação jurídica adequada.

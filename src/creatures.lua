@@ -193,6 +193,22 @@ function Creatures:update(dt,player,classic)
    end
    end
   else
+   if w.lighting and (mob.kind=='Zombie' or mob.kind=='Skeleton') then
+    mob.sunTimer=(mob.sunTimer or 0)+dt
+    if mob.sunTimer>=1 then
+     mob.sunTimer=mob.sunTimer-1
+     if w.lighting:sunburns(floor(mob.x+.5),
+        floor(mob.y+1.5),floor(mob.z+.5)) then
+      -- Dano solar inicial, ainda sem partículas de fogo.
+      mob.health=mob.health-1
+      if mob.health<=0 then
+       mob.active=false
+       mob.respawn=17
+      end
+     end
+    end
+   end
+   if mob.active then
    local distSq=distance2(player.x,player.z,mob.x,mob.z)
    local distance=sqrt(distSq)
    local dy=abs(player.y-mob.y)
@@ -236,6 +252,7 @@ function Creatures:update(dt,player,classic)
      mob.turn=.2
     end
    end
+   end -- só processar IA se o mob sobreviveu ao sol
   end
  end
  for i=#self.projectiles,1,-1 do

@@ -4,6 +4,7 @@ local Gen=require('src.worldgen')
 local ClassicTerrain=require('src.classic_terrain')
 local BetaTerrain=require('src.beta181_terrain')
 local Furnace=require('src.beta181_furnace')
+local Lighting=require('src.beta181_lighting')
 local World={}
 World.__index=World
 World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
@@ -41,6 +42,7 @@ function World.new(options)
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   savedSlots=nil,savedCraft2=nil,savedCraft3=nil,savedCursor=nil,
   savedStatus=nil,
+  lighting=nil,
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
      and (options.generatorVersion=='beta181'
@@ -54,6 +56,9 @@ function World.new(options)
   MAX_ID=options.generatorVersion=='beta181' and 52 or 46,
   SAVE=options.savePath or World.SAVE
  },World)
+ if w.generatorVersion=='beta181' then
+  w.lighting=Lighting.new(w)
+ end
  w:load()
  return w
 end
@@ -241,6 +246,9 @@ function World:set(x,y,z,id)
  local ck=chunkKey(cx,cy,cz)
  local i=idxWorld(x,y,z)
  self.cache[ck].data[i]=id==0 and nil or id
+ if self.lighting then
+  self.lighting:updateSource(x,y,z,previous,id)
+ end
  self.edits[key(x,y,z)]=id
  if not self.editsByChunk[ck] then self.editsByChunk[ck]={} end
  self.editsByChunk[ck][i]=id
@@ -251,6 +259,13 @@ function World:set(x,y,z,id)
  if y%16==15 then self.dirty[chunkKey(cx,cy+1,cz)]=true end
  if z%16==0 then self.dirty[chunkKey(cx,cy,cz-1)]=true end
  if z%16==15 then self.dirty[chunkKey(cx,cy,cz+1)]=true end
+ -- Emissao de luz pode alcancar os chunks adjacentes no eixo 3D.
+ if self.lighting and
+    (self.lighting.EMITTERS[previous] or self.lighting.EMITTERS[id]) then
+  for dx=-1,1 do for dy=-1,1 do for dz=-1,1 do
+   self.dirty[chunkKey(cx+dx,cy+dy,cz+dz)]=true
+  end end end
+ end
  return true
 end
 function World:getFurnace(x,y,z)
@@ -372,6 +387,11 @@ function World:load()
      exhaustion=max(0,min(4,exhaustion))}
    end
   end
+  local daytime,day=line:match('^DAYTIME ([%d%.]+) (%d+)$')
+  if not daytime then daytime=line:match('^DAYTIME ([%d%.]+)$') end
+  if daytime and self.lighting then
+   self.lighting:setTime(tonumber(daytime),tonumber(day))
+  end
   local mode=line:match('^MODE (survival)$') or line:match('^MODE (creative)$')
   if mode then self.savedMode=mode end
   local score=line:match('^SCORE (%d+)$')
@@ -466,6 +486,9 @@ function World:load()
    self.edits[key(x,y,z)]=id
    if not self.editsByChunk[ck] then self.editsByChunk[ck]={} end
    self.editsByChunk[ck][i]=id
+   if self.lighting and (id==52 or id==29) then
+     self.lighting:updateSource(x,y,z,0,id)
+   end
   end
  end
 end
@@ -476,6 +499,10 @@ function World:save(player,classic)
   lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
   lines[#lines+1]='SCORE '..tostring(max(0,floor(classic.score or 0)))
   if classic.profile=='beta181' then
+   if self.lighting then
+    lines[#lines+1]=('DAYTIME %.3f %d'):format(
+      self.lighting.time,self.lighting.day)
+   end
    lines[#lines+1]=('PLAYERSTATUS %.2f %.2f %.2f %.3f'):format(
     player.health or 20,player.hunger or 20,player.saturation or 5,
     player.exhaustion or 0)

@@ -256,6 +256,7 @@ function lovr.update(dt)
      and (state=='playing' or state=='inventory'
        or state=='workbench' or state=='furnace') then
     world:updateFurnaces(dt)
+    if world.lighting then world.lighting:tick(dt) end
   end
   if state=='playing' then
     player:update(dt,world,classic)
@@ -282,6 +283,10 @@ function lovr.update(dt)
 end
 
 function lovr.draw(pass)
+  if world and world.lighting then
+    local r,g,b=world.lighting:skyColor()
+    pass:setClear(r,g,b,1)
+  end
   local cx,cy,cz,tx,ty,tz
   if state=='title' or state=='create' or state=='worldlist'
       or state=='settings' then

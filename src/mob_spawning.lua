@@ -4,9 +4,12 @@ local Spawn={}
 Spawn.__index=Spawn
 local floor,abs,sin,cos=math.floor,math.abs,math.sin,math.cos
 local TYPES={'Pig','Sheep','Zombie','Skeleton','Spider','Creeper'}
+local PASSIVE={'Pig','Sheep'}
+local HOSTILE={'Zombie','Skeleton','Spider','Creeper'}
 function Spawn.new(world,creatures,creepers)
  return setmetatable({world=world,creatures=creatures,creepers=creepers,
-  timer=0,visited={},groups=0,born=0,maxCount=26,range=3},Spawn)
+  timer=0,visited={},groups=0,born=0,maxCount=26,range=3,
+  phaseMark=nil},Spawn)
 end
 local function valid(world,x,y,z)
  local by=floor(y+.5)
@@ -47,11 +50,20 @@ end
 function Spawn:group(cx,cz,player)
  local probability=self:random(cx,cz,1101)
  if probability<.43 then return 0 end
- local kind=TYPES[math.min(6,floor(self:random(cx,cz,1109)*6)+1)]
  local count=1+floor(self:random(cx,cz,1123)*3)
  local spawned=0
  local originX=cx*16+2+floor(self:random(cx,cz,1131)*12)
  local originZ=cz*16+2+floor(self:random(cx,cz,1139)*12)
+ local lighting=self.world.lighting
+ local kind
+ if lighting then
+  local centerY=self.world:spawnHeight(originX,originZ)
+  local dark=lighting:canSpawnHostile(originX,floor(centerY+.5),originZ)
+  local pool=dark and HOSTILE or PASSIVE
+  kind=pool[math.min(#pool,floor(self:random(cx,cz,1109)*#pool)+1)]
+ else
+  kind=TYPES[math.min(6,floor(self:random(cx,cz,1109)*6)+1)]
+ end
  for i=1,count do
   if self:activeCount()>=self.maxCount then break end
   local x=originX+floor(self:random(cx+i,cz,1147)*7)-3
@@ -60,7 +72,18 @@ function Spawn:group(cx,cz,player)
   if dsq>=12*12 and dsq<=55*55 then
    local y=self.world:spawnHeight(x,z)
    if valid(self.world,x,y,z) then
-    local occupied=false
+    local allowed=true
+    if lighting then
+     local atY=floor(y+.5)
+     local hostile=kind~='Pig' and kind~='Sheep'
+     if hostile then
+      allowed=lighting:canSpawnHostile(x,atY,z)
+     else
+      allowed=lighting:level(x,atY,z)>=9
+        and self.world:get(x,atY-1,z)==1
+     end
+    end
+    local occupied=not allowed
     for _,mob in ipairs(self.creatures.list) do
      if mob.active and (mob.x-x)^2+(mob.z-z)^2<2.25 then occupied=true end
     end
@@ -79,6 +102,16 @@ function Spawn:group(cx,cz,player)
 end
 function Spawn:sync(player,dt,classic)
  if classic and classic.mode=='creative' then return end
+ local lighting=self.world.lighting
+ if lighting then
+  local mark=lighting:skyLevel()>=9 and 'bright' or 'dark'
+  if mark~=self.phaseMark then
+   -- Regiões já visitadas durante o dia podem gerar mobs à noite.
+   -- Não reabre tentativas a cada segundo, só na transição.
+   self.phaseMark=mark
+   self.visited={}
+  end
+ end
  self.timer=self.timer+(dt or 0)
  if self.timer<2.0 then return end
  self.timer=0

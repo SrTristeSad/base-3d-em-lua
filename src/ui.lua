@@ -327,6 +327,16 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
       label(pass,'BARRA '..require('src.textures').currentPage..'/'..
         #require('src.textures').pages..'  |  TAB para trocar',w/2,h-104,14,.96,.94,.70)
     end
+    if beta and mesher and mesher.world.lighting then
+      local lighting=mesher.world.lighting
+      local tick=math.floor(lighting.time)
+      local hours=math.floor((tick/1000+6)%24)
+      local minutes=math.floor((tick%1000)*60/1000)
+      local phase=lighting:phase()
+      label(pass,('DIA %d | %02d:%02d | %s | LUZ %d/15'):format(
+        lighting.day+1,hours,minutes,phase:upper(),
+        lighting:skyLevel()),w/2,157,14,.97,.91,.68)
+    end
     if mesher then
       local size=settings.distance*32+32
       label(pass,'Mundo dinamico '..size..'x'..size..
