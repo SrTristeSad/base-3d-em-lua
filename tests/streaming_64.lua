@@ -21,8 +21,8 @@ local targetX,targetZ=480,-432
 local base=w:get(targetX,6,targetZ)
 assert(w:set(targetX,6,targetZ,7))
 assert(w:get(targetX,6,targetZ)==7)
-w:prune(0,0,2)
-assert(w:cacheCount()<=81,'Chunk distante nao foi descarregado')
+w:prune(0,0,0,2,1)
+assert(w:cacheCount()<=600,'Chunk distante nao foi descarregado')
 assert(w:get(targetX,6,targetZ)==7,'Edicao desapareceu ao regenerar chunk')
 assert(w:save(p))
 local reload=World.new()
@@ -34,7 +34,7 @@ local mock={
   return y==0 and x>=0 and x<=15 and z>=0 and z<=15 and 3 or 0
  end
 }
-local groups,quads=Mesher.buildData(mock,0,0,
+local groups,quads=Mesher.buildData(mock,0,0,0,
  {[3]={'stone','stone','stone','stone','stone','stone'}})
 assert(quads==6,'Greedy meshing de plataforma 16x16 deveria gerar 6 quads; resultado '..quads)
 assert(#groups.stone==36,'Cada quad precisa apenas de 6 vertices')
@@ -43,17 +43,17 @@ local mesher=Mesher.new(reload,{},{})
 mesher.faces=require('src.textures').faces
 mesher.textures=setmetatable({}, {__index=function(_,k) return k end})
 local loaded=0
-for _=1,8 do loaded=loaded+mesher:sync(0,0,1,2) end
-assert(loaded==16,'A janela 64x64 deve conter exatamente 16 chunks')
-assert(mesher.visibleCount==16 and mesher.pending==0)
-assert(mesher.quads>0 and mesher.rebuilds==16)
-local first=mesher.chunks['0:0'].meshes[1]
+for _=1,24 do loaded=loaded+mesher:sync(0,0,0,1,2) end
+assert(loaded==48,'Janela cubica deve conter 4x4x3 secoes de 16 blocos')
+assert(mesher.visibleCount==48 and mesher.pending==0)
+assert(mesher.quads>0 and mesher.rebuilds==48)
+local first=mesher.chunks['0:0:0'].meshes[1]
 assert(first and not first.released)
-for _=1,8 do mesher:sync(320,-320,1,2) end
-assert(mesher.visibleCount==16,'Chunks distantes devem ser removidos da GPU')
+for _=1,24 do mesher:sync(320,0,-320,1,2) end
+assert(mesher.visibleCount==48,'Secoes 3D distantes devem ser removidas da GPU')
 assert(not mesher.chunks['0:0'] and first.released,
  'Malhas anteriores precisam liberar VRAM')
-assert(reload:cacheCount()<=81,'Cache de dados cresceu indefinidamente')
+assert(reload:cacheCount()<=600,'Cache de dados cresceu indefinidamente')
 assert(reload.evictedTotal>0,'Nenhum chunk de dados foi descarregado')
 assert(reload:get(targetX,6,targetZ)==7)
 print('streaming_64: OK')

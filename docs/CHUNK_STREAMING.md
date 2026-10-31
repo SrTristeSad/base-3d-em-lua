@@ -1,97 +1,79 @@
-# Chunks 64×64 — geração e renderização do mundo
+# Cubic Chunks — streaming tridimensional de mundo voxel
 
-## O que mudou
+## O que foi implementado
 
-Na versão inicial, todo o mundo tinha 48×48 colunas pré-calculadas e renderizadas
-por seis faces de cada bloco exposto. Agora a base utiliza **chunks 16×16**
-em X/Z e uma **janela padrão de quatro por quatro chunks** em torno do jogador:
-**64×64 colunas**. As camadas verticais permanecem em Y -4 a 19.
+O mundo da base Lua passou de geração em colunas 16×16 e altura completa para
+**seções cúbicas 16×16×16**, com cache indexado por `cx:cy:cz`. A ideia é
+semelhante ao projeto CubicChunks e à arquitetura 3D anunciada pelo Hytale.
+Não reutiliza seus arquivos nem seus códigos.
 
-A janela de renderização pode ser configurada como 64×64 (16 chunks),
-96×96 (36 chunks) ou 128×128 (64 chunks). O carregamento começa nos chunks
-próximos à câmera e prossegue gradualmente; duas malhas/chunks por quadro
-são o orçamento no modo de jogo. O menu carrega um chunk por quadro.
-
-Não há mais uma fronteira do mundo em ±24. O limite de coordenadas
-está fixado em ±1.048.575 por segurança dos floats e do save, não por
-decisão visual. Os mobs inicialmente nascem na antiga região de spawn,
-mas são realocados para regiões próximas quando o jogador se afasta.
+- Janela de renderização padrão: 4×4 chunks na horizontal, ou **64×64 blocos**.
+- Janela vertical: seção atual e seções imediatamente acima/abaixo,
+  **48 blocos de altura** carregados ao redor do jogador (3 seções).
+- Janela padrão: **4×4×3 = 48 seções cúbicas**; se a câmera estiver no
+  limite Y, menos seções poderão ser renderizadas.
+- Alcance horizontal configurável: 64×64, 96×96 ou 128×128 blocos.
+- Orçamento de até três seções de malha nova por frame em jogo, seis no
+  carregamento inicial e duas por frame para o panorama do menu.
+- Prioridade pela distância tridimensional em **chunks**.
+- Regiões distantes são removidas do cache CPU e suas malhas GPU são liberadas.
+- Edições persistem em um overlay de blocos, indexado também pela altura.
+- A geração é determinística e inclui cavernas básicas no subsolo.
+- Limites atuais do mundo: **Y −32..63** e X/Z ±1.048.575;
+  altura e profundidade verdadeiramente ilimitadas **não** estão prontas.
 
 ## Pipeline
 
-1. `World:get(x,y,z)` descobre o chunk `floor(x/16):floor(z/16)`.
-2. `World:generateChunk(cx,cz)` gera estratos, água, árvores, minérios,
-   flores e cogumelos com funções determinísticas, sem fazer IO.
-3. `World:load()` carrega um overlay compacto de edições por chunk.
-   Essas edições são reaplicadas sempre que o chunk é regenerado.
-4. `Mesher.buildData(world,cx,cz,faces)` encontra apenas as faces
-   expostas e funde retângulos adjacentes da mesma textura em
-   uma malha por material. Os polígonos usam UVs repetidos para
-   preencher o retângulo.
-5. `Mesher:sync(px,pz,view,budget)` carrega primeiro os chunks
-   próximos, respeita o orçamento por quadro e chama
-   `Mesh:release()` para as regiões fora da janela.
-6. `World:prune(...)` descarta caches antigos de CPU; o overlay
-   de edições persiste. Entrar novamente naquela região regenera
-   o terreno e aplica o overlay sem perder construções.
+1. `World:get(x,y,z)` calcula `floor(x/16),floor(y/16),floor(z/16)`.
+2. `World:generateSection(cx,cy,cz)` gera **só os 4096 voxels
+   possíveis naquela seção**, sem gerar a coluna vertical completa.
+   Voxels de ar não ocupam um item individual na tabela Lua.
+3. `World:load()` lê as alterações do jogador; o formato legível
+   `BLOCK x y z id` é compatível com saves de versões anteriores.
+4. `Mesher.buildData(world,cx,cy,cz,faces)` percorre seis faces
+   cúbicas e faz greedy meshing de retângulos coplanares por textura.
+5. `Mesher:sync(px,py,pz,view,budget)` escolhe as seções em três
+   dimensões, ordena as pendentes por distância e cria poucas malhas
+   GPU em cada quadro.
+6. `World:prune(px,py,pz,horizontal,vertical)` descarta os
+   caches fora da janela + margem de consulta; voltar a uma seção
+   a regenera e reaplica as edições salvas.
+7. Monstros são reposicionados ao redor do jogador quando ele se afasta
+   muito da região anterior, mantendo quantidade limitada de entidades.
 
-A CPU usa até a janela visível e uma pequena borda de chunks para
-consulta de faces vizinhas. O tamanho máximo estimado do cache de terreno
-ao redor de um jogador em 64×64 é 9×9=81 chunks. **Essa não é uma
-garantia de uso de RAM em bytes ou de FPS**.
-
-## Escolhas técnicas
-
-- Motor: LÖVR 0.19. O lançamento adicionou suporte a Luau,
-  tarefas assíncronas e novos recursos de GPU.
-- Renderização atual: `lovr.graphics.newMesh` com `storage='gpu'`,
-  malhas por material, greedy meshing e janela de visibilidade.
-- As tarefas assíncronas do LÖVR ainda **não foram usadas**, pois o
-  primeiro passo é manter geração determinística e uploads gráficos
-  coordenados ao frame principal.
-- Não existem occlusion culling avançado, LOD, shaders PBR, SSR,
-  cascaded shadows ou iluminação volumétrica implementados.
-- O estilo permanece voxel em blocos, mas **o mundo não é mais
-  uma placa quadrada fixa**.
-
-## Como testar
+## Testes
 
 ```sh
 lua5.4 tests/streaming_64.lua
+lua5.4 tests/cubic_chunks_3d.lua
 lua5.4 tests/world_basic.lua
-lua5.4 tests/classic_basic.lua
 lua5.4 tests/blocks_030.lua
 lua5.4 tests/creatures_030.lua
-lua5.4 tests/creepers_basic.lua
 ```
 
-Em execução LÖVR, pressione **F3** para observar chunks visíveis,
-quantidade de quads, cache e geração. Caminhe mais de 64 blocos do
-spawn e volte. Confirme se edificações reaparecem exatamente como
-antes, sem buracos nas bordas e sem travamentos relevantes.
+Os testes incluem: uma plataforma sintética que deve virar só seis
+quads após greedy meshing; janela de 48 seções ao redor do jogador;
+carregar longe do spawn; descarregar e recuperar chunks GPU; editar no
+Y=45 e Y=-16; atravessar fronteiras de seção e reabrir o save.
 
-Testes automatizados verificam somente lógica de chunks e simulação,
-com GPU simulada por mocks. Testar FPS, perda de dispositivo, memória de
-VRAM e comportamento de shaders ainda exige execução real no PC.
+A verificação automática **não é teste gráfico de Vulkan**. FPS, VRAM,
+folhagens, transparência e desempenho ao andar rápido continuam exigindo
+teste no PC com LÖVR 0.19.
 
-## Referências de engenharia
+## Próximas evoluções
 
-- [LÖVR 0.19](https://lovr.org/docs/v0.19.0) — novos recursos de
-  Mesh e suporte a execução paralela.
-- [LÖVR Mesh](https://lovr.org/docs/v0.19.0/Mesh) — malhas e vertex
-  buffers na GPU.
-- [Hytale Update 6](https://hytale.com/news/2026/8/update-6-patch-notes)
-  — geração otimizada e prioridade na entrega de chunks próximos.
+1. Mais profundidade vertical por geração de bioma/cavernas e iluminação 3D.
+2. Frustum e occlusion culling para reduzir draw calls.
+3. Material de voxel em atlas, ao invés de uma malha por textura.
+4. Medições reais de frame pacing, FPS, GPU e RAM.
+5. Uso de tarefas assíncronas LÖVR quando os dados e os perfis de
+   performance justificarem, preservando a sincronização GPU no thread gráfico.
+6. Entidades e física organizadas por seção, com persistência por região.
 
-O Hytale é **referência de arquitetura**, não de implementação ou assets.
-Nenhum código de Hytale ou Minecraft foi copiado.
+## Referências
 
-## Próximas entregas para a maturidade pretendida
+- [CubicChunks](https://modrinth.com/mod/cubicchunks)
+- [Hytale — First Look: Chapter 1 and More](https://hytale.com/news/2026/7/first-look-chapter-1-and-more)
+- [LÖVR 0.19](https://lovr.org/docs/v0.19.0)
 
-- Adaptar o renderer para occlusion/frustum culling e medir draw calls.
-- Adicionar testes gráficos e captura automatizada em Windows/Linux.
-- Separar geração CPU em tarefas paralelas com buffers imutáveis se o
-  perfil de FPS justificar.
-- Aumentar a altura vertical por subchunks, caves, iluminação e líquidos.
-- Melhorar a simulação de entidades, spawn por bioma e persistência.
-- Validar desempenho em hardware real, otimizar assets e corrigir bugs.
+Essa base não copia o motor nem os assets desses jogos.

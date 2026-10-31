@@ -112,7 +112,7 @@ function lovr.load()
   player=Player.new(world)
   mesher=Mesher.new(world,tiles,Textures.faces)
   -- Compila apenas os chunks proximos. O restante chega gradualmente.
-  mesher:sync(player.x,player.z,settings.distance,4)
+  mesher:sync(player.x,player.y,player.z,settings.distance,6)
   classic=Classic.new(world.savedMode,world.savedItems,world.savedScore)
   creepers=Creepers.new(world)
   creatures=Creatures.new(world)
@@ -127,7 +127,7 @@ function lovr.update(dt)
     creepers:update(dt,player,classic)
     creatures:update(dt,player,classic)
     tnt:update(dt,player,classic)
-    mesher:sync(player.x,player.z,settings.distance,2)
+    mesher:sync(player.x,player.y,player.z,settings.distance,3)
     if player.health<=0 then setState('dead') end
     autosave=autosave+dt
     if autosave>=45 then
@@ -136,7 +136,7 @@ function lovr.update(dt)
     end
   elseif state=='title' then
     -- Preenche o panorama do menu com orcamento minimo por quadro.
-    mesher:sync(13,17,settings.distance,1)
+    mesher:sync(13,3,17,settings.distance,2)
   end
 end
 

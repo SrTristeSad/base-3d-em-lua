@@ -29,29 +29,35 @@ simplesmente por se aproximar nesta versao, diferentemente de um creeper
 moderno. Os blocos coletados que possuem drop disponivel alimentam
 a barra e o estoque de 99 unidades.
 
-## Nova arquitetura de mundo infinito com streaming 64×64
+## Nova arquitetura Cubic Chunks: streaming 3D de seções 16×16×16
 
 O mapa **deixou de ser um quadrado fixo 48×48**. A região de spawn antiga
 continua como referencia para mobs iniciais, mas terreno e construcoes
 podem se estender por uma area muito maior (limite de seguranca:
 ±1.048.575 blocos nos eixos X/Z).
 
-- Geração procedural determinística sob demanda, dividida em chunks de 16×16.
-- **Janela padrão 64×64 blocos** em torno do jogador (4×4 chunks).
-- Distância configurável: 64×64, 96×96 ou 128×128 blocos.
-- Carregamento priorizado pela proximidade e limitado a dois chunks GPU
-  por frame, para reduzir travamentos.
-- Descarregamento de chunks distantes e liberação de malhas GPU.
+- Geração procedural determinística sob demanda, dividida em seções cúbicas de **16×16×16** blocos.
+- **Janela padrão 64×64×48 blocos** em torno do jogador (**4×4×3 = 48 seções cúbicas**).
+- Distância horizontal configurável: 64×64, 96×96 ou 128×128 blocos;
+  carregamento vertical limitado a três seções ao redor do personagem.
+- Carregamento por proximidade **tridimensional**, limitado a três seções
+  de GPU por frame para reduzir travamentos.
+- Descarregamento horizontal **e vertical** de seções distantes e
+  liberação de malhas GPU.
 - **Greedy meshing:** faces contíguas do mesmo material viram retângulos,
   em vez de milhares de quads independentes; redução de geometria sobretudo
   em superfícies planas.
-- O save grava apenas os blocos modificados. Ao voltar, o terreno é
-  regenerado, e as alterações previamente salvas são reaplicadas.
+- O save grava apenas os blocos modificados. Ao voltar, a seção cúbica
+  é regenerada, e as alterações previamente salvas são reaplicadas.
 - Zumbis, ovelhas, porcos e demais criaturas próximas são reaproveitadas
   quando o jogador viaja para outra região, sem criar hordas ilimitadas.
 - **F3** mostra chunks visíveis, quads de geometria, cache e contador de geração.
-- Testes verificam geração após 480 blocos de distância, persistência de
-  alterações, recarga de regiões, descarregamento de memória e meshing.
+- Testes verificam geração após 480 blocos de distância, persistência
+  em Y=45 e Y=-16, recarga, descarregamento vertical e greedy meshing.
+
+A altura experimental foi ampliada para **Y=-32 até 63**, incluindo
+cavernas simples abaixo da superfície. **Isso ainda não é um mundo com
+altura ilimitada, nem um motor 98% finalizado.**
 
 O motor continua sendo **LÖVR 0.19 / Lua**, com buffers GPU de malhas.
 A versão 0.19 suporta também Luau, tarefas assíncronas e novos recursos
@@ -104,8 +110,8 @@ LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
 Na pagina [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions/workflows/lua-check.yml),
 abra a execucao mais recente **aprovada** e baixe o artefato
-`Base3D-Classic-030-Streaming64-LOVR`. Extraia o arquivo
-`Base3D-Classic-030-Streaming64.lovr`. E um jogo empacotado (ZIP renomeado)
+`Base3D-Cubic-Chunks-LOVR`. Extraia o arquivo
+`Base3D-Cubic-Chunks.lovr`. E um jogo empacotado (ZIP renomeado)
 para o motor LÖVR; no Windows, arraste o arquivo `.lovr` sobre
 `lovr.exe` baixado do site oficial. O pacote inclui as texturas,
 scripts e configuracoes. Nao inclui o executavel do motor nem salva dentro
@@ -156,7 +162,7 @@ A tela inicial tem **Jogar**, **Configurações** e **Sair**. No menu de pausa, 
 ```
 main.lua             loop, menus, render e controles
 conf.lua             janela, módulos e identidade
-src/world.lua        geração procedural, cache espacial de chunks + salvamento
+src/world.lua        geração procedural e cache 3D de seções cúbicas + salvamento
 src/mesher.lua       greedy meshing, streaming prioritizado e liberação GPU
 src/textures.lua     PNGs externos e fallback procedural
 src/player.lua       movimento, colisão e seleção

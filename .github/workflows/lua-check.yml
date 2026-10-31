@@ -23,6 +23,8 @@ jobs:
           lua5.4 tests/creatures_030.lua
       - name: Chunk streaming 64x64 and greedy meshing tests
         run: lua5.4 tests/streaming_64.lua
+      - name: Cubic chunks 3D and vertical streaming tests
+        run: lua5.4 tests/cubic_chunks_3d.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -44,12 +46,14 @@ jobs:
           assert 'function Creepers:explode(' in mobs
           assert "state=='dead'" in ui
           assert 'function Mesher.buildData(' in Path('src/mesher.lua').read_text()
-          assert 'self.world:prune(px,pz,half)' in Path('src/mesher.lua').read_text()
+          assert 'self.world:prune(px,py,pz,half,1)' in Path('src/mesher.lua').read_text()
           assert 'world:spawnHeight' in player
-          assert 'mesher:sync(player.x,player.z,settings.distance,2)' in main
-          assert 'function World:ensureChunk(' in world
+          assert 'mesher:sync(player.x,player.y,player.z,settings.distance,3)' in main
+          assert 'function World:ensureSection(' in world
+          assert 'function World:generateSection(' in world
           assert 'function World:prune(' in world
           assert 'function World:cacheCount(' in world
+          assert 'local bottom=math.max(floor(self.world.YMIN/16),centerY-1)' in Path('src/mesher.lua').read_text()
           assert "require('src.creatures')" in main
           assert "require('src.tnt')" in main
           assert 'creatures:update(dt,player,classic)' in main
@@ -82,7 +86,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Classic-030-Streaming64.lovr')
+          out=Path('dist/Base3D-Cubic-Chunks.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -105,7 +109,7 @@ jobs:
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Classic-030-Streaming64-LOVR
-          path: dist/Base3D-Classic-030-Streaming64.lovr
+          name: Base3D-Cubic-Chunks-LOVR
+          path: dist/Base3D-Cubic-Chunks.lovr
           if-no-files-found: error
           retention-days: 30

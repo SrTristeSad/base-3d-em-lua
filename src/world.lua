@@ -6,13 +6,13 @@ World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
 World.MIN=-24
 World.MAX=23
 World.BOUND=1048575
-World.YMIN=-4
-World.YMAX=19
+World.YMIN=-32
+World.YMAX=63
 World.CHUNK=16
 World.SAVE='world.sav'
 local floor,abs,sin,cos,min,max=math.floor,math.abs,math.sin,math.cos,math.min,math.max
 local function key(x,y,z) return x..','..y..','..z end
-local function chunkKey(cx,cz) return cx..':'..cz end
+local function chunkKey(cx,cy,cz) return cx..':'..cy..':'..cz end
 local function height(x,z)
  local h=3+sin(x*.14)*2+cos(z*.13)*2+sin((x+z)*.09)*1.5
  return max(-2,min(8,floor(h)))
@@ -23,7 +23,7 @@ local function rng(x,z)
 end
 local function index(x,y,z)
  -- Dentro de um chunk, coordenadas x e z passam a estar em 0..15.
- return (y-World.YMIN)*256+z*16+x+1
+ return (y%16)*256+z*16+x+1
 end
 local function idxWorld(x,y,z)
  return index(x%16,y,z%16)
@@ -31,7 +31,7 @@ end
 function World.new()
  local w=setmetatable({
   blocks={}, -- compatibilidade de leitura, nunca contem o mundo inteiro
-  cache={},edits={},editsByChunk={},dirty={['0:0']=true},
+  cache={},edits={},editsByChunk={},dirty={},
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   generatedTotal=0,evictedTotal=0
  },World)
@@ -45,16 +45,18 @@ function World:within(x,y,z)
    and y>=self.YMIN and y<=self.YMAX
 end
 -- Gera um bloco novo na memoria de chunk, sem inserir no save.
-function World:generateChunk(cx,cz)
+function World:generateSection(cx,cy,cz)
  local data={}
- local sx,sz=cx*16,cz*16
+ local sx,sz,y0=cx*16,cz*16,cy*16
+ local y1=y0+15
  local function cell(x,y,z)
-  if y<World.YMIN or y>World.YMAX or x<sx or x>=sx+16
+  if y<World.YMIN or y>World.YMAX or y<y0 or y>y1 or x<sx or x>=sx+16
      or z<sz or z>=sz+16 then return 0 end
   return data[idxWorld(x,y,z)] or 0
  end
  local function fill(x,y,z,id)
-  if y>=World.YMIN and y<=World.YMAX and x>=sx and x<sx+16
+  if y>=World.YMIN and y<=World.YMAX and y>=y0 and y<=y1
+     and x>=sx and x<sx+16
      and z>=sz and z<sz+16 then
    local i=idxWorld(x,y,z)
    data[i]=id==0 and nil or id
@@ -64,10 +66,15 @@ function World:generateChunk(cx,cz)
  for x=sx,sx+15 do
   for z=sz,sz+15 do
    local h=height(x,z)
-   for y=World.YMIN,h do
-    fill(x,y,z,(y==h and 1) or (y>=h-2 and 2) or 3)
+   for y=math.max(World.YMIN,y0),math.min(h,y1) do
+    local id=(y==h and 1) or (y>=h-2 and 2) or 3
+    if y<h-5 and y>World.YMIN+1 then
+      local n=sin(x*.131+y*.071)+cos(z*.137-y*.08)+sin(y*.24+x*.037-z*.04)
+      if n>2.08 then id=0 end
+    end
+    if id~=0 then fill(x,y,z,id) end
    end
-   for y=h+1,1 do fill(x,y,z,9) end
+   for y=math.max(h+1,y0),math.min(1,y1) do fill(x,y,z,9) end
   end
  end
  -- Centros de arvore com margem de 2 blocos: sem cortes nas bordas.
@@ -95,7 +102,7 @@ function World:generateChunk(cx,cz)
    local h=height(x,z)
    local ore=rng(x+831,z-551)
    local y=h-3
-   if y>World.YMIN and ore>.961 then
+   if y>World.YMIN and y>=y0 and y<=y1 and ore>.961 then
     local id=14
     if ore>.992 then id=12 elseif ore>.981 then id=13 end
     for ox=-1,1 do
@@ -127,56 +134,59 @@ function World:generateChunk(cx,cz)
    end
   end
  end
- local ck=chunkKey(cx,cz)
+ local ck=chunkKey(cx,cy,cz)
  for i,id in pairs(self.editsByChunk[ck] or {}) do
   data[i]=id==0 and nil or id
  end
- self.cache[ck]={data=data,cx=cx,cz=cz}
+ self.cache[ck]={data=data,cx=cx,cy=cy,cz=cz}
  self.generatedTotal=self.generatedTotal+1
  return self.cache[ck]
 end
-function World:ensureChunk(cx,cz)
- local ck=chunkKey(cx,cz)
- return self.cache[ck] or self:generateChunk(cx,cz)
+function World:ensureSection(cx,cy,cz)
+ local ck=chunkKey(cx,cy,cz)
+ return self.cache[ck] or self:generateSection(cx,cy,cz)
 end
 function World:get(x,y,z)
  if not self:within(x,y,z) then return 0 end
- local chunk=self:ensureChunk(floor(x/16),floor(z/16))
+ local chunk=self:ensureSection(floor(x/16),floor(y/16),floor(z/16))
  return chunk.data[idxWorld(x,y,z)] or 0
 end
 function World:set(x,y,z,id)
  if not self:within(x,y,z) or y==self.YMIN then return false end
  if type(id)~='number' or id~=floor(id) or id<0 or id>46 then return false end
  if self:get(x,y,z)==30 or self:get(x,y,z)==id then return false end
- local cx,cz=floor(x/16),floor(z/16)
- local ck=chunkKey(cx,cz)
+ local cx,cy,cz=floor(x/16),floor(y/16),floor(z/16)
+ local ck=chunkKey(cx,cy,cz)
  local i=idxWorld(x,y,z)
  self.cache[ck].data[i]=id==0 and nil or id
  self.edits[key(x,y,z)]=id
  if not self.editsByChunk[ck] then self.editsByChunk[ck]={} end
  self.editsByChunk[ck][i]=id
  self.dirty[ck]=true
- -- Remalha somente vizinhos afetados por uma face de borda.
- if x%16==0 then self.dirty[chunkKey(cx-1,cz)]=true end
- if x%16==15 then self.dirty[chunkKey(cx+1,cz)]=true end
- if z%16==0 then self.dirty[chunkKey(cx,cz-1)]=true end
- if z%16==15 then self.dirty[chunkKey(cx,cz+1)]=true end
+ if x%16==0 then self.dirty[chunkKey(cx-1,cy,cz)]=true end
+ if x%16==15 then self.dirty[chunkKey(cx+1,cy,cz)]=true end
+ if y%16==0 then self.dirty[chunkKey(cx,cy-1,cz)]=true end
+ if y%16==15 then self.dirty[chunkKey(cx,cy+1,cz)]=true end
+ if z%16==0 then self.dirty[chunkKey(cx,cy,cz-1)]=true end
+ if z%16==15 then self.dirty[chunkKey(cx,cy,cz+1)]=true end
  return true
 end
-function World:prune(centerX,centerZ,half)
- -- Mantem uma borda extra no cache de dados para a malha enxergar vizinhos.
- local cx,cz=floor(centerX/16),floor(centerZ/16)
- local range=(half or 2)+2
+function World:prune(px,py,pz,horizontal,vertical)
+ local cx,cy,cz=floor(px/16),floor(py/16),floor(pz/16)
+ local hr=(horizontal or 2)+2
+ local vr=(vertical or 1)+1
  for k,chunk in pairs(self.cache) do
-  if abs(chunk.cx-cx)>range or abs(chunk.cz-cz)>range then
+  if abs(chunk.cx-cx)>hr or abs(chunk.cy-cy)>vr
+    or abs(chunk.cz-cz)>hr then
    self.cache[k]=nil
    self.dirty[k]=nil
    self.evictedTotal=self.evictedTotal+1
   end
  end
  for k in pairs(self.dirty) do
-  local x,z=k:match('^(-?%d+):(-?%d+)$')
-  if x and (abs(tonumber(x)-cx)>range or abs(tonumber(z)-cz)>range) then
+  local x,y,z=k:match('^(-?%d+):(-?%d+):(-?%d+)$')
+  if x and (abs(tonumber(x)-cx)>hr or
+    abs(tonumber(y)-cy)>vr or abs(tonumber(z)-cz)>hr) then
    self.dirty[k]=nil
   end
  end
@@ -239,7 +249,7 @@ function World:load()
   local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
   x,y,z,id=tonumber(x),tonumber(y),tonumber(z),tonumber(id)
   if x and y and z and id and self:within(x,y,z) and id<=46 then
-   local ck=chunkKey(floor(x/16),floor(z/16))
+   local ck=chunkKey(floor(x/16),floor(y/16),floor(z/16))
    local i=idxWorld(x,y,z)
    self.edits[key(x,y,z)]=id
    if not self.editsByChunk[ck] then self.editsByChunk[ck]={} end

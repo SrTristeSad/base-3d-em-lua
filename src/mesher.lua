@@ -21,7 +21,7 @@ local FORMAT={
  {'VertexPosition','vec3'},{'VertexNormal','vec3'},
  {'VertexUV','vec2'},{'VertexColor','vec4'}
 }
-local function ck(cx,cz) return cx..':'..cz end
+local function ck(cx,cy,cz) return cx..':'..cy..':'..cz end
 local function visible(block,neighbor)
  if block==0 then return false end
  return neighbor==0 or (neighbor==9 and block~=9)
@@ -53,25 +53,24 @@ local function push(groups,material,face,fixed,u,v,width,height)
   }
  end
 end
-function Mesher.buildData(world,cx,cz,faces)
+function Mesher.buildData(world,cx,cy,cz,faces)
  local groups={}
  local total=0
- local x0,z0=cx*world.CHUNK,cz*world.CHUNK
- local H=world.YMAX-world.YMIN+1
+ local x0,y0,z0=cx*world.CHUNK,cy*world.CHUNK,cz*world.CHUNK
  for face,dir in ipairs(SIDES) do
   local fixedMin,fixedMax,us,vs,uCount,vCount
   if face<=2 then
    fixedMin,fixedMax=x0,x0+15
-   us,vs=z0,world.YMIN
-   uCount,vCount=16,H
+   us,vs=z0,y0
+   uCount,vCount=16,16
   elseif face<=4 then
-   fixedMin,fixedMax=world.YMIN,world.YMAX
+   fixedMin,fixedMax=y0,y0+15
    us,vs=x0,z0
    uCount,vCount=16,16
   else
    fixedMin,fixedMax=z0,z0+15
-   us,vs=x0,world.YMIN
-   uCount,vCount=16,H
+   us,vs=x0,y0
+   uCount,vCount=16,16
   end
   for fixed=fixedMin,fixedMax do
    local mask={}
@@ -129,9 +128,9 @@ function Mesher.new(world,textures,faces)
  return setmetatable({world=world,textures=textures,faces=faces,
   chunks={},quads=0,rebuilds=0,pending=0,visibleCount=0},Mesher)
 end
-function Mesher:rebuild(cx,cz)
- local groups,quads=Mesher.buildData(self.world,cx,cz,self.faces)
- local id=ck(cx,cz)
+function Mesher:rebuild(cx,cy,cz)
+ local groups,quads=Mesher.buildData(self.world,cx,cy,cz,self.faces)
+ local id=ck(cx,cy,cz)
  local old=self.chunks[id]
  if old then
   for _,mesh in ipairs(old.meshes) do mesh:release() end
@@ -145,32 +144,37 @@ function Mesher:rebuild(cx,cz)
    meshes[#meshes+1]=mesh
   end
  end
- self.chunks[id]={meshes=meshes,quads=quads,cx=cx,cz=cz}
+ self.chunks[id]={meshes=meshes,quads=quads,cx=cx,cy=cy,cz=cz}
  self.quads=self.quads+quads
  self.rebuilds=self.rebuilds+1
  self.world.dirty[id]=nil
 end
-function Mesher:sync(px,pz,view,budget)
- px,pz=px or 0,pz or 0
+-- JANELA CUBICA: 4x4 seções horizontais x 3 seções verticais
+-- (16x16x16 blocos por secao). Prioridade para as mais proximas.
+function Mesher:sync(px,py,pz,view,budget)
+ px,py,pz=px or 0,py or 0,pz or 0
  local half=1+math.max(1,math.min(3,view or 1))
  budget=budget or 2
  local minX,minZ=floor((px-half*16)/16),floor((pz-half*16)/16)
  local limit=half*2
  local desired={}
  local queue={}
- local centerX,centerZ=floor(px/16),floor(pz/16)
- for i=0,limit-1 do
-  for j=0,limit-1 do
-   local cx,cz=minX+i,minZ+j
-   local k=ck(cx,cz)
-   desired[k]=true
-   if not self.chunks[k] or self.world.dirty[k] then
-    local priority=(cx-centerX)^2+(cz-centerZ)^2
-    queue[#queue+1]={cx=cx,cz=cz,key=k,priority=priority}
+ local centerX,centerY,centerZ=floor(px/16),floor(py/16),floor(pz/16)
+ local bottom=math.max(floor(self.world.YMIN/16),centerY-1)
+ local top=math.min(floor(self.world.YMAX/16),centerY+1)
+ for cy=bottom,top do
+  for i=0,limit-1 do
+   for j=0,limit-1 do
+    local cx,cz=minX+i,minZ+j
+    local k=ck(cx,cy,cz)
+    desired[k]=true
+    if not self.chunks[k] or self.world.dirty[k] then
+     local priority=(cx-centerX)^2+(cy-centerY)^2+(cz-centerZ)^2
+     queue[#queue+1]={cx=cx,cy=cy,cz=cz,key=k,priority=priority}
+    end
    end
   end
  end
- -- DESCARREGAMENTO: memoria GPU e CPU de chunks fora da janela.
  for k,chunk in pairs(self.chunks) do
   if not desired[k] then
    for _,mesh in ipairs(chunk.meshes) do mesh:release() end
@@ -185,11 +189,11 @@ function Mesher:sync(px,pz,view,budget)
  self.pending=#queue
  local loaded=0
  for i=1,math.min(#queue,math.max(0,budget)) do
-  self:rebuild(queue[i].cx,queue[i].cz)
+  self:rebuild(queue[i].cx,queue[i].cy,queue[i].cz)
   loaded=loaded+1
  end
  self.pending=self.pending-loaded
- self.world:prune(px,pz,half)
+ self.world:prune(px,py,pz,half,1)
  local n=0
  for _ in pairs(self.chunks) do n=n+1 end
  self.visibleCount=n
