@@ -26,7 +26,8 @@ apenas por existir uma API com os mesmos nomes.
 | Jogo VoxeLibre completo no motor Lua | **Não funcional ainda** |
 | VoxelArea, VoxelManip e IDs de conteúdo | **Parcial: buffers, mapblocks, param2 e escrita testados** |
 | Registro de biomas, minérios e decorações | **Definições armazenadas; sem geração real** |
-| Mapgen do Luanti, cavernas, iluminação e líquidos | **Ausentes** |
+| Geração procedural **própria**, semente e persistência de chunks | **Implementada como experimento Lua; NÃO é mapgen Luanti** |
+| Mapgen do Luanti, iluminação e simulação de líquidos | **Ausentes** |
 | ItemStack, InvRef, listas em nós, detached, metadados e save | **Parcial, testado** |
 | Receitas shaped/shapeless, grupos, forno/combustível, devoluções | **Parcial, testado** |
 | Craft completo, toolrepair, callbacks e transações player | Pendentes |
@@ -40,6 +41,8 @@ apenas por existir uma API com os mesmos nomes.
 
 - `lua-engine/core/map.lua`: armazenamento esparso, metadados e timers.
 - `lua-engine/core/voxel.lua`: VoxelArea, IDs de conteúdo e VoxelManip experimental com regiões alinhadas a mapblocks.
+- `lua-engine/core/worldgen.lua`: mapa original por semente, chunks 16×16 e construção via VoxelManip.
+- `scripts/mcl_core_dependencies.py`: gera árvore real de dependências obrigatórias de mcl_core a partir do mod.conf upstream.
 - `lua-engine/core/runtime.lua`: registro e despachos da API minetest/core.
 - `lua-engine/core/vector.lua`: vetores e operações aritméticas.
 - `lua-engine/core/storage.lua`: save seguro e determinístico, incluindo inventários de nós.
@@ -154,3 +157,29 @@ criptograficamente seguro. Continua faltando rodar o jogo inteiro.
 **Ainda não são carregados os módulos de gameplay `mcl_core`,
 `mcl_mapgen_core` e `mcl_biomes` completos**. Dependem de outros
 módulos, da geração do motor e de centenas de funções que ainda faltam.
+
+### Fase 7 — chunks e dependências de mcl_core
+
+O gerador próprio em `lua-engine/core/worldgen.lua` produz terreno de
+teste determinístico a partir da semente, com camadas de solo, areia,
+água, cavernas simplificadas, minério e árvores. O gerador utiliza
+`VoxelManip` da Fase 6, não APIs internas de terreno C++ do Luanti.
+
+- Chunks 16×16, camada vertical **-16 a +31**, gerados sob demanda.
+- Ordem de geração não altera os blocos resultantes, inclusive
+  folhas que cruzam a borda entre chunks.
+- `G cx cz seed` marca chunks gerados no save `LUAENGINE 1`;
+  saves anteriores continuam legíveis. Regerar com seed diferente
+  é recusado para evitar destruir dados do jogador.
+- `F7` na demonstração gera o chunk da posição atual do jogador.
+  A demo **não possui streaming automático**, física nem meshing otimizado.
+- A análise `mcl_core_dependencies.py` percorre os `mod.conf`
+  originais do VoxeLibre, sem alterar arquivos, e produz o fechamento
+  das dependências de `mcl_core` como artefato da CI.
+- **Ainda não executa `mcl_core`**, `mcl_mapgen_core` ou
+  `mcl_biomes` no novo motor. O mapa de teste não tem
+  correspondência 1:1 com as sementes do Luanti.
+
+Os testes de integração continuam executando os **11 módulos
+originais** já confirmados na Fase 6; nenhum módulo novo foi declarado
+compatível sem executar seu código original e validar o resultado.

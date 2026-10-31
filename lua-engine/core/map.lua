@@ -20,7 +20,7 @@ local function bk(x,y,z)
 end
 function Map.new(registry)
  return setmetatable({nodes={},metadata={},timers={},registry=registry,
-  revisions={},modified={},count=0},Map)
+  revisions={},modified={},generatedChunks={},count=0},Map)
 end
 function Map.key(p)
  local x,y,z=coord(p)
