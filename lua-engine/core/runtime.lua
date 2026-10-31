@@ -5,6 +5,7 @@ local Vector=require('core.vector')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
+local unpack_args=table.unpack or unpack
 local function clone(node)
  return {x=node.x,y=node.y,z=node.z}
 end
@@ -264,7 +265,7 @@ function Runtime:step(dt)
  for _,task in ipairs(pending) do
   if not task.cancelled then
    if task.at<=self.clock then
-    task.callback(table.unpack(task.args,1,task.count))
+    task.callback(unpack_args(task.args,1,task.count))
    else self.scheduled[#self.scheduled+1]=task end
   end
  end
