@@ -4,18 +4,42 @@ Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** 
 
 **Versão jogável em desenvolvimento:** mundo procedural com árvores, terreno e água decorativa; renderização por malha de faces visíveis; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
 
+## Referencia escolhida: Minecraft Classic 0.30
+
+O sandbox usa como **referencia de comportamento** o Minecraft Classic
+0.30 (10/11/2009), que possui duas variantes. No menu, escolha entre:
+
+- **Sobrevivencia 0.30:** creepers atacam corpo a corpo, **so explodem ao
+  morrer**, saude de 20 pontos, pontuacao por derrota, coleta com estoque
+  finito (pilhas de 99), colocacao consome itens.
+- **Criativo 0.30:** construcao ilimitada sem criaturas hostis.
+- Ambos compartilham o mesmo mundo; modo, pontuacao e quantidades por bloco
+  sao salvos no `world.sav` (os arquivos anteriores continuam aceitos).
+
+A base reproduz **parte** das regras dessa epoca, nao todo o jogo original.
+Ainda faltam zumbis, esqueletos, aranhas, porcos, ovelhas, TNT, flores,
+cogumelos, arcos/flechas e a paleta completa do Classic 0.30.
+Nao ha crafting moderno, e as regras/arte sao independentes.
+
+**Controles adaptados:** F5 alterna camera 1a/3a pessoa neste projeto,
+apesar de no Classic original controlar chuva. Os creepers NAO explodem
+simplesmente por se aproximar nesta versao, diferentemente de um creeper
+moderno. Os blocos coletados que possuem drop disponivel alimentam
+a barra e o estoque de 99 unidades.
+
 ## O que ja foi implementado
 
 - Mundo voxel procedural 48×48 com árvores, areia, água, mineração, construção e salvamento local.
-- **5 creepers** originais em blocos: surgem longe do spawn, perseguem o jogador,
-  iniciam o pavio quando se aproximam e explodem após cerca de 1,55 segundo.
+- **5 creepers** originais em blocos (somente no modo Sobrevivencia): surgem longe do spawn, perseguem o jogador,
+  **atacam de perto e explodem ao serem derrotados**, como no Survival Test 0.30.
 - As explosões removem blocos editáveis próximos (as alterações são salvas).
   Água, camada de fundo e ponto de nascimento ficam protegidos.
-- Os creepers podem ser derrotados com **quatro golpes** antes de explodirem;
+- Os creepers podem ser derrotados com **quatro golpes**, acionando a explosao;
   o ataque usa a mira do jogador e alcance de aproximadamente quatro blocos.
-- Barra de **20 pontos de vida**, imunidade curta após levar dano,
+- Barra de **20 pontos de vida**, imunidade curta apos levar dano,
   tela de morte e renascimento com **R**.
-- Salvamento automático a cada 45 segundos enquanto estiver jogando.
+- Salvamento automatico a cada 45 segundos enquanto estiver jogando,
+  incluindo os blocos coletados, o modo e a pontuacao.
 - Câmera em primeira pessoa e terceira pessoa, seleção de oito blocos,
   texturas PNG personalizadas, skin 64×64, menus e configurações.
 - Projeto **independente em Lua**, sem Roblox Studio.
@@ -84,6 +108,7 @@ src/player.lua       movimento, colisão e seleção
 src/avatar.lua       skin 64×64 do jogador
 src/ui.lua           menu e interface 2D
 src/creepers.lua     IA, ataque, explosao e modelo cubico dos creepers
+src/classic.lua      modos Creative/Survival, drops, estoque de 99 e pontuacao
 assets/              pasta livre para seus PNGs
 ```
 

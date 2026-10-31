@@ -20,7 +20,8 @@ local function rng(x, z)
 end
 
 function World.new()
-  local w = setmetatable({ blocks = {}, edits = {}, dirty = {}, savedPlayer = nil }, World)
+  local w = setmetatable({ blocks = {}, edits = {}, dirty = {}, savedPlayer = nil,
+    savedMode = nil, savedItems = {}, savedScore = 0 }, World)
   for x = w.MIN, w.MAX do
     for z = w.MIN, w.MAX do
       local h = height(x, z)
@@ -129,30 +130,48 @@ function World:load()
   for line in source:gmatch('[^\r\n]+') do
     local px,py,pz,yaw,pitch = line:match('^PLAYER ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+)$')
     if px and tonumber(px) and tonumber(py) and tonumber(pz) then
-      self.savedPlayer = { x=tonumber(px), y=tonumber(py), z=tonumber(pz),
-        yaw=tonumber(yaw) or 0, pitch=tonumber(pitch) or 0 }
-    else
-      local x,y,z,id = line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
-      x,y,z,id = tonumber(x),tonumber(y),tonumber(z),tonumber(id)
-      if x and y and z and id and self:within(x,y,z) and id <= 9 then
-        local k = key(x,y,z)
-        self.blocks[k] = id == 0 and nil or id
-        self.edits[k] = id
+      self.savedPlayer={x=tonumber(px),y=tonumber(py),z=tonumber(pz),
+        yaw=tonumber(yaw) or 0,pitch=tonumber(pitch) or 0}
+    end
+    local mode=line:match('^MODE (survival)$') or line:match('^MODE (creative)$')
+    if mode then self.savedMode=mode end
+    local points=line:match('^SCORE (%d+)$')
+    if points then self.savedScore=math.min(1000000000,tonumber(points)) end
+    local itemId,itemCount=line:match('^ITEM (%d+) (%d+)$')
+    if itemId then
+      itemId,itemCount=tonumber(itemId),tonumber(itemCount)
+      if itemId>=1 and itemId<=8 then
+        self.savedItems[itemId]=math.min(99,itemCount)
       end
+    end
+    local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
+    x,y,z,id=tonumber(x),tonumber(y),tonumber(z),tonumber(id)
+    if x and y and z and id and self:within(x,y,z) and id<=9 then
+      local k=key(x,y,z)
+      self.blocks[k]=id==0 and nil or id
+      self.edits[k]=id
     end
   end
 end
 
-function World:save(player)
-  local lines = { string.format('PLAYER %.3f %.3f %.3f %.6f %.6f',
-    player.x,player.y,player.z,player.yaw,player.pitch) }
-  local keys = {}
-  for k in pairs(self.edits) do keys[#keys+1] = k end
-  table.sort(keys)
-  for _, k in ipairs(keys) do
-    local x,y,z = k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-    lines[#lines+1] = ('BLOCK %s %s %s %d'):format(x,y,z,self.edits[k])
+function World:save(player,classic)
+  local lines={string.format('PLAYER %.3f %.3f %.3f %.6f %.6f',
+    player.x,player.y,player.z,player.yaw,player.pitch)}
+  if classic then
+    lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
+    lines[#lines+1]='SCORE '..tostring(math.max(0,math.floor(classic.score or 0)))
+    for id=1,8 do
+      local count=math.max(0,math.min(99,math.floor((classic.items or {})[id] or 0)))
+      if count>0 then lines[#lines+1]=('ITEM %d %d'):format(id,count) end
+    end
   end
-  return lovr.filesystem.write(self.SAVE, table.concat(lines,'\n') .. '\n')
+  local keys={}
+  for k in pairs(self.edits) do keys[#keys+1]=k end
+  table.sort(keys)
+  for _,k in ipairs(keys) do
+    local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+    lines[#lines+1]=('BLOCK %s %s %s %d'):format(x,y,z,self.edits[k])
+  end
+  return lovr.filesystem.write(self.SAVE,table.concat(lines,'\n')..'\n')
 end
 return World

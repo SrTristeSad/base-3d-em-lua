@@ -45,7 +45,7 @@ function Creepers:spawn()
           self.lastId=self.lastId+1
           local mob={id=self.lastId,x=x,y=y,z=z,health=4,
             active=true,fuse=0,cooldown=0,respawn=0,phase=self:random()*6.28,
-            yaw=0}
+            yaw=0,nextAttack=0}
           table.insert(self.list,mob)
           return mob
         end
@@ -55,7 +55,7 @@ function Creepers:spawn()
   return nil
 end
 
-function Creepers:hit(player,damage)
+function Creepers:hit(player,damage,classic)
   local ox,oy,oz=player:eye()
   local dx,dy,dz=player:direction()
   local choice,best=nil,4.5
@@ -82,9 +82,9 @@ function Creepers:hit(player,damage)
   choice.cooldown=self.clock+.33
   choice.health=choice.health-(damage or 1)
   if choice.health<=0 then
-    choice.active=false
-    choice.respawn=14
-    choice.fuse=0
+    -- Survival Test 0.30: creeper explode APOS a morte, nao por proximidade.
+    self:explode(choice,player)
+    if classic then classic:award(100) end
   end
   return true
 end
@@ -110,7 +110,8 @@ function Creepers:explode(mob,player)
   return self.world:explode(mob.x,mob.y+.8,mob.z,2.45)
 end
 
-function Creepers:update(dt,player)
+function Creepers:update(dt,player,classic)
+  if classic and classic.mode=='creative' then return end
   dt=math.max(0,math.min(dt,.1))
   self.clock=self.clock+dt
   local w=self.world
@@ -127,11 +128,11 @@ function Creepers:update(dt,player)
       local d2=dist2(mob.x,mob.z,player.x,player.z)
       local d=sqrt(d2)
       local dy=abs((mob.y+1)-(player.y+1))
-      if d<1.65 and dy<2.2 then
-        mob.fuse=mob.fuse+dt
-        if mob.fuse>=1.55 then self:explode(mob,player) end
-      elseif d>1.95 or dy>=2.2 then
-        mob.fuse=math.max(0,mob.fuse-dt*1.75)
+      -- No Classic 0.30, o monstro ataca corpo a corpo. Sua explosao
+      -- acontece quando e derrotado em combate, sem temporizador de proximidade.
+      if d<1.65 and dy<2.2 and self.clock>=mob.nextAttack then
+        mob.nextAttack=self.clock+1.2
+        if player.damage then player:damage(2) end
       end
       if mob.active and d>1.32 and d<17 and dy<3 then
         local vx,vz=(player.x-mob.x)/d,(player.z-mob.z)/d

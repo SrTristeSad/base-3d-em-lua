@@ -5,8 +5,9 @@ local Player = require('src.player')
 local Avatar = require('src.avatar')
 local UI = require('src.ui')
 local Creepers = require('src.creepers')
+local Classic = require('src.classic')
 
-local world,mesher,player,avatar,tiles,creepers
+local world,mesher,player,avatar,tiles,creepers,classic
 local autosave=0
 local state = 'title'
 local previous = 'title'
@@ -49,7 +50,7 @@ local function setState(next)
 end
 local function saveWorld()
   if world and player then
-    local ok,err=world:save(player)
+    local ok,err=world:save(player,classic)
     if not ok then print('Nao foi possivel salvar o mundo:',err) end
   end
 end
@@ -58,6 +59,12 @@ local function action(a)
     setState('playing')
   elseif a=='pause' then
     setState('pause')
+  elseif a=='mode' then
+    local next=classic.mode=='survival' and 'creative' or 'survival'
+    classic=Classic.new(next,classic.items,classic.score)
+    -- Criativo tem vida plena, alem de blocos ilimitados e sem inimigos.
+    player.health=player.maxHealth
+    player.invulnerable=1
   elseif a=='respawn' then
     player:respawn(world)
     setState('playing')
@@ -102,6 +109,7 @@ function lovr.load()
   mesher=Mesher.new(world,tiles,Textures.faces)
   mesher:sync()
   player=Player.new(world)
+  classic=Classic.new(world.savedMode,world.savedItems,world.savedScore)
   creepers=Creepers.new(world)
   avatar=Avatar.new()
   setState('title')
@@ -110,7 +118,7 @@ end
 function lovr.update(dt)
   if state=='playing' then
     player:update(dt,world)
-    creepers:update(dt,player)
+    creepers:update(dt,player,classic)
     mesher:sync()
     if player.health<=0 then setState('dead') end
     autosave=autosave+dt
@@ -135,7 +143,9 @@ function lovr.draw(pass)
   pass:setColor(1,1,1)
   pass:setViewCull(true)
   mesher:draw(pass,cx,cz,settings.distance)
-  creepers:draw(pass,cx,cz,settings.distance*16+20)
+  if classic.mode=='survival' then
+    creepers:draw(pass,cx,cz,settings.distance*16+20)
+  end
   if player.third and state~='title' then avatar:draw(pass,player) end
   local hit
   if state=='playing' then
@@ -147,7 +157,7 @@ function lovr.draw(pass)
     end
   end
   pass:setViewCull(false)
-  UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels,creepers)
+  UI.draw(pass,state,settings,player,hit,Textures.hotbar,Textures.labels,creepers,classic)
 end
 
 function lovr.mousemoved(x,y,dx,dy)
@@ -159,15 +169,15 @@ end
 function lovr.mousepressed(x,y,button)
   if state=='playing' then
     if button==1 then
-      if not creepers:hit(player,1) then
-        player:edit(world,button,Textures.hotbar)
+      if classic.mode=='creative' or not creepers:hit(player,1,classic) then
+        player:edit(world,button,Textures.hotbar,classic)
       end
     elseif button==2 then
-      player:edit(world,button,Textures.hotbar)
+      player:edit(world,button,Textures.hotbar,classic)
     end
   else
     local w,h=lovr.system.getWindowDimensions()
-    local a=UI.click(state,settings,x,y,w,h)
+    local a=UI.click(state,settings,x,y,w,h,classic)
     if a then action(a) end
   end
 end

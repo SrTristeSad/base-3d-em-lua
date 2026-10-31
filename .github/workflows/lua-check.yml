@@ -15,6 +15,8 @@ jobs:
         run: find . -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
       - name: World logic regression
         run: lua5.4 tests/world_basic.lua
+      - name: Classic 0.30 modes and inventory tests
+        run: lua5.4 tests/classic_basic.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -27,14 +29,22 @@ jobs:
           mobs=Path('src/creepers.lua').read_text()
           ui=Path('src/ui.lua').read_text()
           assert "require('src.creepers')" in main
-          assert 'creepers:update(dt,player)' in main
+          assert 'creepers:update(dt,player,classic)' in main
           assert 'creepers:draw(pass,cx,cz' in main
-          assert 'creepers:hit(player,1)' in main
+          assert 'creepers:hit(player,1,classic)' in main
           assert "setState('dead')" in main
           assert 'function World:explode(' in world
           assert 'function Player:respawn(' in player
           assert 'function Creepers:explode(' in mobs
           assert "state=='dead'" in ui
+          assert "require('src.classic')" in main
+          assert "classic=Classic.new(world.savedMode" in main
+          assert "UI.click(state,settings,x,y,w,h,classic)" in main
+          assert "world:save(player,classic)" in main
+          assert "classic:mine(id)" in player
+          assert "classic:place(id)" in player
+          assert "function World:save(player,classic)" in world
+          assert 'MODO: ' in ui
           required={'grass_top','grass_side','dirt','stone','wood_side',
                     'wood_top','leaves','sand','planks','bricks','water'}
           for item in required:
@@ -59,6 +69,7 @@ jobs:
             assert 'main.lua' in z.namelist()
             assert 'conf.lua' in z.namelist()
             assert 'src/creepers.lua' in z.namelist()
+            assert 'src/classic.lua' in z.namelist()
             assert 'assets/textures/grass_top.png' in z.namelist()
           print(out,out.stat().st_size,'bytes',len(files),'files')
           PY

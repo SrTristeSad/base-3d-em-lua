@@ -120,15 +120,25 @@ function Player:raycast(world,maxdist)
   return nil,nil
 end
 
-function Player:edit(world,button,hotbar)
+function Player:edit(world,button,hotbar,classic)
   local hit,prev=self:raycast(world,6)
   if button==1 and hit then
-    return world:set(hit.x,hit.y,hit.z,0)
+    local id=hit.id
+    if world:set(hit.x,hit.y,hit.z,0) then
+      if classic then classic:mine(id) end
+      return true
+    end
   elseif button==2 and hit and prev then
     local x,y,z=prev.x,prev.y,prev.z
     if math.abs(x-self.x)<.8 and math.abs(z-self.z)<.8
       and y<self.y+1.8 and y>self.y-1 then return false end
-    return world:set(x,y,z,hotbar[self.selected])
+    local id=hotbar[self.selected]
+    if not id then return false end
+    if classic and not classic:canPlace(id) then return false end
+    if world:set(x,y,z,id) then
+      if classic then classic:place(id) end
+      return true
+    end
   end
   return false
 end
