@@ -49,6 +49,8 @@ jobs:
         run: lua5.4 tests/beta181_lighting.lua
       - name: Beta 1.8.1 cave lighting, occlusion and save regression
         run: lua5.4 tests/beta181_light_occlusion.lua
+      - name: Beta 1.8.1 skylight roofs, wells, caves and saves
+        run: lua5.4 tests/beta181_skylight.lua
       - name: Creeper, combat and explosion tests
         run: lua5.4 tests/creepers_basic.lua
       - name: Verify playable sandbox integration
@@ -82,6 +84,7 @@ jobs:
           assert "require('src.beta181_lighting')" in world
           assert "function Lighting:skyVisible(" in Path('src/beta181_lighting.lua').read_text()
           assert "function Lighting:skyApprox(" in Path('src/beta181_lighting.lua').read_text()
+          assert "function Lighting:skyLight(" in Path('src/beta181_lighting.lua').read_text()
           assert "function Lighting:dayFactor(" in Path('src/beta181_lighting.lua').read_text()
           assert "DAYTIME" in world
           assert "pass:setClear(r,g,b,1)" in main
@@ -171,7 +174,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
-          out=Path('dist/Base3D-Beta181-Cave-Lighting.lovr')
+          out=Path('dist/Base3D-Beta181-Skylight.lovr')
           out.parent.mkdir(parents=True,exist_ok=True)
           files=[Path('main.lua'),Path('conf.lua'),Path('README.md'),Path('LICENSE')]
           files+=sorted(Path('src').rglob('*.lua'))
@@ -208,8 +211,8 @@ jobs:
       - name: Publish playable project
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Beta181-Cave-Lighting-LOVR
-          path: dist/Base3D-Beta181-Cave-Lighting.lovr
+          name: Base3D-Beta181-Skylight-LOVR
+          path: dist/Base3D-Beta181-Skylight.lovr
           if-no-files-found: error
           retention-days: 30
 
@@ -221,7 +224,7 @@ jobs:
       - name: Download verified game package
         uses: actions/download-artifact@v4
         with:
-          name: Base3D-Beta181-Cave-Lighting-LOVR
+          name: Base3D-Beta181-Skylight-LOVR
           path: game
       - name: Fuse LÖVR runtime with game for Windows x64
         shell: pwsh
@@ -235,7 +238,7 @@ jobs:
           if (-not $runtime) { throw 'The official runtime has no lovr.exe' }
           if (-not $archive) { throw 'The validated game artifact is missing' }
           New-Item -ItemType Directory -Path 'dist/Base3D-Windows' -Force | Out-Null
-          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Beta181-Cave-Lighting.exe'
+          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Beta181-Skylight.exe'
           # LÖVR supports a fused Windows executable: runtime bytes + .lovr zip.
           $outStream = [System.IO.File]::Create($output)
           try {
@@ -261,7 +264,7 @@ jobs:
           BASE 3D - TESTE WINDOWS (64 bits)
           =================================
           1. Extraia o arquivo ZIP inteiro para uma pasta.
-          2. Execute Base3D-Beta181-Cave-Lighting.exe.
+          2. Execute Base3D-Beta181-Skylight.exe.
           3. No menu escolha CRIAR NOVO MUNDO e informe uma semente.
           4. Escolha SOBREVIVENCIA ou CRIATIVO. Sem geracao por imagem.
           5. FASE 5: Ciclo dia/noite de 20 minutos; horario e dia salvos.
@@ -289,7 +292,7 @@ jobs:
       - name: Upload Windows portable ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Base3D-Beta181-Cave-Lighting-Windows-EXE
+          name: Base3D-Beta181-Skylight-Windows-EXE
           path: dist/Base3D-Windows/
           if-no-files-found: error
           retention-days: 30

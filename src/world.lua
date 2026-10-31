@@ -260,6 +260,14 @@ function World:set(x,y,z,id)
  -- Marque as secoes de TODOS os emissores impactados para remeshing.
  if self.lighting then
   local affected=self.lighting:onBlockChanged(x,y,z,previous,id)
+  if self.lighting.transmits(previous)~=self.lighting.transmits(id) then
+   -- Alterar um telhado muda a luz do ceu em toda a coluna.
+   for cy2=floor(self.YMIN/16),floor(self.YMAX/16) do
+    for dx=-1,1 do for dz=-1,1 do
+     self.dirty[chunkKey(cx+dx,cy2,cz+dz)]=true
+    end end
+   end
+  end
   for _,light in ipairs(affected) do
    local r=light.power
    local x0,x1=floor((light.x-r)/16),floor((light.x+r)/16)
@@ -289,6 +297,7 @@ function World:updateFurnaces(dt)
  return total
 end
 function World:prune(px,py,pz,horizontal,vertical)
+ if self.lighting then self.lighting:pruneSky(px,pz) end
  local cx,cy,cz=floor(px/16),floor(py/16),floor(pz/16)
  local hr=(horizontal or 2)+2
  local vr=(vertical or 1)+1

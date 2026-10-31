@@ -117,7 +117,7 @@ local group,count=Mesher.buildData(meshWorld,0,0,0,{[3]={
 eq(count,6)
 local lit=0
 for name in pairs(group) do
- assert(name:match('^stone#[01]#%d+$'),name)
+ assert(name:match('^stone#%d+#%d+$'),name)
  lit=lit+1
 end
 assert(lit>=2,'Malhas precisam separar faces com luz diferente')
