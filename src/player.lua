@@ -1,5 +1,6 @@
 local Camera=require('src.camera')
 local Rules=require('src.beta181_survival')
+local FluidPhysics=require('src.beta181_fluid_physics')
 local Player = {}
 Player.__index = Player
 local sin,cos,floor,sqrt = math.sin,math.cos,math.floor,math.sqrt
@@ -22,7 +23,9 @@ function Player.new(world)
     selected=1,third=false,health=20,maxHealth=20,
     hunger=20,saturation=5,exhaustion=0,foodTimer=0,
     mining=nil,eating=nil,sprinting=false,
-    invulnerable=0
+    invulnerable=0,
+    maxAir=15,air=15,airDamageTimer=0,lavaTimer=0,
+    inWater=false,inLava=false,underwater=false
   },Player)
   local status=world.savedStatus
   if world.generatorVersion=='beta181' and status then
@@ -30,6 +33,9 @@ function Player.new(world)
     p.hunger=math.max(0,math.min(20,status.hunger or 20))
     p.saturation=math.max(0,math.min(p.hunger,status.saturation or 5))
     p.exhaustion=math.max(0,math.min(3.999,status.exhaustion or 0))
+  end
+  if world.generatorVersion=='beta181' and world.savedAir then
+    p.air=math.max(0,math.min(p.maxAir,world.savedAir))
   end
   local saved=world.savedPlayer
   if saved and math.abs(saved.x)<=world.BOUND-4 and
@@ -57,6 +63,8 @@ function Player:respawn(world)
   self.invulnerable=2
   self.hunger,self.saturation,self.exhaustion,self.foodTimer=20,5,0,0
   self.mining,self.eating=nil,nil
+  self.air,self.airDamageTimer,self.lavaTimer=self.maxAir,0,0
+  self.inWater,self.inLava,self.underwater=false,false,false
 end
 
 function Player:direction()
@@ -73,30 +81,61 @@ function Player:update(dt,world,inventory)
   local length=sqrt(forward*forward+strafe*strafe)
   local beta=inventory and inventory.profile=='beta181' and
     inventory.mode=='survival'
-  local sprinting=length>0 and k('lshift','rshift') and
+  local fluid=FluidPhysics.environment(world,self)
+  local inLiquid=fluid.water or fluid.lava
+  local sprinting=length>0 and not inLiquid and k('lshift','rshift') and
     (not beta or self.hunger>6)
   self.sprinting=sprinting
+  local speed=fluid.lava and 1.4 or (fluid.water and 2.5
+    or (sprinting and 7.2 or 4.5))
+  local dx,dz=0,0
   if length>0 then
     forward,strafe=forward/length,strafe/length
-    local speed=sprinting and 7.2 or 4.5
-    local dx=(sin(self.yaw)*forward+cos(self.yaw)*strafe)*speed*dt
-    local dz=(-cos(self.yaw)*forward+sin(self.yaw)*strafe)*speed*dt
-    local oldX,oldZ=self.x,self.z
-    if not solid(world,self.x+dx,self.y,self.z) then self.x=self.x+dx end
-    if not solid(world,self.x,self.y,self.z+dz) then self.z=self.z+dz end
-    if beta then
-      local dist=sqrt((self.x-oldX)^2+(self.z-oldZ)^2)
-      Rules.consumeExhaustion(self,dist*(sprinting and .1 or .01))
-    end
+    dx=(sin(self.yaw)*forward+cos(self.yaw)*strafe)*speed*dt
+    dz=(-cos(self.yaw)*forward+sin(self.yaw)*strafe)*speed*dt
   end
-  if self.grounded and k('space') then
-    self.vy=7.4
-    self.grounded=false
-    if beta then
-      Rules.consumeExhaustion(self,sprinting and .8 or .2)
-    end
+  -- A correnteza atua mesmo sem WASD. Correntes naturais
+  -- estacionarias nao criam deslocamento artificial.
+  if inLiquid then
+    local drift=fluid.lava and .35 or 1.1
+    dx=dx+fluid.currentX*drift*dt
+    dz=dz+fluid.currentZ*drift*dt
   end
-  self.vy=self.vy-19.6*dt
+  local oldX,oldZ=self.x,self.z
+  if dx~=0 and not solid(world,self.x+dx,self.y,self.z) then
+    self.x=self.x+dx
+  end
+  if dz~=0 and not solid(world,self.x,self.y,self.z+dz) then
+    self.z=self.z+dz
+  end
+  if beta and length>0 then
+    local dist=sqrt((self.x-oldX)^2+(self.z-oldZ)^2)
+    Rules.consumeExhaustion(self,dist*(sprinting and .1 or .01))
+  end
+  if inLiquid then
+    -- A agua amortece queda; segurar espaco impulsiona para cima,
+    -- inclusive ao longo de uma coluna vertical de fluido.
+    local gravity=fluid.lava and 3.1 or 4.8
+    local terminal=fluid.lava and -1.4 or -2.3
+    if k('space') then
+      self.vy=math.min(3.3,self.vy+16*dt)
+    else
+      self.vy=math.max(terminal,(self.vy-gravity*dt)*(1-2.2*dt))
+    end
+  else
+    if self.grounded and k('space') then
+      self.vy=7.4
+      self.grounded=false
+      if beta then
+        Rules.consumeExhaustion(self,sprinting and .8 or .2)
+      end
+    end
+    self.vy=self.vy-19.6*dt
+  end
+  -- Correntes em queda empurram para baixo.
+  if inLiquid and fluid.currentY<0 then
+    self.vy=math.max(-3,self.vy+fluid.currentY*3*dt)
+  end
   local step=self.vy*dt
   if solid(world,self.x,self.y+step,self.z) then
     if step<0 then self.grounded=true end
@@ -109,9 +148,36 @@ function Player:update(dt,world,inventory)
     self.x,self.y,self.z=world:spawnPoint()
     self.vy=0
   end
+  -- Riscos ambientais usam a POSICAO APOS movimentacao.
+  local present=FluidPhysics.environment(world,self)
+  self.inWater,self.inLava,self.underwater=
+    present.water,present.lava,present.underwater
+  if world.generatorVersion=='beta181' then
+    if self.underwater then
+      self.air=math.max(0,(self.air or self.maxAir)-dt)
+      if self.air<=0 then
+        self.airDamageTimer=self.airDamageTimer+dt
+        if self.airDamageTimer>=1 then
+          self.airDamageTimer=self.airDamageTimer-1
+          if beta then self:damage(2) end
+        end
+      end
+    else
+      self.air=self.maxAir
+      self.airDamageTimer=0
+    end
+    if self.inLava then
+      self.lavaTimer=self.lavaTimer+dt
+      if self.lavaTimer>=.75 then
+        self.lavaTimer=self.lavaTimer-.75
+        if beta then self:damage(4) end
+      end
+    else
+      self.lavaTimer=0
+    end
+  end
   if beta then Rules.tick(self,dt) end
 end
-
 function Player:eye()
   return self.x,self.y+1.61,self.z
 end

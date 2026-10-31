@@ -1,4 +1,4 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 9)
+# Base 3D em Lua — Beta 1.8.1 (Fase 10)
 
 Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta 1.8.1** como referência de comportamento histórico. Não utiliza código, texturas ou outros arquivos da Mojang. **O projeto ainda não é uma reprodução 1:1**: alguns algoritmos e sistemas são aproximações e vários recursos estão pendentes.
 
@@ -6,10 +6,25 @@ Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta
 
 Na página [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions), abra a execução mais recente **aprovada** e baixe um dos artefatos:
 
-- `Base3D-Beta181-Fluids-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
-- `Base3D-Beta181-Fluids-LOVR` — pacote `.lovr` para executar no motor LÖVR.
+- `Base3D-Beta181-Swimming-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
+- `Base3D-Beta181-Swimming-LOVR` — pacote `.lovr` para executar no motor LÖVR.
 
-Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Fluids.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Swimming.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+
+## Fase 10 — natação, afogamento e dano por lava
+
+O jogador agora nada na água: movimento mais lento, gravidade
+reduzida e **Espaço para subir**. Correntes empurram o personagem
+conforme os níveis do fluxo, enquanto água parada não empurra.
+Submergir a cabeça reduz o ar disponível (15 s); ao esgotar,
+o jogador pode se afogar em sobrevivência.
+
+Contato prolongado com lava causa dano no modo sobrevivência,
+mas não no criativo. O HUD exibe estado de nado, lava e ar.
+A respiração é salva com o novo registro opcional `PLAYERAIR`,
+sem modificar saves antigos.
+
+[Relatório da Fase 10](docs/FASE_10_BETA181.md).
 
 ## Fase 9 — agua e lava com propagacao
 

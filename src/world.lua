@@ -42,7 +42,7 @@ function World.new(options)
   cache={},edits={},editsByChunk={},dirty={},
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   savedSlots=nil,savedCraft2=nil,savedCraft3=nil,savedCursor=nil,
-  savedStatus=nil,
+  savedStatus=nil,savedAir=nil,
   lighting=nil,fluids=nil,
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
@@ -419,6 +419,13 @@ function World:load()
      exhaustion=max(0,min(4,exhaustion))}
    end
   end
+  local air=line:match('^PLAYERAIR ([%d%.]+)$')
+  if air and self.generatorVersion=='beta181' then
+   local value=tonumber(air)
+   if value and value==value and value~=math.huge then
+    self.savedAir=max(0,min(15,value))
+   end
+  end
   local daytime,day=line:match('^DAYTIME ([%d%.]+) (%d+)$')
   if not daytime then daytime=line:match('^DAYTIME ([%d%.]+)$') end
   if daytime and self.lighting then
@@ -545,6 +552,8 @@ function World:save(player,classic)
    lines[#lines+1]=('PLAYERSTATUS %.2f %.2f %.2f %.3f'):format(
     player.health or 20,player.hunger or 20,player.saturation or 5,
     player.exhaustion or 0)
+   lines[#lines+1]=('PLAYERAIR %.3f'):format(
+     max(0,min(15,player.air or 15)))
    local function slotLine(tag,index,stack)
     if stack and type(stack.id)=='number' and type(stack.count)=='number'
        and stack.count>=1 then
