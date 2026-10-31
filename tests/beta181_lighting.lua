@@ -39,7 +39,7 @@ eq(light:skyLevel(),15)
 assert(light:dayFactor()>.99)
 eq(light:level(0,81,0),15)
 assert(not light:skyVisible(0,70,0),'Telhado bloqueia luz solar direta')
-eq(light:level(0,70,0),0)
+eq(light:level(0,70,0),14) -- iluminado lateralmente ao redor do teto
 assert(light:sunburns(0,81,0))
 assert(not light:sunburns(0,70,0))
 assert(light:setTime(12500))
