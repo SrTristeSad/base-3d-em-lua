@@ -48,7 +48,7 @@ function World.new(options)
   generatorVersion=options.generatorVersion,
   YMIN=options.generatorVersion=='beta181' and BetaTerrain.MIN_Y or World.YMIN,
   YMAX=options.generatorVersion=='beta181' and BetaTerrain.MAX_Y or World.YMAX,
-  MAX_ID=options.generatorVersion=='beta181' and 49 or 46,
+  MAX_ID=options.generatorVersion=='beta181' and 52 or 46,
   SAVE=options.savePath or World.SAVE
  },World)
  w:load()
