@@ -1,4 +1,4 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 7)
+# Base 3D em Lua — Beta 1.8.1 (Fase 8)
 
 Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta 1.8.1** como referência de comportamento histórico. Não utiliza código, texturas ou outros arquivos da Mojang. **O projeto ainda não é uma reprodução 1:1**: alguns algoritmos e sistemas são aproximações e vários recursos estão pendentes.
 
@@ -6,10 +6,25 @@ Reimplementação **independente em Lua + LÖVR 0.19** com **Minecraft Java Beta
 
 Na página [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions), abra a execução mais recente **aprovada** e baixe um dos artefatos:
 
-- `Base3D-Beta181-Skylight-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
-- `Base3D-Beta181-Skylight-LOVR` — pacote `.lovr` para executar no motor LÖVR.
+- `Base3D-Beta181-Light-Cache-Windows-EXE` — Windows 64 bits, executável e DLLs em ZIP.
+- `Base3D-Beta181-Light-Cache-LOVR` — pacote `.lovr` para executar no motor LÖVR.
 
-Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Skylight.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+Extraia o ZIP Windows **inteiro**, mantendo as DLLs junto de `Base3D-Beta181-Light-Cache.exe`. É necessário Windows 64 bits e GPU/driver com Vulkan. Os testes automatizados verificam a lógica e o empacotamento; **a aparência e o desempenho exigem teste real em uma GPU**.
+
+## Fase 8 — cache solar por seções e diagnóstico
+
+O cache de skylight foi reorganizado em **seções 16×16×16**.
+Ao atravessar um chunk, o jogo conserva os cálculos próximos.
+A capacidade total continua limitada e as seções menos utilizadas
+são descartadas primeiro, em vez de apagar toda a memória de luz.
+Ao construir ou minerar, somente seções próximas da coluna editada
+são invalidadas.
+
+No painel **F3**, o jogo exibe entradas de cache, seções, acertos
+e nós visitados na busca de iluminação. É uma otimização de cache,
+não um ganho de FPS já medido em um PC real.
+
+[Documentação técnica da Fase 8](docs/FASE_08_BETA181.md).
 
 ## Fase 7 — skylight em poços, telhados e cavernas
 

@@ -345,6 +345,12 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
         label(pass,('CHUNKS %d | QUADS %d | CACHE %d | GERADOS %d'):format(
           mesher.visibleCount,mesher.quads,mesher.world:cacheCount(),
           mesher.world.generatedTotal),w/2,134,14,.90,.93,.99)
+        if beta and mesher.world.lighting then
+          local stats=mesher.world.lighting:skyCacheStats()
+          label(pass,('SKYLIGHT %d VOXELS | %d SECOES | HITS %d | BFS %d'):format(
+            stats.entries,stats.sections,stats.hits,stats.bfsNodes),
+            w/2,183,13,.80,.90,1)
+        end
       end
     end
     if hit then
