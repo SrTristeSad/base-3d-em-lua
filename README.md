@@ -2,7 +2,7 @@
 
 Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** (Windows/Linux/macOS). Não precisa do Roblox nem de Minecraft.
 
-**Primeira versão:** mundo procedural com árvores, terreno e água decorativa; renderização por malha de faces visíveis; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e volume salvos; mundo e posição do jogador persistidos localmente.
+**Primeira versão:** mundo procedural com árvores, terreno e água decorativa; renderização por malha de faces visíveis; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
 
 ## Executar
 
@@ -24,6 +24,7 @@ Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** 
 | Teclas 1–8 / roda | Selecionar bloco |
 | F5 | Alternar 1ª e 3ª pessoa |
 | Esc | Pausar / abrir menu |
+| F6 | Salvar imediatamente |
 
 A tela inicial tem **Jogar**, **Configurações** e **Sair**. No menu de pausa, você pode **Salvar**, retornar ao menu e continuar.
 

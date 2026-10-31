@@ -1,0 +1,16 @@
+name: Lua checks
+on:
+  push:
+  pull_request:
+
+jobs:
+  syntax-and-world:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua interpreter
+        run: sudo apt-get update -qq && sudo apt-get install -y lua5.4
+      - name: Syntax check
+        run: find . -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
+      - name: World logic regression
+        run: lua5.4 tests/world_basic.lua
