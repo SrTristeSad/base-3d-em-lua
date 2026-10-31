@@ -1,4 +1,4 @@
-# Base 3D em Lua — Beta 1.8.1 (Fase 4)
+# Base 3D em Lua — Beta 1.8.1 (Fase 5)
 
 Reimplementação independente em **Lua + LÖVR 0.19**, usando a
 experiência da **Minecraft Java Beta 1.8.1** como referência técnica.
@@ -11,12 +11,21 @@ experimentais ou ausentes.
 Na [página do GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions),
 abra a execução mais recente aprovada. Baixe um dos artefatos:
 
-- `Base3D-Beta181-Furnace-Smelting-Windows-EXE` — Windows 64 bits.
-- `Base3D-Beta181-Furnace-Smelting-LOVR` — projeto `.lovr`.
+- `Base3D-Beta181-Day-Night-Windows-EXE` — Windows 64 bits.
+- `Base3D-Beta181-Day-Night-LOVR` — projeto `.lovr`.
 
 Extraia o ZIP Windows inteiro (inclusive as DLLs) e execute
-`Base3D-Beta181-Furnace-Smelting.exe`. Requer GPU/driver com Vulkan.
+`Base3D-Beta181-Day-Night.exe`. Requer GPU/driver com Vulkan.
 A CI valida sintaxe, lógica e empacotamento, **não a execução real na GPU**.
+
+## Fase 5: ciclo de dia e noite
+
+O mundo Beta tem relogio de **20 minutos reais por dia**, com transicao
+suave de cor do ceu e luminosidade ambiental. O HUD mostra o dia, horario
+e fase. F7 no Criativo avanca seis horas para testes. Os dados sao salvos
+por mundo, e saves anteriores continuam legiveis.
+
+A iluminacao por bloco (tochas, lava, cavernas) ainda nao foi implementada.
 
 ## Fase 4: fornalha funcional
 
@@ -69,6 +78,7 @@ também funciona. A progressão completa ainda exige sistemas adicionais.
 | Shift + clique | Transferir itens entre slots |
 | 1–9 / scroll | Selecionar slot rápido |
 | F3 / F5 / F6 | Diagnóstico, câmera e salvar |
+| F7 (Criativo Beta) | Avançar seis horas para testar o ciclo |
 | Esc | Fechar interface ou pausar |
 
 Mundos novos usam somente **seeds**. Imagens foram retiradas da criação;
@@ -77,7 +87,7 @@ saves antigos, inclusive do perfil Classic 0.30, permanecem legíveis.
 ## Limitações conhecidas
 
 As gerações de biomas, cavernas, estruturas e minérios ainda não são
-idênticas às mesmas seeds da Beta. Faltam iluminação, dia/noite,
+idênticas às mesmas seeds da Beta. Faltam iluminação por bloco, sombra em cavernas,
 IA de mobs historicamente fiel, Nether, camas, líquidos dinâmicos,
 sistema completo de combate e várias receitas e itens da época.
 
@@ -87,6 +97,7 @@ próprios**, diferentes dos IDs históricos em vários casos.
 
 ## Documentação
 
+- [Relatório técnico — Fase 5: dia/noite](docs/FASE_05_BETA181.md)
 - [Relatório técnico — Fase 4: fornalhas](docs/FASE_04_BETA181.md)
 - [Fase 3: mineração e fome](docs/FASE_03_BETA181.md)
 - [Fase 2: inventário](docs/FASE_02_BETA181.md)

@@ -13,7 +13,7 @@ validar as mecânicas e a aparência.** Já existe um perfil Beta 1.8.1
 experimental no projeto, mas geração, interface e jogabilidade
 ainda não são reproduções completas da versão original.
 
-## Status de implementação — Fases 1 a 4
+## Status de implementação — Fases 1 a 5
 
 A fundação do Overworld está integrada ao jogo com o perfil `beta181`:
 biomas básicos, terreno, mar Y=62, altura 0..127 e minérios. Esta
@@ -41,6 +41,13 @@ coordenada. Fornos com materiais não podem ser desmontados até serem
 esvaziados, para evitar perda de recursos nesta etapa.
 
 [Ver documentação, receitas e limites da Fase 4](FASE_04_BETA181.md).
+
+**Fase 5:** ciclo de 24000 ticks, fundo e luz ambiental variaveis,
+relogio persistente, indicador no HUD e F7 de teste no Criativo.
+Faltam iluminacao por bloco, oclusao de cavernas e nascimento
+de criaturas condicionado ao brilho.
+
+[Ver o relatorio da Fase 5](FASE_05_BETA181.md).
 
 ## Fase A — baseline Beta 1.8.1
 
