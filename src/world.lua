@@ -3,8 +3,8 @@
 local Gen=require('src.worldgen')
 local ClassicTerrain=require('src.classic_terrain')
 local BetaTerrain=require('src.beta181_terrain')
-local Furnace=require('src.beta181_furnace')
-local Daylight=require('src.beta181_daylight')
+()=>`local Furnace=require('src.beta181_furnace')
+local Daylight=require('src.beta181_daylight')`
 local World={}
 World.__index=World
 World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
@@ -41,8 +41,8 @@ function World.new(options)
   cache={},edits={},editsByChunk={},dirty={},
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   savedSlots=nil,savedCraft2=nil,savedCraft3=nil,savedCursor=nil,
-  savedStatus=nil,
-  time=options.generatorVersion=='beta181' and 0 or nil,
+  ()=>`savedStatus=nil,
+  time=options.generatorVersion=='beta181' and 0 or nil,`
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
      and (options.generatorVersion=='beta181'
@@ -262,12 +262,12 @@ function World:getFurnace(x,y,z)
  if not self.furnaces[k] then self.furnaces[k]=Furnace.new() end
  return self.furnaces[k]
 end
-function World:advanceTime(dt)
+()=>`function World:advanceTime(dt)
  if self.generatorVersion~='beta181' then return nil end
  self.time=Daylight.advance(self.time,dt)
  return self.time
 end
-function World:updateFurnaces(dt)
+function World:updateFurnaces(dt)`
  if self.generatorVersion~='beta181' then return 0 end
  local total=0
  for _,station in pairs(self.furnaces) do
@@ -361,10 +361,15 @@ function World:spawnHeight(x,z)
 end
 function World:load()
  local source=lovr.filesystem.read(self.SAVE)
- if not source then return end
- for line in source:gmatch('[^\r\n]+') do
+ if not source then return end()=>`
+ for line in source:gmatch('[^\\r\\n]+') do
   if self.generatorVersion=='beta181' then
-   local stamp=line:match('^WORLDTIME ([%d%.]+)  local px,py,pz,yaw,pitch=line:match('^PLAYER ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+)$')
+   local stamp=line:match('^WORLDTIME ([%d%.]+)$')
+   if stamp and Daylight.valid(tonumber(stamp)) then
+    self.time=tonumber(stamp)
+   end
+  end
+`  local px,py,pz,yaw,pitch=line:match('^PLAYER ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+)$')
   if px and tonumber(px) and tonumber(py) and tonumber(pz) then
    self.savedPlayer={x=tonumber(px),y=tonumber(py),z=tonumber(pz),
      yaw=tonumber(yaw) or 0,pitch=tonumber(pitch) or 0}
@@ -477,192 +482,13 @@ function World:load()
   end
  end
 end
-function World:save(player,classic)
+()=>`function World:save(player,classic)
  local lines={string.format('PLAYER %.3f %.3f %.3f %.6f %.6f',
   player.x,player.y,player.z,player.yaw,player.pitch)}
  if self.generatorVersion=='beta181' then
   lines[#lines+1]=('WORLDTIME %.3f'):format(self.time or 0)
  end
- if classic then
-  lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
-  lines[#lines+1]='SCORE '..tostring(max(0,floor(classic.score or 0)))
-  if classic.profile=='beta181' then
-   lines[#lines+1]=('PLAYERSTATUS %.2f %.2f %.2f %.3f'):format(
-    player.health or 20,player.hunger or 20,player.saturation or 5,
-    player.exhaustion or 0)
-   local function slotLine(tag,index,stack)
-    if stack and type(stack.id)=='number' and type(stack.count)=='number'
-       and stack.count>=1 then
-     lines[#lines+1]=('%s %d %d %d %d'):format(
-       tag,index,stack.id,math.min(64,math.floor(stack.count)),
-       math.min(65535,math.max(0,math.floor(stack.damage or 0))))
-    end
-   end
-   for i=1,36 do slotLine('SLOT',i,classic.slots[i]) end
-   for i=1,4 do slotLine('CRAFT2',i,classic.craft2[i]) end
-   for i=1,9 do slotLine('CRAFT3',i,classic.craft3[i]) end
-   if classic.cursor then
-    lines[#lines+1]=('CURSOR %d %d %d'):format(
-      classic.cursor.id,classic.cursor.count,classic.cursor.damage or 0)
-   end
-  else
-   for id=1,self.MAX_ID do
-    local count=max(0,min(99,floor((classic.items or {})[id] or 0)))
-    if count>0 then lines[#lines+1]=('ITEM %d %d'):format(id,count) end
-   end
-  end
- end
- local keys={}
- for k in pairs(self.edits) do keys[#keys+1]=k end
- table.sort(keys)
- for _,k in ipairs(keys) do
-  local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-  lines[#lines+1]=('BLOCK %s %s %s %d'):format(x,y,z,self.edits[k])
- end
- if self.generatorVersion=='beta181' then
-  local furnaceKeys={}
-  for k in pairs(self.furnaces) do furnaceKeys[#furnaceKeys+1]=k end
-  table.sort(furnaceKeys)
-  for _,k in ipairs(furnaceKeys) do
-   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-   local f=self.furnaces[k]
-   -- As coordenadas são verificadas sem gerar seções adicionais.
-   lines[#lines+1]=('FURNACE %s %s %s %.3f %.3f %.3f'):format(
-      x,y,z,f.burn,f.burnTotal,f.progress)
-   for i=1,3 do
-    local item=f.slots[i]
-    if item then
-     lines[#lines+1]=('FURNACEITEM %s %s %s %d %d %d %d'):format(
-       x,y,z,i,item.id,item.count,item.damage or 0)
-    end
-   end
-  end
- end
- return lovr.filesystem.write(self.SAVE,table.concat(lines,'\n')..'\n')
-end
-return World
-)
-   if stamp and Daylight.valid(tonumber(stamp)) then
-    self.time=tonumber(stamp)
-   end
-  end
-  local px,py,pz,yaw,pitch=line:match('^PLAYER ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+) ([%d%.%-]+)$')
-  if px and tonumber(px) and tonumber(py) and tonumber(pz) then
-   self.savedPlayer={x=tonumber(px),y=tonumber(py),z=tonumber(pz),
-     yaw=tonumber(yaw) or 0,pitch=tonumber(pitch) or 0}
-  end
-  local hp,hunger,saturation,exhaustion=
-    line:match('^PLAYERSTATUS ([%d%.]+) ([%d%.]+) ([%d%.]+) ([%d%.]+)$')
-  if hp and self.generatorVersion=='beta181' then
-   hp,hunger,saturation,exhaustion=tonumber(hp),tonumber(hunger),
-     tonumber(saturation),tonumber(exhaustion)
-   if hp and hunger and saturation and exhaustion then
-    self.savedStatus={health=max(0,min(20,hp)),
-     hunger=max(0,min(20,hunger)),saturation=max(0,min(20,saturation)),
-     exhaustion=max(0,min(4,exhaustion))}
-   end
-  end
-  local mode=line:match('^MODE (survival)$') or line:match('^MODE (creative)$')
-  if mode then self.savedMode=mode end
-  local score=line:match('^SCORE (%d+)$')
-  if score then self.savedScore=min(1000000000,tonumber(score)) end
-  local item,count=line:match('^ITEM (%d+) (%d+)$')
-  if item then
-   item,count=tonumber(item),tonumber(count)
-   if item>=1 and item<=self.MAX_ID then self.savedItems[item]=min(99,count) end
-  end
-  local slot,id,n,damage=line:match('^SLOT (%d+) (%d+) (%d+) (%d+)$')
-  if not slot then slot,id,n=line:match('^SLOT (%d+) (%d+) (%d+)$') end
-  if slot then
-   slot,id,n,damage=tonumber(slot),tonumber(id),tonumber(n),tonumber(damage) or 0
-   if slot>=1 and slot<=36 and id>=1 and id<=4095
-      and n>=1 and n<=64 and damage>=0 and damage<=65535 then
-    self.savedSlots=self.savedSlots or {}
-    self.savedSlots[slot]={id=id,count=n,damage=damage}
-   end
-  end
-  local area,index,gridId,quantity,damage=
-    line:match('^(CRAFT2) (%d+) (%d+) (%d+) (%d+)$')
-  if not area then
-   area,index,gridId,quantity,damage=
-      line:match('^(CRAFT3) (%d+) (%d+) (%d+) (%d+)$')
-  end
-  if not area then
-   area,index,gridId,quantity=
-      line:match('^(CRAFT2) (%d+) (%d+) (%d+)$')
-  end
-  if not area then
-   area,index,gridId,quantity=
-      line:match('^(CRAFT3) (%d+) (%d+) (%d+)$')
-  end
-  if area then
-   index,gridId,quantity,damage=tonumber(index),tonumber(gridId),
-     tonumber(quantity),tonumber(damage) or 0
-   local size=area=='CRAFT2' and 4 or 9
-   if index>=1 and index<=size and gridId>=1 and gridId<=4095
-      and quantity>=1 and quantity<=64 and damage>=0 and damage<=65535 then
-     local name=area=='CRAFT2' and 'savedCraft2' or 'savedCraft3'
-     self[name]=self[name] or {}
-     self[name][index]={id=gridId,count=quantity,damage=damage}
-   end
-  end
-  local cursorId,cursorCount,cursorDamage=
-    line:match('^CURSOR (%d+) (%d+) (%d+)$')
-  if not cursorId then
-    cursorId,cursorCount=line:match('^CURSOR (%d+) (%d+)$')
-  end
-  if cursorId then
-   cursorId,cursorCount,cursorDamage=tonumber(cursorId),
-     tonumber(cursorCount),tonumber(cursorDamage) or 0
-   if cursorId>=1 and cursorId<=4095 and cursorCount>=1 and
-     cursorCount<=64 and cursorDamage>=0 and cursorDamage<=65535 then
-    self.savedCursor={id=cursorId,count=cursorCount,damage=cursorDamage}
-   end
-  end
-  if self.generatorVersion=='beta181' then
-   local fx,fy,fz,burn,burnTotal,progress=
-     line:match('^FURNACE (%-?%d+) (%-?%d+) (%-?%d+) ([%d%.]+) ([%d%.]+) ([%d%.]+)$')
-   if fx then
-    fx,fy,fz=tonumber(fx),tonumber(fy),tonumber(fz)
-    if self:within(fx,fy,fz) then
-     local k=key(fx,fy,fz)
-     self.furnaces[k]=self.furnaces[k] or Furnace.new()
-     local f=self.furnaces[k]
-     f.burn=max(0,min(1000,tonumber(burn) or 0))
-     f.burnTotal=max(0,min(1000,tonumber(burnTotal) or 0))
-     f.progress=max(0,min(10,tonumber(progress) or 0))
-    end
-   end
-   local ix,iy,iz,slot,id,count,damage=
-     line:match('^FURNACEITEM (%-?%d+) (%-?%d+) (%-?%d+) (%d+) (%d+) (%d+) (%d+)$')
-   if ix then
-    ix,iy,iz,slot,id,count,damage=
-      tonumber(ix),tonumber(iy),tonumber(iz),tonumber(slot),
-      tonumber(id),tonumber(count),tonumber(damage)
-    if self:within(ix,iy,iz) and slot>=1 and slot<=3
-       and id>=1 and id<=4095 and count>=1 and count<=64
-       and damage>=0 and damage<=65535 then
-     local k=key(ix,iy,iz)
-     self.furnaces[k]=self.furnaces[k] or Furnace.new()
-     self.furnaces[k].slots[slot]={id=id,count=count,damage=damage}
-    end
-   end
-  end
-  local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
-  x,y,z,id=tonumber(x),tonumber(y),tonumber(z),tonumber(id)
-  if x and y and z and id and self:within(x,y,z) and id<=self.MAX_ID then
-   local ck=chunkKey(floor(x/16),floor(y/16),floor(z/16))
-   local i=idxWorld(x,y,z)
-   self.edits[key(x,y,z)]=id
-   if not self.editsByChunk[ck] then self.editsByChunk[ck]={} end
-   self.editsByChunk[ck][i]=id
-  end
- end
-end
-function World:save(player,classic)
- local lines={string.format('PLAYER %.3f %.3f %.3f %.6f %.6f',
-  player.x,player.y,player.z,player.yaw,player.pitch)}
- if classic then
+` if classic then
   lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
   lines[#lines+1]='SCORE '..tostring(max(0,floor(classic.score or 0)))
   if classic.profile=='beta181' then
