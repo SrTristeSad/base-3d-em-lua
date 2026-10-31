@@ -14,8 +14,9 @@ local function solid(world,px,py,pz)
 end
 
 function Player.new(world)
+  local spawnX,spawnY,spawnZ=world:spawnPoint()
   local p = setmetatable({
-    x=0,y=world:spawnHeight(0,0),z=0,
+    x=spawnX,y=spawnY,z=spawnZ,
     yaw=0,pitch=0,vy=0,grounded=false,
     selected=1,third=false,health=20,maxHealth=20,
     invulnerable=0
@@ -39,8 +40,7 @@ function Player:damage(amount)
 end
 
 function Player:respawn(world)
-  self.x,self.z=0,0
-  self.y=world:spawnHeight(0,0)
+  self.x,self.y,self.z=world:spawnPoint()
   self.vy=0
   self.grounded=false
   self.health=self.maxHealth
@@ -80,8 +80,8 @@ function Player:update(dt,world)
     self.y=self.y+step
     self.grounded=false
   end
-  if self.y < -25 then
-    self.x,self.z,self.y=0,0,world:spawnHeight(0,0)
+  if self.y < world.YMIN-5 then
+    self.x,self.y,self.z=world:spawnPoint()
     self.vy=0
   end
 end

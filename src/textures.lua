@@ -1,7 +1,7 @@
 -- Catalogo de blocos Classic 0.30 preservando IDs do primeiro prototipo.
 -- O bloco 9 e agua desde os saves antigos e nao foi renumerado.
 local T={}
-T.MAX_ID=46
+T.MAX_ID=49
 T.names={
  'grass_top','grass_side','dirt','stone','wood_side','wood_top',
  'leaves','sand','planks','bricks','water','cobble','gravel',
@@ -12,7 +12,8 @@ T.names={
  'cloth_orange','cloth_magenta','cloth_light_blue','cloth_yellow',
  'cloth_lime','cloth_pink','cloth_gray','cloth_light_gray',
  'cloth_cyan','cloth_purple','cloth_blue','cloth_brown',
- 'cloth_green','cloth_red','cloth_black'
+ 'cloth_green','cloth_red','cloth_black',
+ 'diamond_ore','redstone_ore','lapis_ore'
 }
 T.colors={
  grass_top={.34,.65,.23},grass_side={.43,.59,.25},dirt={.44,.31,.20},
@@ -33,7 +34,9 @@ T.colors={
  cloth_gray={.31,.33,.35},cloth_light_gray={.60,.62,.61},
  cloth_cyan={.20,.57,.62},cloth_purple={.53,.32,.70},
  cloth_blue={.24,.32,.67},cloth_brown={.47,.30,.19},
- cloth_green={.29,.48,.26},cloth_red={.72,.25,.23},cloth_black={.15,.15,.18}
+ cloth_green={.29,.48,.26},cloth_red={.72,.25,.23},cloth_black={.15,.15,.18},
+ diamond_ore={.24,.78,.78},redstone_ore={.68,.18,.16},
+ lapis_ore={.20,.29,.72}
 }
 local function sides(key) return {key,key,key,key,key,key} end
 T.faces={
@@ -66,6 +69,12 @@ for i,name in ipairs(dyeNames) do
  T.faces[30+i]=sides('cloth_'..name)
  T.labels[30+i]='La '..i
 end
+T.faces[47]=sides('diamond_ore')
+T.faces[48]=sides('redstone_ore')
+T.faces[49]=sides('lapis_ore')
+T.labels[47]='Minerio diamante'
+T.labels[48]='Minerio redstone'
+T.labels[49]='Minerio lapis'
 T.pages={
  {1,2,3,4,5,6,7,8},
  {10,11,12,13,14,15,16,17},
@@ -74,13 +83,28 @@ T.pages={
  {33,34,35,36,37,38,39,40},
  {41,42,43,44,45,46,7,8}
 }
+T.legacyPages=T.pages
+T.betaPages={
+ {1,2,3,4,5,6,7,8,10},
+ {11,12,13,14,47,48,49,15,16},
+ {17,18,19,20,21,22,23,24,25},
+ {26,27,28,29,30,31,32,33,34},
+ {35,36,37,38,39,40,41,42,43},
+ {44,45,46,7,8,9,10,16,22}
+}
 T.currentPage=1
 T.hotbar={}
 function T.setPage(index)
  if not T.pages[index] then return false end
  T.currentPage=index
- for i=1,8 do T.hotbar[i]=T.pages[index][i] end
+ local page=T.pages[index]
+ for i=1,#page do T.hotbar[i]=page[i] end
+ for i=#page+1,#T.hotbar do T.hotbar[i]=nil end
  return true
+end
+function T.setProfile(profile)
+ T.pages=profile=='beta181' and T.betaPages or T.legacyPages
+ T.setPage(1)
 end
 function T.nextPage(delta)
  return T.setPage((T.currentPage-1+(delta or 1))%#T.pages+1)

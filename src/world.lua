@@ -2,6 +2,7 @@
 -- Apenas os chunks proximos ao player ficam residentes; o save guarda diferencias.
 local Gen=require('src.worldgen')
 local ClassicTerrain=require('src.classic_terrain')
+local BetaTerrain=require('src.beta181_terrain')
 local World={}
 World.__index=World
 World.SIZE=48 -- area legada de spawn (criaturas), NAO o limite do mundo
@@ -38,10 +39,15 @@ function World.new(options)
   savedPlayer=nil,savedMode=nil,savedItems={},savedScore=0,
   generatedTotal=0,evictedTotal=0,
   gen=options.seed~=nil and not options.legacy
-     and (options.generatorVersion=='classic030'
-       and ClassicTerrain.new(options.seed,options.image)
-       or Gen.new(options.seed,options.image)) or nil,
+     and (options.generatorVersion=='beta181'
+       and BetaTerrain.new(options.seed)
+       or (options.generatorVersion=='classic030'
+        and ClassicTerrain.new(options.seed,options.image)
+        or Gen.new(options.seed,options.image))) or nil,
   generatorVersion=options.generatorVersion,
+  YMIN=options.generatorVersion=='beta181' and BetaTerrain.MIN_Y or World.YMIN,
+  YMAX=options.generatorVersion=='beta181' and BetaTerrain.MAX_Y or World.YMAX,
+  MAX_ID=options.generatorVersion=='beta181' and 49 or 46,
   SAVE=options.savePath or World.SAVE
  },World)
  w:load()
@@ -55,6 +61,16 @@ function World:within(x,y,z)
 end
 -- Gera um bloco novo na memoria de chunk, sem inserir no save.
 function World:generateSection(cx,cy,cz)
+ if self.generatorVersion=='beta181' then
+  local data=self.gen:generateSection(cx,cy,cz)
+  local ck=chunkKey(cx,cy,cz)
+  for i,id in pairs(self.editsByChunk[ck] or {}) do
+   data[i]=id==0 and nil or id
+  end
+  self.cache[ck]={data=data,cx=cx,cy=cy,cz=cz}
+  self.generatedTotal=self.generatedTotal+1
+  return self.cache[ck]
+ end
  local data={}
  local isClassic=self.generatorVersion=='classic030'
  local heightCache={}
@@ -207,7 +223,7 @@ function World:get(x,y,z)
 end
 function World:set(x,y,z,id)
  if not self:within(x,y,z) or y==self.YMIN then return false end
- if type(id)~='number' or id~=floor(id) or id<0 or id>46 then return false end
+ if type(id)~='number' or id~=floor(id) or id<0 or id>self.MAX_ID then return false end
  if self:get(x,y,z)==30 or self:get(x,y,z)==id then return false end
  local cx,cy,cz=floor(x/16),floor(y/16),floor(z/16)
  local ck=chunkKey(cx,cy,cz)
@@ -274,6 +290,33 @@ function World:isSolid(x,y,z)
  return id~=0 and id~=5 and id~=9 and id~=24 and id~=25
     and id~=26 and id~=27 and id~=28 and id~=29
 end
+function World:spawnPoint()
+ if self.generatorVersion~='beta181' then
+  return 0,self:spawnHeight(0,0),0
+ end
+ -- Em Beta 1.8.1 o nascimento deve escolher terra firme.
+ -- O começo do mundo não pode prender o jogador no fundo do oceano.
+ local function good(x,z)
+  local h,biome=self.gen:column(x,z)
+  return h>=self.gen.SEA_LEVEL+2 and h<=106
+    and biome~='ocean' and biome~='river'
+    and not self.gen:tree(x,z),h
+ end
+ local ok,h=good(0,0)
+ if ok then return 0,h+.51,0 end
+ for radius=4,160,4 do
+  for offset=-radius,radius,4 do
+   local points={{offset,-radius},{offset,radius},
+    {-radius,offset},{radius,offset}}
+   for _,p in ipairs(points) do
+    local x,z=p[1],p[2]
+    local goodSite,level=good(x,z)
+    if goodSite then return x,level+.51,z end
+   end
+  end
+ end
+ return 0,self:spawnHeight(0,0),0
+end
 function World:spawnHeight(x,z)
  x,z=floor(x),floor(z)
  for y=self.YMAX,self.YMIN,-1 do
@@ -298,11 +341,11 @@ function World:load()
   local item,count=line:match('^ITEM (%d+) (%d+)$')
   if item then
    item,count=tonumber(item),tonumber(count)
-   if item>=1 and item<=46 then self.savedItems[item]=min(99,count) end
+   if item>=1 and item<=self.MAX_ID then self.savedItems[item]=min(99,count) end
   end
   local x,y,z,id=line:match('^BLOCK (%-?%d+) (%-?%d+) (%-?%d+) (%d+)$')
   x,y,z,id=tonumber(x),tonumber(y),tonumber(z),tonumber(id)
-  if x and y and z and id and self:within(x,y,z) and id<=46 then
+  if x and y and z and id and self:within(x,y,z) and id<=self.MAX_ID then
    local ck=chunkKey(floor(x/16),floor(y/16),floor(z/16))
    local i=idxWorld(x,y,z)
    self.edits[key(x,y,z)]=id
@@ -317,7 +360,7 @@ function World:save(player,classic)
  if classic then
   lines[#lines+1]='MODE '..(classic.mode=='creative' and 'creative' or 'survival')
   lines[#lines+1]='SCORE '..tostring(max(0,floor(classic.score or 0)))
-  for id=1,46 do
+  for id=1,self.MAX_ID do
    local count=max(0,min(99,floor((classic.items or {})[id] or 0)))
    if count>0 then lines[#lines+1]=('ITEM %d %d'):format(id,count) end
   end

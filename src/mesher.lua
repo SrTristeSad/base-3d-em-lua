@@ -162,6 +162,12 @@ function Mesher:sync(px,py,pz,view,budget)
  local centerX,centerY,centerZ=floor(px/16),floor(py/16),floor(pz/16)
  local bottom=math.max(floor(self.world.YMIN/16),centerY-1)
  local top=math.min(floor(self.world.YMAX/16),centerY+1)
+ if self.world.generatorVersion=='beta181' then
+  -- Overworld 128 blocos: inclui mais terreno abaixo do nível do jogador
+  -- para evitar oceano flutuando sobre um vazio não renderizado.
+  bottom=math.max(0,centerY-3)
+  top=math.min(floor(self.world.YMAX/16),centerY+2)
+ end
  for cy=bottom,top do
   for i=0,limit-1 do
    for j=0,limit-1 do
@@ -193,7 +199,11 @@ function Mesher:sync(px,py,pz,view,budget)
   loaded=loaded+1
  end
  self.pending=self.pending-loaded
- self.world:prune(px,py,pz,half,1)
+ if self.world.generatorVersion=='beta181' then
+  self.world:prune(px,py,pz,half,3)
+ else
+  self.world:prune(px,py,pz,half,1)
+ end
  local n=0
  for _ in pairs(self.chunks) do n=n+1 end
  self.visibleCount=n

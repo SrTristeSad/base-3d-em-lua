@@ -32,24 +32,11 @@ function UI.buttons(state, settings, w, h, classic, menu)
       local prompt=(value=='' and '(opcional)' or value:sub(1,42))
       add(label..': '..prompt..(focused and ' |' or ''),row,'field:'..name)
     end
-    field('name','NOME',menu and menu.name or '',-3)
-    field('seed','SEMENTE',menu and menu.seed or '',-2)
-    field('image','IMAGEM PNG/JPG',menu and menu.image or '',-1)
-    add('ESCOLHER IMAGEM NA PASTA MAPS',0,'images')
-    add('TESTAR IMAGEM EXEMPLO',1,'demoimage')
-    add('MODO: '..(menu and menu.mode=='creative' and 'CRIATIVO' or 'SOBREVIVENCIA'),2,'newmode')
-    add('CRIAR E JOGAR',3,'create_world')
-    add('VOLTAR',4,'title')
-  elseif state=='imagelist' then
-    local images=menu and menu.images or {}
-    local page=menu and menu.imagePage or 1
-    for i=1,4 do
-      local name=images[(page-1)*4+i]
-      if name then add('USAR: '..name:sub(1,39),i-2.5,'pickimage:'..name) end
-    end
-    if page>1 then add('ANTERIOR',2.5,'imageprev') end
-    if #images>page*4 then add('PROXIMA',2.5,'imagenext') end
-    add('VOLTAR',3.5,'backcreate')
+    field('name','NOME',menu and menu.name or '',-2)
+    field('seed','SEMENTE',menu and menu.seed or '',-1)
+    add('MODO: '..(menu and menu.mode=='creative' and 'CRIATIVO' or 'SOBREVIVENCIA'),0,'newmode')
+    add('CRIAR E JOGAR',1,'create_world')
+    add('VOLTAR',2,'title')
   elseif state=='worldlist' then
     local entries=menu and menu.entries or {}
     local page=(menu and menu.page or 1)
@@ -100,9 +87,10 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
   if state=='playing' then
     rect(pass,w/2,h/2,3,20,.98,.99,1)
     rect(pass,w/2,h/2,20,3,.98,.99,1)
-    rect(pass,w/2,h-52,8*69+24,67,.05,.07,.10,.84)
+    local slotCount=#hotbar
+    rect(pass,w/2,h-52,slotCount*69+24,67,.05,.07,.10,.84)
     for i,id in ipairs(hotbar) do
-      local x=w/2+(i-4.5)*69
+      local x=w/2+(i-(slotCount+1)/2)*69
       local selected=player.selected==i
       rect(pass,x,h-52,62,55,
         selected and .93 or .16,selected and .77 or .22,
@@ -115,7 +103,10 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
           count>0 and .92 or .66,count>0 and .95 or .71,.86)
       end
     end
-    label(pass,'WASD mover | F3 desempenho | Esq. atacar/minerar | Dir. construir | TAB pagina | E cogumelo',
+    local beta=classic and classic.profile=='beta181'
+    label(pass,beta
+      and 'WASD mover | F3 desempenho | Esq. minerar | Dir. construir | TAB blocos | F6 salvar'
+      or 'WASD mover | F3 desempenho | Esq. atacar/minerar | Dir. construir | TAB pagina | E cogumelo',
       w/2,28,15,.9,.96,1)
     -- Vida inicial: dez coracoes. Dano e morte sao calculados no jogador.
     local health=player.health or 20
@@ -130,9 +121,10 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
     end
     label(pass,'VIDA '..health..'/20',112,119,15,1,.86,.82)
     if classic then
-      label(pass,'CLASSIC 0.30 | '..(classic.mode=='creative' and 'CRIATIVO' or 'SOBREVIVENCIA'),
+      label(pass,(beta and 'BETA 1.8.1 (PROTOTIPO)' or 'CLASSIC 0.30')..
+        ' | '..(classic.mode=='creative' and 'CRIATIVO' or 'SOBREVIVENCIA'),
         w/2,86,16,1,.94,.7)
-      if classic.mode=='survival' then
+      if classic.mode=='survival' and not beta then
         label(pass,'PONTOS '..tostring(classic.score),w-124,119,15,.92,.91,.7)
       end
     end
@@ -164,18 +156,16 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
     return
   end
   rect(pass,w/2,h/2,w,h,.022,.033,.050,.88)
-  local title=(state=='title' and 'BASE 3D - CLASSIC 0.30') or
-    (state=='imagelist' and 'ESCOLHER IMAGEM') or
+  local title=(state=='title' and 'BASE 3D - BETA 1.8.1 (EM DESENVOLVIMENTO)') or
     (state=='create' and 'CRIAR NOVO MUNDO') or
     (state=='worldlist' and 'MEUS MUNDOS') or
     (state=='pause' and 'JOGO PAUSADO') or
     (state=='dead' and 'VOCE MORREU') or 'CONFIGURACOES'
-  local titleY=(state=='create' or state=='imagelist') and h*.13 or h*.22
+  local titleY=state=='create' and h*.17 or h*.22
   label(pass,title,w/2,titleY,math.min(54,w/20),.94,.82,.51)
   local subtitle=state=='dead' and 'Pressione R ou clique RENASCER'
-    or (state=='create' and 'Digite seed ou escolha uma imagem para influenciar terreno')
-    or (state=='imagelist' and 'Copie PNG ou JPG para a pasta maps do save')
-    or (state=='title' and 'Crie um mundo com seed ou com uma imagem')
+    or (state=='create' and 'Mundo novo Beta 1.8.1 | seed numerica ou texto')
+    or (state=='title' and 'Construa um mundo Beta 1.8.1 com uma seed')
     or (state=='worldlist' and 'Selecione um mundo para continuar')
     or 'Sandbox voxel independente - LÖVR 0.19'
   label(pass,subtitle,w/2,titleY+44,17,.72,.82,.90)
@@ -191,8 +181,8 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
     label(pass,b.text,b.x,b.y,21,1,1,1)
   end
   local footer='Skins: assets/skins/player.png | Blocos: assets/textures/'
-  if state=='create' or state=='imagelist' then
-    footer='Imagem: maps/foto.png | Deixe vazio para usar apenas a seed'
+  if state=='create' then
+    footer='Geracao por imagem desativada | Saves antigos continuam acessiveis'
   elseif state=='worldlist' then
     footer='Cada mundo tem seed, blocos e salvamento independentes'
   end

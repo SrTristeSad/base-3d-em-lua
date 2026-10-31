@@ -12,6 +12,15 @@ proprietários da Mojang.
 validar as mecânicas e a aparência.** O estado atual do repositório
 continua sendo um protótipo Classic 0.30 e não implementa Beta 1.8.1.
 
+## Status de implementação — Fase 1
+
+A fundação do Overworld está integrada ao jogo com o perfil `beta181`:
+biomas básicos, terreno, mar Y=62, altura 0..127 e minérios. Esta
+implementação é própria e **ainda não reproduz as mesmas seeds ou os
+sistemas completos da versão original**.
+
+[Ver os recursos implementados e pendências](FASE_01_BETA181.md).
+
 ## Fase A — baseline Beta 1.8.1
 
 1. Mundo Overworld com geração Beta 1.8: seed determinística,

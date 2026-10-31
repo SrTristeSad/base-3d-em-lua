@@ -1,22 +1,25 @@
-# Base 3D em Lua — Reconstrução Beta 1.8.1 (em desenvolvimento)
+# Base 3D em Lua — Beta 1.8.1 (Fase 1)
 
-Base independente de mundo 3D em blocos, escrita em **Lua** para **LÖVR 0.19** (Windows/Linux/macOS). Não precisa do Roblox nem de Minecraft.
+**Implementação independente em Lua + LÖVR 0.19.** Este marco inicia a reconstrução da experiência do Minecraft Java Beta 1.8.1: biomas, terrenos, rios, oceanos, cavernas e minérios. **Ainda não é uma cópia 1:1.**
 
-**Versão jogável em desenvolvimento:** tela inicial, criação de mundos, geração por seed ou imagem e mundo procedural com streaming de chunks 16×16, 64×64 blocos carregados por padrão, árvores, terreno e água decorativa; renderização GPU com greedy meshing; controle em primeira pessoa com opção de terceira pessoa; quebrar/colocar blocos; barra de seleção; menus de início, pausa e configurações; sensibilidade, campo de visão, distância de renderização e tela cheia salvos; mundo e posição do jogador persistidos localmente.
+### Estado atual
+- Mundos novos são `beta181`, criados **apenas por seed**.
+- Altura Y=0..127, mar até Y=62; oceanos, rios, planícies, deserto, floresta, taiga, pântano e Extreme Hills.
+- Carvão, ferro, ouro, diamante, redstone e lápis; árvores por bioma e spawn terrestre.
+- Hotbar de nove posições e inventário de blocos *provisório* (pilhas até 64).
+- Mundos Classic antigos continuam abrindo sem conversão; fotos antigas são apenas legíveis, sem criar novas fotos.
+- **Pendentes:** física fiel, crafting, fome, inventário de 36 slots, monstros da Beta, iluminação, camas, estruturas e Nether.
 
-## Nova referência: Minecraft Beta 1.8.1
+### Testar
+Baixe o pacote Windows `Base3D-Beta181-Overworld-Foundation-Windows-EXE` ou o `.lovr` no [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions). Extraia os DLLs junto do executável; é necessária GPU/driver com Vulkan. O pipeline testa Lua sem GPU real.
 
-A próxima etapa é uma **reconstrução independente da Beta 1.8.1**
-em Lua/LÖVR, antes de implementar Cubic Chunks e geração de mundo
-aprimorada. **A versão jogável atual ainda é o protótipo Classic 0.30**,
-não uma reprodução Beta 1.8.1.
+Leia o [relatório da Fase 1](docs/FASE_01_BETA181.md), o [plano da Beta](docs/BASELINE_BETA_181.md) e o [FUTURO.md](FUTURO.md). Cubic Chunks só vem depois da reconstrução.
 
-Leia o [plano de reconstrução e critérios de fidelidade](docs/BASELINE_BETA_181.md).
-Consulte também [FUTURO.md](FUTURO.md), com **Cubic Chunks confirmado**
-e uma pesquisa exploratória de oportunidades a partir do feedback da comunidade.
-A geração por imagem foi retirada do planejamento futuro; ainda há
-código legado para essa função no protótipo atual, que não foi removido.
-Os saves existentes não serão migrados automaticamente.
+---
+
+## Histórico e documentação do protótipo Classic (conteúdo anterior)
+
+> **Atenção:** abaixo constam descrições históricas do protótipo. Recursos de criação por imagem mencionados nessa documentação foram **desativados** nos novos mundos Beta; a versão jogável antiga era um sandbox inspirado em Classic 0.30, não a Beta 1.8.1.
 
 ## Novidade — Criar mundo com semente ou imagem
 

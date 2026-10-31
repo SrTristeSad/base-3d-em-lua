@@ -21,7 +21,7 @@ local function readIndex()
    if number and number>=1 and number<=100000 then
     items[#items+1]={id=number,name=name,seed=seed,mode=mode,
       imageHash=tonumber(hash),legacy=false,
-      generatorVersion=version=='classic030' and version or nil}
+      generatorVersion=(version=='classic030' or version=='beta181') and version or nil}
    end
   end
  end
@@ -78,29 +78,9 @@ function Worlds.create(name,seed,imagePath,mode)
  seed=clean(seed,60):match('^%s*(.-)%s*$')
  if seed=='' then seed=tostring(os.time()) end
  mode=mode=='creative' and 'creative' or 'survival'
- local image
+ -- Só seeds para mundos novos: imagens ficam apenas como leitura de saves antigos.
  if imagePath and imagePath~='' then
-  imagePath=clean(imagePath,110)
-  -- Nunca ler um caminho absoluto ou atravessar diretorios do computador.
-  if imagePath:find('..',1,true) or imagePath:sub(1,1)=='/'
-    or imagePath:find('\\',1,true) or imagePath:find(':',1,true)
-    or imagePath:find('[%c]') then
-   return nil,'Nome de imagem invalido; use maps/foto.png'
-  end
-  if not lovr.filesystem.isFile(imagePath) then
-   return nil,'Nao achei '..imagePath..'; copie o PNG/JPG para a pasta maps'
-  end
-  if not lovr.data or not lovr.data.newImage then
-   return nil,'Carregamento de imagem indisponivel'
-  end
-  local ok,picture=pcall(lovr.data.newImage,imagePath)
-  if not ok or not picture then
-   return nil,'Nao consegui abrir PNG/JPG: '..tostring(picture)
-  end
-  local err
-  image,err=Gen.fromImage(picture)
-  if picture.release then picture:release() end
-  if not image then return nil,err end
+  return nil,'Geracao por imagem foi removida. Crie um mundo usando seed.'
  end
  local items=readIndex()
  if #items>=96 then return nil,'Limite de 96 mundos atingido' end
@@ -108,13 +88,7 @@ function Worlds.create(name,seed,imagePath,mode)
  for _,it in ipairs(items) do nextId=math.max(nextId,it.id+1) end
  if nextId>100000 then return nil,'Limite de identificadores atingido' end
  local entry={id=nextId,name=name,seed=seed,mode=mode,
-   imageHash=image and image.hash or 0,legacy=false,
-   generatorVersion='classic030'}
- if image then
-  local raw=Gen.encodeImage(image)
-  local ok=lovr.filesystem.write(Worlds.file(nextId,'map'),raw)
-  if not ok then return nil,'Nao foi possivel salvar os pixels da imagem' end
- end
+   imageHash=0,legacy=false,generatorVersion='beta181'}
  items[#items+1]=entry
  if not writeIndex(items) then return nil,'Nao foi possivel salvar a lista de mundos' end
  return Worlds.open(entry),entry
