@@ -127,6 +127,22 @@ Embora os testes de lógica e sintaxe sejam executados automaticamente,
 a renderização e os controles ainda precisam ser testados num PC com
 LÖVR 0.19 e Vulkan. Não é uma reprodução completa de Minecraft.
 
+## Testar no Windows sem instalar o motor
+
+O GitHub Actions agora gera **dois arquivos de teste**:
+- `Base3D-Sementes-Imagens-Windows-EXE`: ZIP para Windows 64 bits.
+  Extraia tudo e abra `Base3D-Sementes-Imagens.exe` com duplo clique.
+  O pacote traz as DLLs do runtime LÖVR v0.19.0.
+- `Base3D-Sementes-Imagens-LOVR`: ZIP com o projeto `.lovr`
+  para usar com uma instalacao de LÖVR que voce ja possua.
+
+A versao Windows e um executavel fundido, feito conforme as
+[instrucoes oficiais de distribuicao](https://lovr.org/docs/v0.19.0/Distribution).
+Ainda exige Windows 10+ 64 bits, driver Vulkan funcional e possivelmente
+Microsoft Visual C++ Runtime. O arquivo nao esta assinado digitalmente.
+O workflow verifica integridade e empacotamento; **a interface e o render
+3D ainda precisam de teste pratico** em computador com GPU.
+
 ## Baixar a versao jogavel
 
 Na pagina [GitHub Actions](https://github.com/SrTristeSad/base-3d-em-lua/actions/workflows/lua-check.yml),

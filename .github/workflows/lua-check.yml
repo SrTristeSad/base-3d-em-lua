@@ -128,3 +128,73 @@ jobs:
           path: dist/Base3D-Sementes-Imagens.lovr
           if-no-files-found: error
           retention-days: 30
+
+  windows-portable:
+    name: Windows portable test (.exe)
+    needs: syntax-and-world
+    runs-on: windows-latest
+    steps:
+      - name: Download verified game package
+        uses: actions/download-artifact@v4
+        with:
+          name: Base3D-Sementes-Imagens-LOVR
+          path: game
+      - name: Fuse LÖVR runtime with game for Windows x64
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/bjornbytes/lovr/releases/download/v0.19.0/lovr-v0.19.0-win64.zip'
+          Invoke-WebRequest -Uri $url -OutFile 'lovr-win64.zip'
+          Expand-Archive -Path 'lovr-win64.zip' -DestinationPath 'runtime'
+          $runtime = Get-ChildItem 'runtime' -Filter 'lovr.exe' -Recurse -File | Select-Object -First 1
+          $archive = Get-ChildItem 'game' -Filter '*.lovr' -Recurse -File | Select-Object -First 1
+          if (-not $runtime) { throw 'The official runtime has no lovr.exe' }
+          if (-not $archive) { throw 'The validated game artifact is missing' }
+          New-Item -ItemType Directory -Path 'dist/Base3D-Windows' -Force | Out-Null
+          $output = Join-Path (Get-Location) 'dist/Base3D-Windows/Base3D-Sementes-Imagens.exe'
+          # LÖVR supports a fused Windows executable: runtime bytes + .lovr zip.
+          $outStream = [System.IO.File]::Create($output)
+          try {
+            $exeStream = [System.IO.File]::OpenRead($runtime.FullName)
+            try { $exeStream.CopyTo($outStream) } finally { $exeStream.Dispose() }
+            $gameStream = [System.IO.File]::OpenRead($archive.FullName)
+            try { $gameStream.CopyTo($outStream) } finally { $gameStream.Dispose() }
+          } finally { $outStream.Dispose() }
+          # Ship the original runtime DLL dependencies next to the fused exe.
+          Get-ChildItem $runtime.DirectoryName -Filter '*.dll' -File |
+            Copy-Item -Destination 'dist/Base3D-Windows'
+          $dllCount = @(Get-ChildItem 'dist/Base3D-Windows' -Filter '*.dll').Count
+          if ($dllCount -lt 1) { throw 'Required LÖVR runtime DLLs missing' }
+          $file = Get-Item $output
+          if ($file.Length -le $runtime.Length) { throw 'The archive was not fused into the exe' }
+          $header = [System.IO.File]::ReadAllBytes($output)
+          if ($header[0] -ne 77 -or $header[1] -ne 90) { throw 'Output is not a Windows executable' }
+          "Windows portable executable: $($file.Length) bytes, DLLs: $dllCount"
+      - name: Include first-run instructions
+        shell: pwsh
+        run: |
+          @'
+          BASE 3D - TESTE WINDOWS (64 bits)
+          =================================
+          1. Extraia o arquivo ZIP inteiro para uma pasta.
+          2. Execute Base3D-Sementes-Imagens.exe (duplo clique).
+          3. No menu escolha CRIAR NOVO MUNDO e informe a semente.
+          4. Ou use o botao TESTAR IMAGEM EXEMPLO.
+          5. E possivel jogar sem Minecraft ou Roblox instalados.
+
+          Exige Windows 10+ 64 bits e GPU/driver compatível com Vulkan.
+          O Microsoft Visual C++ Runtime pode ser necessario.
+          O programa nao tem assinatura de codigo (pode mostrar aviso
+          do SmartScreen). Nao desligue seu antivirus.
+          O motor LÖVR v0.19.0 e seus DLLs foram obtidos do lancamento
+          oficial: https://github.com/bjornbytes/lovr/releases/tag/v0.19.0
+          Projeto: https://github.com/SrTristeSad/base-3d-em-lua
+          Versao ainda experimental: renderizacao nao foi validada em GPU real.
+          '@ | Set-Content -Path 'dist/Base3D-Windows/LEIA-ME.txt' -Encoding UTF8
+      - name: Upload Windows portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Base3D-Sementes-Imagens-Windows-EXE
+          path: dist/Base3D-Windows/
+          if-no-files-found: error
+          retention-days: 30
