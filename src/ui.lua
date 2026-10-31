@@ -351,6 +351,11 @@ function UI.draw(pass,state,settings,player,hit,hotbar,labels,creepers,classic,c
             stats.entries,stats.sections,stats.hits,stats.bfsNodes),
             w/2,183,13,.80,.90,1)
         end
+        if beta and mesher.world.fluids then
+          label(pass,('FLUIDOS %d PENDENTES | %d TICKS'):format(
+            mesher.world.fluids:pendingCount(),
+            mesher.world.fluids.processed),w/2,203,13,.80,.92,1)
+        end
       end
     end
     if hit then

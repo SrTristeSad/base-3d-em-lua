@@ -44,10 +44,15 @@ local function push(groups,material,face,fixed,u,v,width,height)
   dx,dy,dz=width,height,1
  end
  local dir=SIDES[face]
+ local liquidLevel=tonumber(material:match('@f(%d+)#')
+  or material:match('@f(%d+)$'))
+ local heightDrop=liquidLevel and liquidLevel/8 or 0
  for _,i in ipairs(TRI) do
   local c=CORNERS[face][i]
+  local vy=y+c[2]*dy*.5
+  if heightDrop>0 and c[2]==1 then vy=vy-heightDrop end
   verts[#verts+1]={
-   x+c[1]*dx*.5,y+c[2]*dy*.5,z+c[3]*dz*.5,
+   x+c[1]*dx*.5,vy,z+c[3]*dz*.5,
    dir[1],dir[2],dir[3],UV[i][1]*width,UV[i][2]*height,
    dir[4],dir[4],dir[4],1
   }
@@ -88,6 +93,12 @@ function Mesher.buildData(world,cx,cy,cz,faces)
       local row=faces[id]
       if row then
        local material=row[face]
+       if (id==9 or id==29) and world.fluids then
+        local flow=world.fluids:get(x,y,z)
+        if flow and not flow.falling and flow.level>0 then
+         material=material..'@f'..flow.level
+        end
+       end
        if lighting then
         -- Separa faces com iluminacao distinta sem regenerar a malha
         -- a cada segundo: so o multiplicador de luz solar muda.
@@ -156,7 +167,12 @@ function Mesher:rebuild(cx,cy,cz)
  local meshes,lights={},{}
  for material,vertices in pairs(groups) do
   if #vertices>0 then
-   local name,sky,bucket=material:match('^(.-)#(%d+)#(%d+)$')
+   local name,liquid,sky,bucket=
+     material:match('^(.-)@f(%d+)#(%d+)#(%d+)$')
+   if not name then
+    name,sky,bucket=material:match('^(.-)#(%d+)#(%d+)$')
+   end
+   if not name then name=material:match('^(.-)@f%d+$') end
    local mesh=lovr.graphics.newMesh(FORMAT,vertices,{storage='gpu'})
    mesh:setMaterial(self.textures[name or material])
    meshes[#meshes+1]=mesh
