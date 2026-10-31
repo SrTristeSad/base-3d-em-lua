@@ -68,7 +68,7 @@ print(('VOXELIBRE REAL MODS PASS: %d modules, %d source files, %d registered com
 local probe=Engine.new({mapgen={seed=42,mg_name='v7',chunksize=5,mapgen_limit=31000}})
 local pe=Environment.new(probe)
 probe.opts.executeMod=function(path,name) return pe:executeMod(path,name) end
-probe.opts.modpaths.mcl_init=root..'/mods/CORE/mcl_init'
+probe.opts.modpaths={mcl_init=root..'/mods/CORE/mcl_init'}
 local ok,err=pcall(probe.loadMod,probe,'mcl_init',probe.opts.modpaths.mcl_init)
 local report={
  '# VoxeLibre real Lua mod boot — Fase 4','',
