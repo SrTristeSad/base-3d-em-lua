@@ -93,12 +93,13 @@ api.register_allow_player_inventory_action(function(_,_,inventory,info)
   inventory:set_stack('input',2,'test:other 2')
  end
 end)
+local stale_previous=#calls
 inv:set_stack('input',2,'')
 ok,n=move('main',1,'input',2,1)
 assert(not ok and n=='inventory_changed_during_check')
 assert(inv:get_stack('main',1):get_count()==5)
 assert(inv:get_stack('input',2):get_name()=='test:other')
-assert(#calls==previous+1,'only preflight, never on_change, for stale move')
+assert(#calls==stale_previous+1,'only preflight, never on_change, for stale move')
 assert(rt:disconnectPlayer('Alice'))
 assert(rt:movePlayerInventoryStack('Alice',{
  from_list='main',from_index=1,to_list='input',to_index=1,count=1
