@@ -1,53 +1,88 @@
--- Tool capability based dig times and tool wear.  Pure Lua, LuaJIT-safe.
--- Approximates level-difference time scaling; custom game rules remain external.
-local Digging={}
-local floor,ceil,min=math.floor,math.ceil,math.min
-local function finite(v) return type(v)=='number' and v==v and
- v~=math.huge and v~=-math.huge end
-local function validnonnegative(v) return finite(v) and v>=0 end
--- Luanti dig-immediate groups are supported without a tool.
-local immediate_times={[1]=2,[2]=.5,[3]=0}
-function Digging.params(node_def,tool,registry)
- assert(type(node_def)=='table','node definition required')
- assert(type(tool)=='table' and type(tool.get_name)=='function',
-  'ItemStack required for tool dig parameters')
- local groups=node_def.groups or {}
- if node_def.diggable==false then return {diggable=false,reason='not_diggable'} end
- local immediate=immediate_times[groups.dig_immediate]
- if immediate~=nil then
-  return {diggable=true,time=immediate,wear=0,group='dig_immediate'}
+-- Tool digging parameters ported from Luanti src/tool.cpp (getDigParams).
+-- Pure Lua implementation; used by both the host and core.get_dig_params.
+local Digging = {}
+local floor, min = math.floor, math.min
+
+local function finite(n)
+ return type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge
+end
+
+local function result(diggable, time, wear, group, reason)
+ return {diggable=diggable, time=time, wear=wear,
+  main_group=group, group=group, reason=reason}
+end
+
+-- Luanti distributes 65536 wear points over exactly `uses` digs.
+-- The last `remainder` digs receive one extra point each.
+function Digging.calculate_wear(uses, initial_wear)
+ assert(finite(uses) and uses >= 0, 'invalid tool uses')
+ assert(finite(initial_wear) and initial_wear >= 0 and initial_wear <= 65535,
+  'invalid initial wear')
+ uses = floor(uses)
+ initial_wear = floor(initial_wear)
+ if uses == 0 then return 0 end
+ uses = min(65535, uses)
+ local normal = floor(65536 / uses)
+ local oversized = 65536 % uses
+ local threshold = (uses - oversized) * normal
+ return normal + ((oversized > 0 and initial_wear >= threshold) and 1 or 0)
+end
+
+function Digging.get_params(groups, capabilities, initial_wear)
+ assert(type(groups) == 'table', 'dig groups required')
+ assert(type(capabilities) == 'table', 'tool capabilities required')
+ initial_wear = initial_wear or 0
+ assert(finite(initial_wear) and initial_wear >= 0 and initial_wear <= 65535,
+  'invalid initial wear')
+ local caps = capabilities.groupcaps or {}
+ assert(type(caps) == 'table', 'groupcaps must be a table')
+
+ -- Only dig_immediate=2 and =3 bypass toolcaps in native Luanti.
+ -- A custom dig_immediate toolcap overrides this fixed-time path.
+ if caps.dig_immediate == nil then
+  if groups.dig_immediate == 2 then
+   return result(true, 0.5, 0, 'dig_immediate')
+  elseif groups.dig_immediate == 3 then
+   return result(true, 0, 0, 'dig_immediate')
+  end
  end
- local capabilities=tool:get_tool_capabilities()
- local best,selected=nil,nil
- local level=groups.level or 0
- for group,cap in pairs(capabilities.groupcaps or {}) do
-  local rating=groups[group]
-  if type(rating)=='number' and rating>0 and
-   type(cap)=='table' and type(cap.times)=='table' then
-   local maxlevel=cap.maxlevel or 0
-   local t=cap.times[rating]
-   local diff=maxlevel-level
-   if diff>=0 and validnonnegative(t) then
-    -- The native Luanti engine reduces dig time for easier node levels.
-    -- Keep the supported simple 2+ level rule explicit.
-    local time=diff>1 and t/(diff*2) or t
-    if not best or time<best.time then
-     local uses=cap.uses or 0
-     local wear=0
-     if registry and registry.tools and registry.tools[tool:get_name()]
-       and uses>0 then
-      local total=uses*3^diff
-      wear=ceil(65535/total)
-     end
-     best={diggable=true,time=time,wear=wear,group=group}
-     selected=cap
+
+ local level = groups.level or 0
+ local best
+ -- Luanti iterates std::map: use sorted names for deterministic ties.
+ local names = {}
+ for name in pairs(caps) do names[#names+1] = name end
+ table.sort(names)
+ for _,name in ipairs(names) do
+  local cap = caps[name]
+  if type(cap) == 'table' and type(cap.times) == 'table' then
+   local rating = groups[name] or 0
+   local maxlevel = cap.maxlevel == nil and 1 or cap.maxlevel
+   local diff = maxlevel - level
+   local duration = cap.times[rating]
+   if diff >= 0 and finite(duration) and duration >= 0 then
+    if diff > 1 then duration = duration / diff end
+    if not best or duration < best.time then
+     local uses = cap.uses == nil and 20 or cap.uses
+     local real_uses = (finite(uses) and uses > 0) and
+      min(65535, floor(uses * 3 ^ diff)) or 0
+     best = result(true, duration,
+      Digging.calculate_wear(real_uses, initial_wear), name)
     end
    end
   end
  end
- if best then return best end
- -- Items without capabilities are not automatically capable of breaking
- -- stone.  Nodes with no groups can be dug in the legacy instant API only.
- return {diggable=false,reason='unsupported_tool'}
+ return best or result(false, 0, 0, '', 'unsupported_tool')
+end
+
+function Digging.params(node_def, tool)
+ assert(type(node_def) == 'table', 'node definition required')
+ assert(type(tool) == 'table' and type(tool.get_tool_capabilities) == 'function'
+  and type(tool.get_wear) == 'function', 'ItemStack required')
+ if node_def.diggable == false then
+  return result(false, 0, 0, '', 'not_diggable')
+ end
+ return Digging.get_params(node_def.groups or {}, tool:get_tool_capabilities(),
+  tool:get_wear())
 end
 return Digging
