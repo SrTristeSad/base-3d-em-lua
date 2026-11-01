@@ -492,3 +492,31 @@ considerado um dos módulos integrados.**
   de alteração de scrollbar ainda precisam ser conectados ao
   controlador de rolagem para paridade completa. Geometria geral
   do formspec e outras partes do Luanti continuam incompletas.
+
+### Fase 69 — scrollbar e scrollbaroptions originais
+
+- Criado `core.formspecscrollbar` em Lua puro, responsável por ler
+  `scrollbaroptions[min,max,smallstep,largestep,thumbsize,arrows]`,
+  validar intervalos inteiros e preparar valores e opções de barras
+  de rolagem originais do Luanti.
+- `core.formspecview` lê `scrollbar[]` do formspec original,
+  mantém estado separado por campo e vincula o valor da barra ao
+  `scroll_container[]` correspondente. O deslocamento efetivo
+  usa `valor * scroll_factor`, mantendo a rolagem aninhada e o
+  scissor das fases anteriores.
+- Se o contêiner declara explicitamente `content padding`,
+  a faixa de valores da barra é calculada pelo conteúdo e pelo fator
+  (como em `GUIScrollContainer::setScrollBar` original); caso
+  contrário, respeita `scrollbaroptions`.
+- Arrastar ou clicar na faixa ainda não é pixel-perfect em relação
+  ao widget Irrlicht; por enquanto o clique converte a posição no
+  trilho em valor. Roda do mouse na barra e no contêiner muda
+  `smallstep`; alterações enviam `CHG:<valor>` e submissões
+  regulares apresentam `VAL:<valor>` aos mods Lua.
+- Incluídos testes Lua 5.4/LuaJIT de opções, auto-range, valores
+  iniciais, conteúdo movido, eventos, GPU, clique, roda e limpeza
+  do estado após troca de formulário. O pacote portátil inclui o
+  novo módulo.
+- **Pendente:** arrasto contínuo, botões das setas do scrollbar,
+  precisão dos estilos/medidas originais Irrlicht e demais
+  funcionalidades para equivalência 1:1 completa do motor.
