@@ -20,7 +20,7 @@ Baixe o pacote `Motor-Lua-Experimental-Windows-x64` na
 [workflow de builds](../.github/workflows/lua-engine-port.yml),
 extraia os arquivos e execute `Motor-Lua-Demo.exe`.
 
-**Controles:** **barra de 9 itens visível, teclas 1–9 ou roda do mouse para selecionar**; mouse para olhar, WASD para caminhar, Espaço pula
+**Controles:** **E abre o inventário/crafting 2×2; barra de 9 itens visível, teclas 1–9 ou roda do mouse para selecionar**; mouse para olhar, WASD para caminhar, Espaço pula
 (e sobe escadas/nada), Ctrl agacha no solo e desce escadas/água, Shift corre, botão esquerdo quebra bloco,
 direito coloca o **bloco do slot selecionado**, F6 salva o mapa, objetos e perfil do jogador, **F7 gera o chunk 16×16 sob a câmera**; Escape libera o cursor.
 
@@ -1890,3 +1890,53 @@ automático valida os comandos de desenho com mocks,
 mas a janela ainda requer teste visual manual no Windows.
 O executável continua uma demo independente; não
 inicia todo o jogo VoxeLibre.
+
+
+### Fase 54 — inventário e crafting 2×2 na demo LÖVR
+
+A demo desktop recebeu uma **tela funcional de inventário de
+32 slots e grade de crafting 2×2**, ligada ao próprio inventário
+do ObjectRef conectado. Pressione **E** para abrir ou fechar:
+o mouse fica livre e a simulação é pausada durante a edição.
+A tela mostra os itens e suas quantidades, o espaço de criação
+e uma prévia do item fabricável. O desenho é feito com as
+primitivas do Pass do LÖVR, e os testes verificam os comandos
+com um mock; não é uma implementação da API formspec do Luanti.
+
+**Controles da tela:** clique esquerdo em um slot do
+inventário para selecioná-lo; clique esquerdo em uma célula
+de crafting para transferir um item desse slot; clique direito
+na célula para devolver um ingrediente ao inventário; clique
+no resultado para criar o item. Também é possível selecionar
+slots do inventário com as setas, usar **1–4** para inserir
+ingredientes nas células correspondentes, **R** para devolver
+um ingrediente da célula atual e **C** para criar o resultado.
+Use **E** ou **Esc** para fechar. **F6** continua salvando.
+
+As receitas da demo agora incluem: um bloco de madeira
+`lua:wood` → quatro tábuas `lua:plank`; duas tábuas
+na mesma coluna → quatro gravetos `lua:stick`; duas
+pedras lado a lado → quatro lajes `lua:slab`. Todas
+passam pelo registro e pela função de crafting existentes:
+o cálculo e a transação não são recriados na interface.
+Se não houver espaço na mochila para receber o resultado,
+o craft é recusado sem consumir os ingredientes.
+
+A grade 2×2 usa a lista real `craft` do inventário
+do jogador e é gravada como campo opcional no formato
+`LUAENGINE PLAYER 1` da Fase 53. Assim, ingredientes
+que ficaram na grade **não desaparecem ao fechar a tela
+ou sair do jogo**. Perfis antigos, sem esse campo,
+continuam carregando normalmente; dados inválidos
+não podem sobrescrever o inventário atual.
+A nova suíte `tests/lua_engine_playable_inventory_crafting.lua`
+é executada em Lua 5.4 e LuaJIT, conferindo o consumo de
+ingredientes, resultado, slots cheios, devolução,
+save/reload, regiões clicáveis e comandos gráficos.
+
+**Limitações:** a interface é o primeiro menu de crafting
+da demo, não uma réplica 1:1 da interface do VoxeLibre.
+Ainda faltam arrastar pilhas com o mouse, uma bancada
+3×3, inventários de baús, imagens de ícones e formspecs
+genéricos. Não se afirma que o jogo completo VoxeLibre
+inicializa na janela; o teste gráfico manual segue pendente.
