@@ -1473,3 +1473,47 @@ adicionados principalmente para movimentos frontais em sentidos
 opostos. O solucionador continua cinemático, com resolução sequencial
 de blocos e subpassos; não reproduz impulsos, massa, restituição,
 solução simultânea de grandes grupos ou o motor C++ Luanti 1:1.
+
+
+### Fase 45 — índice espacial de colisão em Lua
+
+Novo módulo `core.spatialindex`: **hash espacial esparso** com células
+de 4 nós para as `collisionbox` das entidades Lua físicas que
+mantêm `collide_with_objects=true`. Cada entidade ocupa todas as
+células atravessadas por sua caixa física; a consulta devolve apenas
+os candidatos próximos à região de movimento e depois a física
+continua executando o **teste AABB preciso** sem modificar o solver
+das fases 40–44. O resultado permanece em ordem de ID de registro
+para preservar a prioridade determinística anterior.
+
+O índice é atualizado quando entidades são criadas, movidas por
+`ObjectRef:set_pos`, deslocadas pelo integrador, têm as propriedades
+alteradas ou são removidas. Arquivos restaurados substituem a lista
+de objetos; o índice observa a troca e é reconstruído
+automaticamente na próxima consulta. Os jogadores ligados ao
+controlador físico Lua agora informam a região varrida ao provedor
+de colisões, evitando percorrer todos os mobs para verificar
+obstáculos próximos. Jogadores continuam externos ao hash e são
+consultados conforme seus controladores atuais.
+
+Consultas muito grandes (acima de 4096 células) usam a lista linear
+original como fallback para **não perder colisões** nem criar
+milhares de entradas transitórias. O índice é **apenas um filtro
+de candidatos**, nunca fonte autoritativa de posição ou de
+persistência. Suas estatísticas internas `queries`,
+`candidates_examined` e `fallback_queries` permitem verificar
+quantos candidatos foram visitados nos testes, não servem como
+telemetria de performance pública.
+
+A suíte `tests/lua_engine_spatial_collision_index.lua`, executada
+em Lua 5.4 e LuaJIT, cobre cenários esparsos com centenas de
+entidades, estabilidade da ordem, movimentação, teleportes,
+alternância de propriedades, remoção, limites de caixas grandes,
+varreduras rápidas, fallback, carregamento/restauração, consultas
+do jogador e testes físicos das fases anteriores.
+
+**Limitações:** a busca de nós sólidos continua baseada no mapa
+e não utiliza o hash; jogadores e eventos multi-corpo de TOI
+continuam parcialmente lineares. A criação do índice consome
+memória proporcional às células ocupadas e a solução segue
+cinemática, não a implementação física C++ do Luanti.
