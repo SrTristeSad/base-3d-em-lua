@@ -17,7 +17,7 @@ A.tiles={
  'default_wood.png',
  'mcl_core_gold_ore.png',
  'default_gravel.png',
- 'default_snow.png',
+ 'flowers_dandelion_yellow.png',
 }
 A.columns=4
 local lookup={}
