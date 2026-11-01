@@ -90,6 +90,12 @@ if #loaded==2 then
   and type(doc.sub.items.temp.build)=='string',
   'documentation source loaded without the expected upstream templates')
  report[#report+1]='- Real item documentation templates: available'
+ rt:finishMods()
+ assert(type(doc.data.categories.nodes)=='table',
+  'doc_items must create the original nodes help category')
+ assert(doc.data.categories.nodes.entries['probe:punch_block'],
+  'upstream doc_items must enumerate a registered runtime node')
+ report[#report+1]='- Original on_mods_loaded help-page generation: verified'
 end
 report[#report+1]=('- Original Lua files executed: %d'):format(runner.read_count)
 report[#report+1]='- The mcl_core module is NOT marked as loaded by this probe.'
