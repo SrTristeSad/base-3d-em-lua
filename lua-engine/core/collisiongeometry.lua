@@ -5,6 +5,7 @@ local Nodebox=require('core.nodebox')
 local Geometry={}
 local floor,min,max=math.floor,math.min,math.max
 local MAX_ENTRIES=8192
+local EMPTY={boxes={}}
 local function key(x,y,z)
  return x..','..y..','..z
 end
@@ -36,6 +37,12 @@ end
 -- cell coordinate, so absolute boxes are reusable for every swept query.
 local function entry(rt,cache,x,y,z)
  local k=key(x,y,z)
+ -- Most large swept regions contain air. Caching every empty voxel
+ -- caused pathological eviction churn and slower scattered queries.
+ -- Sparse Map stores air as absent: bypass both allocation and cache.
+ if not rt.map.nodes[k] and rt.registry.nodes.air.walkable==false then
+  return EMPTY
+ end
  local found=cache.data[k]
  if found and found.def==rt.registry.nodes[found.name] then
   cache.hits=cache.hits+1
