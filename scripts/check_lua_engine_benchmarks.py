@@ -19,6 +19,8 @@ CASES = {
     "spatial_relocation",
     "node_collision_cached",
     "node_collision_uncached",
+    "node_wide_sparse",
+    "node_wide_linear",
 }
 FIELDS = {
     "name", "entities", "iterations", "unit", "cpu_seconds_median",
@@ -75,6 +77,13 @@ def validate(path: Path):
         assert a["iterations"] == b["iterations"]
         assert a["checksum"] == b["checksum"], (
             path, n, "cached geometry differs from raw nodeboxes"
+        )
+    for n in expected_sizes:
+        a = seen[("node_wide_sparse", n)]
+        b = seen[("node_wide_linear", n)]
+        assert a["iterations"] == b["iterations"]
+        assert a["checksum"] == b["checksum"], (
+            path, n, "sparse node broadphase differs from dense voxel scan"
         )
     print(
         f"VALID BENCHMARK {path}: {data['runtime']}, "

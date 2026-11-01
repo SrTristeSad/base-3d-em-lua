@@ -1651,3 +1651,46 @@ de rendering ou transferência da física para C++. Esses
 benchmarks medem custo de CPU de geometria em mundos
 sintéticos, não desempenho gráfico nem equivalência 1:1 com
 Luanti/VoxeLibre.
+
+
+### Fase 49 — colisões usando apenas nós armazenados do mapa
+
+O `core.mapnodeindex` mantém um índice esparso de **nós efetivamente
+armazenados** em buckets dos mapblocks de 16×16×16. Ele é construído
+sob demanda e acompanha as alterações realizadas por
+`Map:set_node`, `remove_node`, `swap_node` e pelo
+`VoxelManip` ao escrever nós. A substituição de `map.nodes`
+por uma nova tabela provoca reconstrução automática da estrutura.
+Os dados do índice são transitórios, não fazem parte do save.
+
+Para varreduras de colisão maiores que **512 células**, com ar
+não colidível, `core.collisiongeometry` consulta esse índice em
+vez de percorrer todas as coordenadas vazias do intervalo.
+A busca seleciona mapblocks ocupados, filtra as células no
+volume de consulta e devolve candidatos em ordem **x, y, z**
+idêntica à varredura original, preservando a precedência
+determinística de colisões. Os nós físicos continuam usando
+exatamente as geometrias da Fase 48: cubos, caixas orientadas,
+lajes e conectados. Varreduras pequenas ou ar colidível
+continuam utilizando o algoritmo de varredura completa.
+
+O índice usa uma política adaptativa: verifica os mapblocks
+da região quando são poucos, ou apenas os mapblocks ocupados
+quando a região é muito ampla. Os contadores
+`queries`, `candidates_examined` e `blocks_examined`
+ajudam a medir o número de elementos visitados, sem confundir
+esse valor com FPS.
+
+Os testes `tests/lua_engine_sparse_node_collisions.lua` verificam
+comparação completa de posições e caixas contra a geometria
+sem índice; ordem de contato, mudanças e remoções, orientação
+de blocos, conectividade, coordenadas negativas, limites do
+mundo, troca da tabela do mapa e colisões de entidades e
+jogadores. Os benchmarks da Fase 47 incluem agora os casos
+`node_wide_sparse` e `node_wide_linear`, com checksum
+equivalente obrigatório em Lua 5.4 e LuaJIT.
+
+**Limites:** em terrenos muito densos, a indexação pode oferecer
+pouco benefício ou até introduzir custo extra; varreduras pequenas
+continuam no caminho anterior. O sistema não substitui o
+solucionador cinemático pela implementação física C++ do Luanti.

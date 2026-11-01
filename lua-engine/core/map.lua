@@ -1,6 +1,7 @@
 -- Luanti Lua Engine: sparse voxel map (16^3 mapblocks).
 -- A implementation is intentionally independent of the old Beta 1.8 world.
 local Inventory=require('core.inventory')
+local MapNodeIndex=require('core.mapnodeindex')
 local Map={}
 Map.__index=Map
 Map.BLOCKSIZE=16
@@ -57,6 +58,9 @@ function Map:set_node(p,node)
   if not old then self.count=self.count+1 end
   self.nodes[k]={name=name,param1=p1,param2=p2}
  end
+ -- Sparse collision broadphase is maintained incrementally once built.
+ -- Replacing map.nodes directly is handled by lazy index reconstruction.
+ MapNodeIndex.changed(self,x,y,z,name~='air')
  if oldname~=name or (old and (old.param1~=p1 or old.param2~=p2)) then
   -- Collision nodeboxes (including connected neighbors) may depend on
   -- any changed cell. A single monotonic stamp invalidates cached shapes.
