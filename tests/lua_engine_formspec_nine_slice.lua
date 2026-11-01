@@ -49,7 +49,7 @@ local frame=assert(Sprites.source('mcl_stonecutter_saw.png^[verticalframe:3:1'))
 local segmented=assert(Nine.vertices(frame,20,20,80,70,'2,2'))
 eq(#segmented,54)
 assert(math.abs(segmented[1][8]-1/3)<1e-12)
-assert(math.abs(segmented[#segmented][8]-2/3)<1e-12)
+assert(math.abs(segmented[#segmented-1][8]-2/3)<1e-12)
 assert(not Nine.vertices(src,100,100,150,90,'80,80'))
 assert(not Nine.vertices(assert(Sprites.source('default_stone.png')),
  100,100,80,50,'2,2'),
