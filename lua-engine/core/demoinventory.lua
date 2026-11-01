@@ -146,7 +146,8 @@ end
 function M:layout(width,height)
  assert(finite(width) and finite(height) and width>200 and
   height>200,'invalid inventory viewport')
- local tile=clamp(math.min((width-80)/8,(height-155)/7),34,65)
+ local tile=clamp(math.min((width-80)/8,
+  (height-(self.workbench and 115 or 155))/(self.workbench and 10 or 7)),34,65)
  local cx=width/2
  local top=height*.20
  local mainTop=top+(self.workbench and 4.25 or 3.25)*tile
@@ -253,7 +254,8 @@ function M:draw(pass,width,height)
  pass:setDepthTest()
  pass:setMaterial()
  pass:setColor(.08,.11,.16,.94)
- pass:plane(l.center,l.top+3.2*t,0,8.7*t,7.6*t)
+ pass:plane(l.center,l.top+(self.workbench and 4.0 or 3.2)*t,
+  0,8.7*t,self.workbench and 10*t or 7.6*t)
  pass:setColor(1,1,1,1)
  pass:text(self.workbench and
   'CRAFTING TABLE  -  E / ESC to close' or
