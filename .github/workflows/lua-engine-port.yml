@@ -10,6 +10,7 @@ on:
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
       - 'tests/lua_engine_inventory_modloader.lua'
+      - 'tests/lua_engine_mod_storage_persistence.lua'
       - 'tests/lua_engine_crafting.lua'
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
@@ -77,6 +78,7 @@ on:
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
       - 'tests/lua_engine_inventory_modloader.lua'
+      - 'tests/lua_engine_mod_storage_persistence.lua'
       - 'tests/lua_engine_crafting.lua'
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
@@ -159,6 +161,10 @@ jobs:
         run: lua5.4 tests/lua_engine_inventory_modloader.lua
       - name: Same inventory and mod loader tests on LuaJIT
         run: luajit tests/lua_engine_inventory_modloader.lua
+      - name: Luanti StorageRef world persistence and mod reload (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mod_storage_persistence.lua
+          luajit tests/lua_engine_mod_storage_persistence.lua
       - name: Shaped, shapeless, groups, cooking and inventory transactions (Lua 5.4)
         run: lua5.4 tests/lua_engine_crafting.lua
       - name: Same crafting tests on LuaJIT
