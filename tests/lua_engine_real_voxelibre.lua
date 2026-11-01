@@ -131,10 +131,13 @@ assert(type(id)=='number' and id>0 and rt.particles:get_spawner(id).amount==4)
 assert(g.mcl_particles.delete_node_particlespawners(pp))
 assert(rt.particles:get_spawner(id)==nil)
 assert(not g.mcl_particles.delete_node_particlespawners(pp))
-local blocked=rt:allowedInventoryAction(nil,'move',nil,{
+local permission_inv=rt.api.create_detached_inventory('stonecutter-permission')
+assert(permission_inv:get_location().type=='detached')
+assert(permission_inv:get_location().name=='stonecutter-permission')
+local blocked=rt:allowedInventoryAction(nil,'move',permission_inv,{
  from_list='main',to_list='stonecutter_output',count=3})
 assert(blocked==0,'stonecutter output is write-protected by actual mod callback')
-local permitted=rt:allowedInventoryAction(nil,'move',nil,{
+local permitted=rt:allowedInventoryAction(nil,'move',permission_inv,{
  from_list='main',to_list='stonecutter_input',count=3})
 assert(permitted==3)
 assert(not pcall(rt.api.show_formspec,'player','stonecutter','size[4,3]'),
