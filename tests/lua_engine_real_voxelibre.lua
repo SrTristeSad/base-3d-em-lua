@@ -153,8 +153,8 @@ for name in pairs(rt.api.registered_nodes) do
 end
 table.sort(core_nodes)
 local stone=rt.api.registered_nodes['mcl_core:stone']
-assert(#core_nodes>=75,
- 'regression: at least 75 real mcl_core nodes must register after doc boot')
+assert(#core_nodes>=166,
+ 'regression: at least 166 original mcl_core nodes must register')
 assert(stone,'upstream mcl_core:stone definition not registered')
 if stone then
  assert(stone.description=='Stone')
