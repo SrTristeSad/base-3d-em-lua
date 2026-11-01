@@ -770,3 +770,45 @@ overflow em entidades, regras completas de ferramentas, mapeamento
 6d de facedir, modificação de drops por itemstack em todas as APIs
 e cobertura visual do executável no Windows. A compatibilidade 1:1
 com Luanti/VoxeLibre ainda não está completa.
+
+
+### Fase 30 — blocos fixados e modo criativo configurável
+
+O caminho de `core.item_place_node` agora verifica
+`groups.attached_node` antes de modificar o mundo, assim como
+o `builtin_shared.check_attached_node` do Luanti:
+`1` usa a direção `wallmounted` (ou chão por padrão);
+`2` usa a direção de `facedir`/`4dir`;
+`3` exige um bloco de apoio abaixo; `4` exige apoio acima.
+A validação considera a propriedade `walkable` do nó de apoio
+e funciona também com os bits de cor de `colorfacedir`,
+`color4dir` e `colorwallmounted`.
+
+Foi adicionada a tabela de vetores inversos do `directiontables.cpp`
+do Luanti, exposta aos mods como
+`core.facedir_to_dir`, `core.fourdir_to_dir` e
+`core.wallmounted_to_dir`. As orientações `facedir`
+de 0 a 23 são cobertas. Tentativas de colocar itens sem
+apoio não retiram a pilha nem executam callbacks de colocação.
+
+O motor também expõe `core.is_creative_enabled(player_name)`
+com integração opcional ao host:
+`Runtime.new({creative_mode=true})` habilita todos os jogadores;
+`creative_players={Alice=true}` pode sobrescrever esse valor
+individualmente; `creative_enabled=function(name) ... end`
+pode fornecer uma política dinâmica. Com modo criativo habilitado,
+o desgaste padrão da ferramenta é desativado; um callback
+customizado `after_use` continua sendo responsabilidade do mod.
+
+Regressões: `tests/lua_engine_attached_nodes.lua` em Lua 5.4
+e LuaJIT. A cobertura inclui fixação nas paredes, no chão, no
+teto, rotações `facedir` 6d, componentes coloridos e desgaste
+com opções criativas.
+
+**Limites:** `core.check_for_falling` e o ciclo de física de nós
+desanexados ainda não foram portados. Um bloco pode ficar sem
+apoio depois de ter sido colocado até que a física de nós seja
+implementada. Faltam ainda overflow de drops como entidades,
+modo criativo em inventário/colocação, sincronização de
+cliente/servidor e outras regras do jogo completo. Não é uma
+implementação 1:1 do Luanti nem do VoxeLibre.
