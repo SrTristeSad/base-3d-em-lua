@@ -15,6 +15,7 @@ local Falling=require('core.falling')
 local Raycast=require('core.raycast')
 local LuaEntities=require('core.luaentities')
 local EntityPhysics=require('core.entityphysics')
+local CollisionGeometry=require('core.collisiongeometry')
 local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
@@ -332,8 +333,12 @@ function Runtime.new(options)
   for key,value in pairs(overrides) do
    if key~='name' then def[key]=value end
   end
+  CollisionGeometry.invalidate(self)
  end
- function api.register_node(name,def) register('node',name,def) end
+ function api.register_node(name,def)
+  register('node',name,def)
+  CollisionGeometry.invalidate(self)
+ end
  function api.register_tool(name,def) register('tool',name,def) end
  function api.register_craftitem(name,def) register('craftitem',name,def) end
  function api.register_entity(name,def)
@@ -555,6 +560,11 @@ function Runtime.new(options)
    self.registry.nodes,box_type)
  end
 
+ -- Internal immutable collision entries; public get_node_boxes remains
+ -- uncached so mods cannot mutate the physics cache by editing its result.
+ function api._node_collision_entries(swept,pad,exclude_buildable)
+  return CollisionGeometry.collect(self,swept,pad,exclude_buildable)
+ end
  function api.get_node_or_nil(pos) return self.map:get_node(pos) end
  function api.set_node(pos,node)
   local n=opts_copy(node)
