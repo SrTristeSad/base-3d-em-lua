@@ -228,18 +228,85 @@ function Entities.deactivate_all(rt)
   end
  end
 end
+-- Moving objects share a simulation interval, but a single sequential pass
+-- is biased toward whichever object appears first in the runtime list.
+-- Split only when at least TWO physical collidable bodies are in motion.
+-- The per-axis sweeps still prevent tunneling into static nodes at any dt.
+local function substeps(snapshot,dt)
+ if dt<=0 then return 1 end
+ local movers,maxspeed,minwidth=0,0,math.huge
+ for _,obj in ipairs(snapshot) do
+  local prop=obj.properties
+  if not obj.removed and prop.physical==true and
+    prop.collide_with_objects~=false then
+   local v,a=obj.velocity,obj.acceleration
+   local speed=math.sqrt(
+    (v.x+a.x*dt)^2+(v.y+a.y*dt)^2+(v.z+a.z*dt)^2)
+   local initial=math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z)
+   speed=math.max(speed,initial)
+   if speed>1e-8 then
+    movers=movers+1
+    maxspeed=math.max(maxspeed,speed)
+    local b=prop.collisionbox
+    minwidth=math.min(minwidth,b[4]-b[1],b[5]-b[2],b[6]-b[3])
+   end
+  end
+ end
+ if movers<2 then return 1 end
+ -- Width can be zero for flat object collisionboxes; stay bounded.
+ local stride=math.max(.05,minwidth*.5)
+ return math.max(1,math.min(32,math.ceil(maxspeed*dt/stride)))
+end
+local function same_collision(a,b)
+ if a.type~=b.type or a.axis~=b.axis then return false end
+ if a.normal.x~=b.normal.x or a.normal.y~=b.normal.y or
+   a.normal.z~=b.normal.z then return false end
+ if a.type=='object' then return a.object==b.object end
+ if a.type=='node' then
+  return a.node_pos.x==b.node_pos.x and
+   a.node_pos.y==b.node_pos.y and a.node_pos.z==b.node_pos.z
+ end
+ return false
+end
+local function combine(aggregate,current)
+ aggregate.collides=aggregate.collides or current.collides
+ aggregate.touching_ground=current.touching_ground
+ for _,hit in ipairs(current.collisions) do
+  local found=false
+  for _,previous in ipairs(aggregate.collisions) do
+   if same_collision(previous,hit) then found=true;break end
+  end
+  if not found then
+   aggregate.collisions[#aggregate.collisions+1]=hit
+  end
+ end
+end
 function Entities.step(rt,dt)
  assert(finite(dt) and dt>=0,'invalid Lua entity timestep')
- -- Snapshot prevents spawning/removal callbacks from double-stepping or
- -- skipping entities during the same frame.
+ -- A snapshot is required: removing or spawning from callbacks must not
+ -- skip or double-step neighbors, and newly spawned entities start next frame.
  local snapshot={}
  for i,obj in ipairs(rt.luaEntities or {}) do snapshot[i]=obj end
+ local slices=substeps(snapshot,dt)
+ local elapsed=dt/slices
+ local results={}
  for _,obj in ipairs(snapshot) do
   if active(rt,obj) then
-   local moveresult=EntityPhysics.move(rt,obj,dt)
-   if active(rt,obj) and type(obj.luaentity.on_step)=='function' then
-    obj.luaentity:on_step(dt,moveresult)
+   results[obj]={touching_ground=false,collides=false,collisions={}}
+  end
+ end
+ for _=1,slices do
+  for _,obj in ipairs(snapshot) do
+   if active(rt,obj) then
+    combine(results[obj],EntityPhysics.move(rt,obj,elapsed))
    end
+  end
+ end
+ -- Preserve the Luanti lifecycle: exactly one on_step callback per
+ -- Runtime:step, with the original dt rather than a microstep interval.
+ for _,obj in ipairs(snapshot) do
+  if active(rt,obj) and type(obj.luaentity.on_step)=='function' then
+   obj.luaentity:on_step(dt,results[obj])
   end
  end
 end
