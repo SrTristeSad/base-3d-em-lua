@@ -42,6 +42,25 @@ end)
 rt:punchNode(pos,nil,{type='node',under=pos})
 assert(punched==1 and rt.api.get_node(pos).name=='probe:punch_block',
  'punch must not dig or replace node')
+-- Real host-managed players: lookup, deterministic enumeration and lifecycle.
+local joined,left=0,0
+rt.api.register_on_joinplayer(function(player) joined=joined+1 end)
+rt.api.register_on_leaveplayer(function(player) left=left+1 end)
+local testplayer={get_player_name=function() return 'ProbePlayer' end}
+assert(#rt.api.get_connected_players()==0)
+rt:connectPlayer(testplayer)
+assert(rt.api.get_player_by_name('ProbePlayer')==testplayer)
+assert(rt.api.get_connected_players()[1]==testplayer)
+assert(joined==1)
+assert(rt:disconnectPlayer('ProbePlayer')==true)
+assert(rt:disconnectPlayer('ProbePlayer')==false)
+assert(left==1 and #rt.api.get_connected_players()==0)
+local crafted,eaten=0,0
+rt.api.register_on_craft(function() crafted=crafted+1 end)
+rt.api.register_on_item_eat(function() eaten=eaten+1 end)
+rt:emit('on_craft')
+rt:emit('on_item_eat')
+assert(crafted==1 and eaten==1)
 local runner=Environment.new(rt)
 -- Permission regression: no arbitrary host file reads or writes.
 local file,err=runner.globals.io.open('lua-engine/main.lua','r')
