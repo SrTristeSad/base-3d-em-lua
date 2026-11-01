@@ -54,15 +54,22 @@ function Physics.new(api,position,opts)
  local water_drag=opts.water_drag==nil and 3 or opts.water_drag
  local swim_speed=opts.swim_speed==nil and 3 or opts.swim_speed
  local climb_speed=opts.climb_speed==nil and 3 or opts.climb_speed
+ local sneak_speed=opts.sneak_speed==nil and 1.5 or opts.sneak_speed
+ local sneak_eye_offset=opts.sneak_eye_offset==nil and .28 or opts.sneak_eye_offset
  assert(finite(radius) and radius>0 and radius<=.5)
  assert(finite(height) and height>0 and height<=3)
  assert(finite(stepheight) and stepheight>=0 and stepheight<=1)
  assert(finite(eyeheight) and eyeheight>0 and eyeheight<=height)
+ assert(valid_rate(sneak_speed) and finite(sneak_eye_offset) and
+  sneak_eye_offset>=0 and sneak_eye_offset<eyeheight,
+  'invalid sneak movement configuration')
  for _,rate in ipairs({acceleration,braking,air_acceleration,
   water_acceleration,water_braking,water_gravity,water_drag,
   swim_speed,climb_speed}) do
   assert(valid_rate(rate),'invalid movement parameter')
  end
+ assert(valid_rate(opts.sneak_camera_rate==nil and 8 or opts.sneak_camera_rate),
+  'invalid sneak camera rate')
  return setmetatable({
   api=api,pos=copy(position),velocity={x=0,y=0,z=0},
   radius=radius,height=height,eyeheight=eyeheight,
@@ -76,11 +83,14 @@ function Physics.new(api,position,opts)
   water_gravity=water_gravity,water_drag=water_drag,
   swim_speed=swim_speed,climb_speed=climb_speed,
   fluid_physics=opts.fluid_physics~=false,
+  sneak_speed=sneak_speed,sneak_eye_offset=sneak_eye_offset,
+  sneak_camera_rate=opts.sneak_camera_rate==nil and 8 or opts.sneak_camera_rate,
+  sneaking=false,view_offset=0,
   grounded=false,in_liquid=false,on_ladder=false
  },Physics)
 end
 function Physics:eye()
- return {x=self.pos.x,y=self.pos.y+self.eyeheight,z=self.pos.z}
+ return {x=self.pos.x,y=self.pos.y+self.eyeheight+self.view_offset,z=self.pos.z}
 end
 function Physics:colliders(swept)
  local x1,x2,y1,y2,z1,z2=broadphase(swept)
@@ -138,6 +148,55 @@ function Physics:surface_friction()
  -- Higher group values mean reduced traction. Smoothly retain some grip.
  return value>0 and 1/(value+1) or 1
 end
+-- Sneak edge protection uses the actual collision boxes under the
+-- character's CENTER, not a fabricated full-cube floor. This allows narrow
+-- slabs and connected shapes to provide support without allowing the
+-- character to walk into empty space. Sneaking never creates a new collider.
+function Physics:supportAt(p)
+ local probe=.035
+ local below={
+  p.x-probe,p.y-.085,p.z-probe,
+  p.x+probe,p.y+.03,p.z+probe
+ }
+ for _,box in ipairs(self:colliders(below)) do
+  if box[4]>p.x-probe+EPS and box[1]<p.x+probe-EPS and
+     box[6]>p.z-probe+EPS and box[3]<p.z+probe-EPS and
+     box[5]>=p.y-.085-EPS and box[5]<=p.y+.02 then
+   return true
+  end
+ end
+ return false
+end
+
+-- Resolve each lateral coordinate separately: this allows walking ALONG a
+-- cliff without accepting unsupported diagonal destinations. A binary
+-- search finds the last supported position along each blocked component.
+function Physics:sneakClamp(start,destination)
+ local p=copy(start)
+ for _,axis in ipairs({'x','z'}) do
+  local distance=destination[axis]-start[axis]
+  local candidate=copy(p)
+  candidate[axis]=p[axis]+distance
+  if self:supportAt(candidate) then
+   p=candidate
+  elseif self:supportAt(p) then
+   local low,high=0,1
+   for _=1,15 do
+    local midpoint=(low+high)*.5
+    candidate[axis]=p[axis]+distance*midpoint
+    if self:supportAt(candidate) then
+     low=midpoint
+    else
+     high=midpoint
+    end
+   end
+   p[axis]=p[axis]+distance*low
+   self.velocity[axis]=0
+  end
+ end
+ return p
+end
+
 function Physics:clip(p,axis,wanted)
  if abs(wanted)<EPS then return 0,false end
  local before=bounds(p,self.radius,self.height)
@@ -188,8 +247,15 @@ function Physics:tick(dt,input)
  self.in_liquid,self.on_ladder=self:medium()
  local ground_delta,ground_hit=self:clip(self.pos,'y',-.045)
  self.grounded=ground_hit and ground_delta>-.045+EPS
+ -- Ctrl serves as ladder/water descent in those media, not edge sneak.
+ self.sneaking=input.sneak==true and self.grounded and
+  not self.in_liquid and not self.on_ladder
+ local target_eye=self.sneaking and -self.sneak_eye_offset or 0
+ self.view_offset=approach(self.view_offset,target_eye,
+  self.sneak_camera_rate,dt)
  local traction=self.grounded and self:surface_friction() or 1
- local speed=(input.sprint and self.sprint_speed or self.speed)
+ local speed=self.sneaking and self.sneak_speed or
+  (input.sprint and self.sprint_speed or self.speed)
  if self.in_liquid then speed=speed*.48 end
  local rate
  if self.in_liquid then
@@ -230,6 +296,11 @@ function Physics:tick(dt,input)
     end
    end
   end
+ end
+ -- Apply edge clamping only while supported. Falling, jumping and
+ -- swimming must never snap onto an unsupported platform.
+ if self.sneaking and self:supportAt(old) then
+  chosen=self:sneakClamp(old,chosen)
  end
  self.pos=chosen
  if chosen~=normal then self.grounded=true end
