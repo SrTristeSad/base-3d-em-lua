@@ -149,9 +149,6 @@ function Actions.place(rt,player,where,pointed)
  local hit=pointed_for(pos,pointed)
  if api.is_protected(pos,name) then return false,'protected' end
  local wield=player:get_wielded_item()
- if wield:is_empty() then return false,'empty_hand' end
- local def=rt.registry.items[wield:get_name()]
- if not def then return false,'unknown_item' end
  local old=api.get_node(pos)
  local olddef=rt.registry.nodes[old.name]
  -- Right-clicking the pointed node takes priority over the selected
@@ -165,6 +162,9 @@ function Actions.place(rt,player,where,pointed)
   update_wield_if_unchanged(player,wield,outcome)
   return true,'rightclick_handled'
  end
+ if wield:is_empty() then return false,'empty_hand' end
+ local def=rt.registry.items[wield:get_name()]
+ if not def then return false,'unknown_item' end
  if def.on_place then
   local outcome=def.on_place(wield:copy(),player,hit)
   -- nil means "leave itemstack unchanged", not an empty stack.
