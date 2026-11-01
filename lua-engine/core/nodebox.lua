@@ -177,7 +177,7 @@ local function normalized_boxes(def,node,map,pos,registry)
    -- top/bottom nodebox by 90 degrees around the local Y axis.
    local rotated={}
    for _,box in ipairs(boxes) do
-    local x1,y1,z1,x2,y2,z2=table.unpack and table.unpack(box) or unpack(box)
+    local x1,y1,z1,x2,y2,z2=box[1],box[2],box[3],box[4],box[5],box[6]
     if orient==6 then
      rotated[#rotated+1]={z1,y1,-x2,z2,y2,-x1}
     else
