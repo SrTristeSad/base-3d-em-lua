@@ -1394,3 +1394,44 @@ sequencial; não implementa restituição, transferência de impulso,
 colisões entre dois jogadores, resposta de penetração simétrica
 nem integração de um controlador nativo externo ao Lua. A
 compatibilidade 1:1 com a física C++ do Luanti ainda não existe.
+
+
+### Fase 43 — subpassos para colisões de corpos móveis e jogadores conectados
+
+O passo de física de LuaEntities recebe agora **subpassos adaptativos**
+quando há **pelo menos duas entidades físicas, colidíveis e em movimento**
+no mesmo tick. O limite é de até **32 subpassos por atualização**, calculado
+a partir da distância de deslocamento prevista e do menor lado das caixas
+de colisão dos corpos móveis. Assim, dois NPCs se aproximando em alta
+velocidade encontram a superfície de contato **mais perto do instante
+real de encontro**, em vez de um primeiro objeto parar na posição
+inicial do outro por conta da atualização sequencial.
+
+Os resultados de colisão são reunidos para que cada
+`on_step(self,dt,moveresult)` seja chamado **uma única vez por tick**,
+recebendo o `dt` original. Contatos iguais detectados em vários
+subpassos são desduplicados; `touching_ground` descreve o estado do
+**último** subpasso. Quando os subpassos não são necessários, a ordem
+antiga de callbacks intercalados com o avanço físico é mantida.
+
+Jogadores com controladores físicos Lua ativos agora também reconhecem
+**outros jogadores conectados** como obstáculos, usando suas posições
+e `collisionbox` correntes. A atualização é viva: um jogador que se
+movimenta altera a geometria vista pelos demais; um jogador que
+desconecta deixa de bloquear. Jogadores com física nativa externa
+sem controlador Lua vinculado continuam fora dessa simulação,
+sem estimar suas posições.
+
+A suíte `tests/lua_engine_dynamic_collision_pairs.lua` em Lua 5.4
+e LuaJIT verifica aproximação de dois corpos rápidos, não
+interpenetração, callbacks únicos por frame, desduplicação de contato
+com o chão, ordem de callbacks sem subpassos, colisão jogador-jogador,
+remoção de colisores ao desconectar, isolamento de runtime e
+persistência de corpos após contato.
+
+**Limitações:** este avanço usa integração cinemática aproximada e
+continua dependente da ordem sequencial dentro de cada subpasso;
+não implementa resposta simétrica com massa, restituição, impulsos,
+subpassos contínuos para qualquer quantidade de movimento ou o
+solucionador C++ 1:1 do Luanti. A atualização do controlador de
+jogador continua gerenciada pelo host, fora do loop `Runtime:step`.

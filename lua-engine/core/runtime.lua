@@ -845,7 +845,26 @@ function Runtime:bindPlayerPhysics(name,controller)
  local release=PlayerPhysics.attach(player,controller)
  local previous_provider=controller.object_colliders
  controller.object_colliders=function()
-  return EntityPhysics.entity_boxes(self)
+  local boxes=EntityPhysics.entity_boxes(self)
+  -- Connected player controllers also block each other. Never infer
+  -- collision data from unbound/native host-owned player objects.
+  local names={}
+  for other_name in pairs(self.playerPhysicsControllers) do
+   if other_name~=name and self.players[other_name] then
+    names[#names+1]=other_name
+   end
+  end
+  table.sort(names)
+  for _,other_name in ipairs(names) do
+   local other=self.playerPhysicsControllers[other_name]
+   local position=other:get_pos()
+   local b=other:get_properties().collisionbox
+   boxes[#boxes+1]={
+    position.x+b[1],position.y+b[2],position.z+b[3],
+    position.x+b[4],position.y+b[5],position.z+b[6]
+   }
+  end
+  return boxes
  end
  self.playerPhysicsBindings[name]=function()
   controller.object_colliders=previous_provider
