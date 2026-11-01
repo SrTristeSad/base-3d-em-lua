@@ -271,7 +271,7 @@ function Physics:colliders(swept)
  -- The host binds a live registry provider only for connected players.
  -- Standalone character controllers remain independent of world entities.
  if self.object_colliders then
-  for _,b in ipairs(self.object_colliders()) do
+  for _,b in ipairs(self.object_colliders(swept)) do
    if overlap(swept[1],swept[4],b[1],b[4]) and
       overlap(swept[2],swept[5],b[2],b[5]) and
       overlap(swept[3],swept[6],b[3],b[6]) then
