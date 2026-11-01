@@ -20,8 +20,8 @@ Baixe o pacote `Motor-Lua-Experimental-Windows-x64` na
 [workflow de builds](../.github/workflows/lua-engine-port.yml),
 extraia os arquivos e execute `Motor-Lua-Demo.exe`.
 
-**Controles:** mouse para olhar, WASD para voar, Espaço sobe,
-Ctrl desce, Shift acelera, botão esquerdo quebra bloco,
+**Controles:** mouse para olhar, WASD para caminhar, Espaço pula
+(e sobe escadas/nada), Ctrl desce escadas, Shift corre, botão esquerdo quebra bloco,
 direito coloca pedra, F6 salva o mapa, **F7 gera o chunk 16×16 sob a câmera**; Escape libera o cursor.
 
 O motor 3D usa o runtime **LÖVR 0.19** como camada nativa de
@@ -378,3 +378,34 @@ fieis, sneak nas bordas, escadas, nado, líquidos com arrasto,
 colisões entre entidades, movimentação em rede, dano de queda,
 escala de propriedades dos jogadores e vários efeitos de nós.
 A compilação Windows não substitui um teste visual em máquina real.
+
+### Aceleração, superfícies escorregadias, água e escadas (Fase 20)
+
+`core/physics.lua` agora permite transições progressivas entre
+velocidade atual e a velocidade desejada. As propriedades configuráveis
+`acceleration`, `braking` e `air_acceleration` separam movimento
+no solo, desaceleração e controle no ar. Sobre nós com o grupo
+`slippery`, a aderência diminui de acordo com o valor do grupo;
+o movimento horizontal conserva mais inércia.
+
+Nós `climbable=true` permitem subida com Espaço e descida com Ctrl;
+sem entrada vertical o personagem mantém sua altura enquanto está
+em contato com a escada. Líquidos declarados com `liquidtype` ou
+grupos `water`/`liquid` são atravessáveis mas passam a impor
+aceleração e resistência próprias, gravidade reduzida e velocidade
+vertical limitada; Espaço permite nadar para cima. A demo inclui
+nós de água e escada, além de controles de subida/descida.
+
+A regressão antiga da Fase 19 mantém, **explicitamente**, aceleração
+instantânea e fluidos desligados para preservar as asserções de
+colisões e velocidade constante. Os testes novos verificam a
+aceleração progressiva, soltura de teclas, gelo/aderência, movimento
+aéreo, nado, escada e opções inválidas em Lua 5.4 e LuaJIT.
+
+**Limitações:** os parâmetros ainda não são valores calibrados para
+física 1:1 do Luanti; não há simulação exata de correntezas,
+viscosidade por definição de líquido, afogamento, danos por lava,
+posição do jogador em rede, impulsos de superfícies ou sistema de
+animações. O suporte gráfico a escadas utiliza um modelo provisório
+`plantlike`, não a geometria original. O objetivo segue sendo a
+compatibilidade 1:1, ainda não alcançada.
