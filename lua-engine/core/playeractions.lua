@@ -110,6 +110,38 @@ local function update_wield_if_unchanged(player,before,after)
    'failed to update wield after custom placement')
  end
 end
+-- Minimal core.item_place_node equivalent for mods' custom on_place.
+-- Work on the supplied ItemStack and return (remaining_stack, placed).
+-- The caller, not this helper, commits the result to player's wield slot.
+function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_place)
+ local _,name=player_inventory(rt,player)
+ assert(type(pointed)=='table' and pointed.type=='node',
+  'item_place_node requires a pointed node')
+ local dest=position(pointed.above)
+ local hit=pointed_for(dest,pointed)
+ local stack=Stack.new(itemstack,rt.registry.items)
+ local def=rt.registry.nodes[stack:get_name()]
+ if not def or stack:is_empty() then return stack,false end
+ local api=rt.api
+ if api.is_protected(dest,name) then return stack,false end
+ local old=api.get_node(dest)
+ local olddef=rt.registry.nodes[old.name]
+ if old.name~='air' and not (olddef and olddef.buildable_to) then
+  return stack,false
+ end
+ if not api.set_node(dest,{name=stack:get_name(),param1=0,
+   param2=param2 or 0}) then return stack,false end
+ if def.on_construct then def.on_construct(dest) end
+ local dont_take=false
+ if not prevent_after_place and def.after_place_node then
+  dont_take=def.after_place_node(dest,player,stack:copy(),hit)==true
+ end
+ if not dont_take then stack:take_item(1) end
+ for _,callback in ipairs(rt.callbacks.on_placenode) do
+  callback(dest,api.get_node(dest),player,old,stack:copy(),hit)
+ end
+ return stack,true
+end
 function Actions.place(rt,player,where,pointed)
  local pos=position(where)
  local _,name=player_inventory(rt,player)
@@ -143,24 +175,9 @@ function Actions.place(rt,player,where,pointed)
  if old.name~='air' and not (olddef and olddef.buildable_to) then
   return false,'occupied'
  end
- local next_node={name=wield:get_name(),param1=0,param2=0}
- if not api.set_node(pos,next_node) then return false,'place_failed' end
- if def.on_construct then def.on_construct(pos) end
- local dont_take=false
- if def.after_place_node then
-  dont_take=def.after_place_node(pos,player,wield:copy(),hit)==true
- end
- if not dont_take then
-  local selected=player:get_wielded_item()
-  if selected:equals(wield) then
-   selected:take_item(1)
-   assert(player:set_wielded_item(selected),
-    'wield slot changed during place')
-  end
- end
- for _,callback in ipairs(rt.callbacks.on_placenode) do
-  callback(pos,api.get_node(pos),player,old,wield:copy(),hit)
- end
+ local remaining,placed=Actions.default_place(rt,wield,player,hit)
+ if not placed then return false,'place_failed' end
+ update_wield_if_unchanged(player,wield,remaining)
  return true
 end
 -- Staged interaction: the host starts digging on mouse-down, advances
