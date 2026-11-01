@@ -18,6 +18,11 @@ end
 local rt=Engine.new({settings={},mapgen={seed=42,mg_name='v7'},
  game_info={path=root,title='VoxeLibre'},modpaths=paths})
 local runner=Environment.new(rt)
+-- Permission regression: no arbitrary host file reads or writes.
+local file,err=runner.globals.io.open('lua-engine/main.lua','r')
+assert(file==nil and type(err)=='string','host file read must be denied')
+file,err=runner.globals.io.open(rt.api.get_worldpath()..'/doc.mt','w')
+assert(file==nil and type(err)=='string','documentation write must be denied')
 rt.opts.executeMod=function(path,name) return runner:executeMod(path,name) end
 local report={'# Original documentation module bootstrap probe','',
  'This is an isolated diagnostic, NOT an additional verified gameplay module.',
