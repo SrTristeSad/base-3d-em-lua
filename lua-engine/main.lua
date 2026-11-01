@@ -33,6 +33,9 @@ local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
 local renderer
 local character
+-- The LÖVR demo is the session host. This object is NOT a complete Luanti
+-- ObjectRef; it only supplies a stable local identity for the physics bridge.
+local demo_player={get_player_name=function() return 'singleplayer' end}
 -- Terrain is now constructed through the Lua VoxelManip buffer.
 -- This is STILL a deliberately simple demo terrain, not Luanti mapgen.
 local function createWorld()
@@ -140,6 +143,10 @@ function lovr.keypressed(key)
  end
 end
 function lovr.quit()
+ if engine.api.get_player_by_name('singleplayer') then
+  local left,leave_err=pcall(engine.disconnectPlayer,engine,'singleplayer')
+  if not left then print('player disconnect callback failed:',leave_err) end
+ end
  local ok,err=pcall(engine.shutdown,engine)
  if not ok then print('shutdown callback failed:',err) end
  if lovr.filesystem then Storage.save(engine.map,savepath,lovr.filesystem) end

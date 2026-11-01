@@ -9,6 +9,7 @@ local ModStorage=require('core.modstorage')
 local Voxel=require('core.voxel')
 local Particles=require('core.particles')
 local NodeDrops=require('core.nodedrops')
+local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
 local Runtime={}
 Runtime.__index=Runtime
@@ -39,7 +40,7 @@ function Runtime.new(options)
     on_craft={},craft_predict={},on_item_eat={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
-  chatcommands={},privileges={},players={},particles=Particles.new()
+  chatcommands={},privileges={},players={},playerPhysicsBindings={},particles=Particles.new()
  },Runtime)
  local api={}
  self.api=api
@@ -718,22 +719,49 @@ function Runtime:liquidTransformed(positions)
  end
  return self:emit('liquid_transformed',snapshot)
 end
--- Host-provided player objects only; this motor never invents a player.
-function Runtime:connectPlayer(player)
+-- Attach optional host-owned character physics without replacing the
+-- host player object. Mods always receive that SAME table in callbacks.
+function Runtime:bindPlayerPhysics(name,controller)
+ local player=self.players[name]
+ assert(player,'cannot bind physics to a disconnected player: '..tostring(name))
+ assert(not self.playerPhysicsBindings[name],
+  'player already has a Lua physics binding: '..name)
+ assert(type(controller)=='table' and controller.api==self.api,
+  'character controller belongs to a different runtime')
+ local release=PlayerPhysics.attach(player,controller)
+ self.playerPhysicsBindings[name]=release
+ return player
+end
+-- Host-provided players only. An optional controller is bound BEFORE mods
+-- see on_joinplayer, and rollback leaves no partially connected player.
+function Runtime:connectPlayer(player,controller)
  assert(type(player)=='table' and type(player.get_player_name)=='function',
   'connectPlayer requires a player object')
  local name=player:get_player_name()
  assert(type(name)=='string' and name~='', 'invalid player name')
  assert(not self.players[name], 'player already connected: '..name)
  self.players[name]=player
- self:emit('on_joinplayer',player)
+ local ok,err=pcall(function()
+  if controller then self:bindPlayerPhysics(name,controller) end
+  self:emit('on_joinplayer',player)
+ end)
+ if not ok then
+  local release=self.playerPhysicsBindings[name]
+  if release then release();self.playerPhysicsBindings[name]=nil end
+  self.players[name]=nil
+  error(err,0)
+ end
  return player
 end
 function Runtime:disconnectPlayer(name)
  local player=self.players[name]
  if not player then return false end
- self:emit('on_leaveplayer',player)
+ -- Leave callbacks can still use player physics before the host releases it.
+ local ok,err=pcall(function() self:emit('on_leaveplayer',player) end)
+ local release=self.playerPhysicsBindings[name]
+ if release then release();self.playerPhysicsBindings[name]=nil end
  self.players[name]=nil
+ if not ok then error(err,0) end
  return true
 end
 -- Return true when a Lua mod cancels the incoming player punch.
