@@ -84,8 +84,8 @@ assert(rt3:raycast(p(0,2.3,0),along,6).under.x==3)
 assert(rt3:raycast(p(0,1.9,0),along,6).under.x==2)
 a3.remove_node(p(2,2,0))
 a3.set_node(p(2,2,0),{name='test:target'})
-assert(rt3:raycast(p(0,2,.35),along,6)==nil,
- 'a ray beside narrow selection box must not target its whole node')
+assert(rt3:raycast(p(0,2,.35),along,6).under.x==3,
+ 'ray beside narrow selection box must reach the solid node behind it')
 assert(rt3:raycast(p(0,2,0),along,6).under.x==2)
 
 -- A falling world object is ray-visible but NOT a dropped-item punch.
