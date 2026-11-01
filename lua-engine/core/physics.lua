@@ -239,6 +239,51 @@ function Physics:surface_friction()
  return value>0 and 1/(value+1) or 1
 end
 
+function Physics:supportAt(p)
+ local probe=.035
+ local below={
+  p.x-probe,p.y-.085,p.z-probe,
+  p.x+probe,p.y+.03,p.z+probe
+ }
+ for _,box in ipairs(self:colliders(below)) do
+  if box[4]>p.x-probe+EPS and box[1]<p.x+probe-EPS and
+     box[6]>p.z-probe+EPS and box[3]<p.z+probe-EPS and
+     box[5]>=p.y-.085-EPS and box[5]<=p.y+.02 then
+   return true
+  end
+ end
+ return false
+end
+
+-- Resolve each lateral coordinate separately: this allows walking ALONG a
+-- cliff without accepting unsupported diagonal destinations. A binary
+-- search finds the last supported position along each blocked component.
+function Physics:sneakClamp(start,destination)
+ local p=copy(start)
+ for _,axis in ipairs({'x','z'}) do
+  local distance=destination[axis]-start[axis]
+  local candidate=copy(p)
+  candidate[axis]=p[axis]+distance
+  if self:supportAt(candidate) then
+   p=candidate
+  elseif self:supportAt(p) then
+   local low,high=0,1
+   for _=1,15 do
+    local midpoint=(low+high)*.5
+    candidate[axis]=p[axis]+distance*midpoint
+    if self:supportAt(candidate) then
+     low=midpoint
+    else
+     high=midpoint
+    end
+   end
+   p[axis]=p[axis]+distance*low
+   self.velocity[axis]=0
+  end
+ end
+ return p
+end
+
 function Physics:clip(p,axis,wanted)
  if abs(wanted)<EPS then return 0,false end
  local before=bounds(p,self.radius,self.height)
