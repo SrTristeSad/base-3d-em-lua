@@ -728,3 +728,45 @@ completas de `item_place`, `preserve_metadata`, modo criativo,
 overflow de drops como entidades, orientação por `paramtype2`,
 `attached_node` e implementação integral da lógica client/server
 do Luanti/VoxeLibre.
+
+
+### Fase 29 — core.item_place, orientação e preserve_metadata
+
+A API de mods agora expõe `core.item_place(itemstack,placer,pointed_thing[,param2])`,
+além de `core.item_place_node`. A primeira função prioriza
+`on_rightclick` quando o jogador não está agachado, e caso contrário
+coloca um nó somente se o item for do tipo node. Seguindo o builtin
+do Luanti, o segundo retorno de colocação é a **posição** onde
+houve colocação (ou `nil` quando não ocorreu), e não mais um booleano.
+Chamadas existentes que apenas testavam a verdade desse retorno seguem
+funcionando.
+
+`core.dir_to_wallmounted`, `core.dir_to_facedir` (modo horizontal)
+e `core.dir_to_fourdir` podem ser chamados pelos mods. As novas
+colocações calculam automaticamente os `param2` de `wallmounted`,
+`facedir`, `4dir` e variantes coloridas. Respeitam `place_param2`
+e o parâmetro explícito de orientação; também transferem
+`palette_index` do `ItemStack` para o `param2` das variantes
+coloridas. `wallmounted_rotate_vertical` cobre a lógica de
+orientação vertical do builtin para torchlike/signlike e outros
+drawtypes quando há posição do jogador.
+
+`preserve_metadata(pos,oldnode,oldfields,drops)` é executado no
+caminho padrão de `core.node_dig`, recebendo uma cópia dos campos
+do nó e uma lista mutável de `ItemStack` para os drops.
+As alterações de metadados feitas pelo mod nos drops são mantidas
+no inventário, enquanto `after_dig_node` ainda recebe a cópia
+original dos metadados do nó removido. O bloqueio conservador de
+inventário cheio permanece ativo até existir suporte real para
+entidades de itens excedentes.
+
+Os testes de `tests/lua_engine_placement_metadata.lua` cobrem
+orientações, prioridades, metadados, trocas de pilha e substituição
+de nós `buildable_to` em Lua 5.4 e LuaJIT.
+
+**Limites restantes:** posicionamento em mapas descarregados e previsão
+cliente/servidor, regras de `attached_node`, `is_creative_enabled`,
+overflow em entidades, regras completas de ferramentas, mapeamento
+6d de facedir, modificação de drops por itemstack em todas as APIs
+e cobertura visual do executável no Windows. A compatibilidade 1:1
+com Luanti/VoxeLibre ainda não está completa.
