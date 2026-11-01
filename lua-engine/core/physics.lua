@@ -102,11 +102,14 @@ function Physics.new(api,position,opts)
   opts.terminal_velocity or 40}) do
   assert(valid_rate(entry),'invalid character physics tuning')
  end
+ assert(opts.hp_max==nil or (finite(opts.hp_max) and
+  opts.hp_max==floor(opts.hp_max) and opts.hp_max>=1 and opts.hp_max<=65535),
+  'invalid player maximum HP')
  assert(valid_rate(opts.sneak_camera_rate==nil and 2.8 or opts.sneak_camera_rate),
   'invalid sneak camera rate')
  return setmetatable({
   api=api,pos=copy(position),velocity={x=0,y=0,z=0},
-  radius=radius,height=height,eyeheight=eyeheight,
+  radius=radius,height=height,eyeheight=eyeheight,hp_max=opts.hp_max or 20,
   stepheight=stepheight,gravity=opts.gravity or base_gravity,
   jump_speed=opts.jump_speed or base_jump,
   speed=opts.speed or base_speed,sprint_speed=opts.sprint_speed or base_fast,
@@ -210,6 +213,7 @@ end
 function Physics:get_properties()
  return {
   physical=true,eye_height=self.eyeheight,stepheight=self.stepheight,
+  hp_max=self.hp_max,
   collisionbox={-self.radius,0,-self.radius,
    self.radius,self.height,self.radius},
  }
@@ -218,6 +222,7 @@ function Physics:set_properties(def)
  assert(type(def)=='table','player properties must be a table')
  local radius,height,eye,step=self.radius,self.height,
   self.eyeheight,self.stepheight
+ local hp_max=self.hp_max
  for name,value in pairs(def) do
   if name=='collisionbox' then
    assert(type(value)=='table' and #value==6,
@@ -238,6 +243,10 @@ function Physics:set_properties(def)
    step=value
   elseif name=='physical' then
    assert(value==true,'nonphysical player is not implemented')
+  elseif name=='hp_max' then
+   assert(finite(value) and value==floor(value) and value>=1
+    and value<=65535,'invalid player hp_max')
+   hp_max=value
   else
    error('unsupported player property: '..tostring(name))
   end
@@ -245,6 +254,7 @@ function Physics:set_properties(def)
  assert(eye<=height,'eye height exceeds player collisionbox')
  self.radius,self.height,self.eyeheight,self.stepheight=
   radius,height,eye,step
+ self.hp_max=hp_max
 end
 
 function Physics:eye()
