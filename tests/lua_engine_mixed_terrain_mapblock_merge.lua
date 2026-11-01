@@ -121,17 +121,17 @@ prior=index.sorted_blocks
 check(map,-34,47,-2,3,-7,7,'repeat after change')
 assert(index.sorted_blocks==prior)
 -- A tiny isolated block is added, edited, removed, and later restored.
-local isolated=p(-48,2,0)
+local isolated=p(-64,2,0)
 api.set_node(isolated,{name='test:stone'})
 assert(Index.ensure(map)==index)
-check(map,-49,-32,-2,3,-3,3,'new negative block')
+check(map,-65,-48,-2,3,-3,3,'new negative block')
 local count=index.block_count
 api.set_node(isolated,{name='test:slab'})
 assert(index.block_count==count)
-check(map,-49,-32,-2,3,-3,3,'same block different shape')
+check(map,-65,-48,-2,3,-3,3,'same block different shape')
 api.remove_node(isolated)
 assert(index.block_count==count-1)
-check(map,-49,-32,-2,3,-3,3,'last node removed')
+check(map,-65,-48,-2,3,-3,3,'last node removed')
 -- The limit-based early rejection remains available for dense blocks.
 assert(Index.query(map,-16,-1,-2,3,-7,7,100)==nil)
 assert(index.dense_rejections>=1)
