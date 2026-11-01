@@ -288,6 +288,19 @@ function Entities.step(rt,dt)
  local snapshot={}
  for i,obj in ipairs(rt.luaEntities or {}) do snapshot[i]=obj end
  local slices=substeps(snapshot,dt)
+ if slices==1 then
+  -- Preserve existing callback interleaving when no dynamic substeps are
+  -- necessary; mods must not see a new lifecycle order for ordinary ticks.
+  for _,obj in ipairs(snapshot) do
+   if active(rt,obj) then
+    local moveresult=EntityPhysics.move(rt,obj,dt)
+    if active(rt,obj) and type(obj.luaentity.on_step)=='function' then
+     obj.luaentity:on_step(dt,moveresult)
+    end
+   end
+  end
+  return
+ end
  local elapsed=dt/slices
  local results={}
  for _,obj in ipairs(snapshot) do
