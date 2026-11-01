@@ -121,6 +121,8 @@ function Actions.dig(rt,player,where,default_only)
    end
   end
  end
+ -- Builtin falling.lua checks neighbors after the mining lifecycle.
+ api.check_for_falling(pos)
  return true,drops
 end
 -- Explicit pointed_thing is required for full orientation-sensitive
@@ -198,6 +200,7 @@ function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_
   }) then dont_take=true end
  end
  if not dont_take then stack:take_item(1) end
+ api.check_for_falling(dest)
  return stack,position(dest)
 end
 -- Mod-facing core.item_place: on_rightclick first, then default node
