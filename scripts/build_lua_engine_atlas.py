@@ -40,7 +40,7 @@ def upstream_tile_names(source: Path, game: Path) -> list[str]:
     extras = sorted(path.name for path in directory.glob("*.png")
                     if path.name not in names)
     for name in extras:
-        if not re.fullmatch(r"[A-Za-z0-9_. -]+\\.png", name):
+        if not re.fullmatch(r"[A-Za-z0-9_. -]+\.png", name):
             raise ValueError("unsafe upstream texture name: " + name)
     combined = names + extras
     if len(combined) > 4096:
@@ -60,11 +60,11 @@ def atlas_manifest(names: list[str], columns: int) -> str:
              "-- Do not edit: the corresponding atlas PNG shares this order.",
              "return {", f" columns={columns},", " tiles={"]
     for name in names:
-        if not re.fullmatch(r"[A-Za-z0-9_. -]+\\.png", name):
+        if not re.fullmatch(r"[A-Za-z0-9_. -]+\.png", name):
             raise ValueError("unsafe atlas tile identifier: " + name)
         lines.append(f'  "{name}",')
     lines.extend([" }", "}", ""])
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def png(width: int, height: int, rgba: bytes) -> bytes:
