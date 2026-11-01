@@ -208,3 +208,10 @@ até a primeira dependência ainda não suportada. O teste verifica
 os drops da pedra original somente quando ela já estiver registrada.
 Não simula dependências, não edita o VoxeLibre original e não declara
 `mcl_core` carregado. A meta é aumentar o carregamento real.
+
+O diagnóstico de `mcl_core/functions.lua` apontou o primeiro bloqueio na
+linha 528: `PseudoRandom`. Foi portada a implementação legado do
+Luanti (LCG 32-bit, com divisão assinada), com vetores determinísticos
+para várias sementes e testes em Lua 5.4/LuaJIT. O número de nós
+originais registrados após o porte é relatado pela CI, **sem contar
+carregamento parcial como sucesso integral do módulo**.

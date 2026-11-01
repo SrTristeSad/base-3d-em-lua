@@ -38,6 +38,8 @@ a partir da raiz do repositório.
   `register_craft`;
 - `registered_nodes`, `registered_items`,
   `registered_entities`, grupos;
+- `core/pseudorandom.lua`: algoritmo `PseudoRandom` legado do Luanti,
+  testado contra sequências determinísticas com estados assinados.
 - `core/nodedrops.lua`: leitura dos drops originais dos nós (subconjunto: strings, listas, `rarity`, `max_items` e ferramentas); sem silk touch ou fortune.
 - `core/particles.lua`: hash espacial reversível de posições, registro e retirada de emissores de partículas (sem renderizador visual).
 - callbacks de permissão e notificação de operações de inventário,

@@ -10,7 +10,7 @@ REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/modenvironment.lua", "core/modstorage.lua",
             "core/bitops.lua", "core/pcgrandom.lua", "core/voxel.lua",
             "core/worldgen.lua", "core/particles.lua",
-            "core/nodedrops.lua")
+            "core/nodedrops.lua", "core/pseudorandom.lua")
 
 
 def build(source: Path, output: Path) -> None:
