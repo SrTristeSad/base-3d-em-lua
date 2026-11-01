@@ -124,4 +124,33 @@ local m7,M7=limits(7)
 assert(m7[1]==-.1 and M7[1]==.1,'rotated bottom swaps horizontal footprint')
 local unsupported=Nodebox.faces({node_box={type='unknown'}},{param2=0})
 assert(unsupported==nil,'unknown shapes must not silently render full cubes')
+-- Luanti nodebox query shares the dynamic geometry with meshing.
+map:set_node(place,{name='test:fence',param2=0})
+local resolved=api.get_node_boxes('node_box',place)
+assert(#resolved==3,'two neighbors should produce a post plus two rails')
+map:remove_node(at(3,2,2))
+resolved=api.get_node_boxes('node_box',place)
+assert(#resolved==2,'removing a connection must update queried node boxes')
+map:set_node(at(5,2,2),{name='test:level',param2=32})
+local query=api.get_node_boxes('node_box',at(5,2,2))
+assert(#query==1 and query[1][5]==0,
+ 'leveled geometry must be visible through the public API')
+map:set_node(at(6,2,2),{name='test:wall',param2=4})
+query=api.get_node_boxes('node_box',at(6,2,2))
+assert(query[1][3]==.375 and query[1][6]==.5,
+ 'wallmounted geometry must resolve through the public API')
+api.register_node('test:select',{drawtype='nodebox',paramtype2='4dir',
+ node_box={type='fixed',fixed={-.5,-.5,-.125,.5,.5,.125}},
+ selection_box={type='fixed',fixed={-.25,-.25,-.375,.25,.25,.375}}})
+map:set_node(at(7,2,2),{name='test:select',param2=1})
+local selection=api.get_node_boxes('selection_box',at(7,2,2))
+local collision=api.get_node_boxes('collision_box',at(7,2,2))
+local visual=api.get_node_boxes('node_box',at(7,2,2))
+assert(#selection==1 and #collision==1 and #visual==1)
+assert(selection[1][1]==-.375 and selection[1][4]==.375,
+ 'selection box must rotate independently from visible box')
+assert(collision[1][1]==-.125 and collision[1][4]==.125,
+ 'default collision box should use rotated node box for nodebox drawtype')
+assert(not pcall(api.get_node_boxes,'unknown',at(7,2,2)),
+ 'unknown box query kinds must be rejected')
 print('LUA ENGINE CONNECTED LEVELED WALLMOUNTED PASS')
