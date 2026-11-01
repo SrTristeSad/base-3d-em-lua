@@ -196,6 +196,16 @@ local core_ok,core_error=true,nil
 assert(rt.current_mod==nil,'mod context leaked after real mod boot')
 assert(type(g.mcl_enchanting.enchantments.sharpness)=='table',
  'original enchantments must be registered alongside mcl_core')
+assert(type(rt.api.registered_craftitems['mcl_core:apple_gold_enchanted'])=='table',
+ 'original enchanted golden apple must register after mcl_enchanting')
+assert(rt.api.registered_craftitems['mcl_core:apple_gold_enchanted']
+ .inventory_image:find(g.mcl_enchanting.overlay,1,true),
+ 'real enchanted apple overlay was not preserved')
+local repair_registered=false
+for _,recipe in ipairs(rt.registry.crafts) do
+ if recipe.kind=='toolrepair' then repair_registered=true end
+end
+assert(repair_registered,'original mcl_core toolrepair recipe missing')
 local core_nodes={}
 for name in pairs(rt.api.registered_nodes) do
  if name:sub(1,9)=='mcl_core:' then core_nodes[#core_nodes+1]=name end
