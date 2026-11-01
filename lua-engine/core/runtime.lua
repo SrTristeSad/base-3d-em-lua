@@ -37,7 +37,7 @@ function Runtime.new(options)
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
-  chatcommands={},particles=Particles.new()
+  chatcommands={},privileges={},particles=Particles.new()
  },Runtime)
  local api={}
  self.api=api
@@ -147,6 +147,13 @@ function Runtime.new(options)
   self.chatcommands[name]=opts_copy(def)
  end
  api.registered_chatcommands=self.chatcommands
+ api.registered_privileges=self.privileges
+ function api.register_privilege(name,def)
+  assert(type(name)=='string' and name~='' and type(def)=='table',
+   'invalid privilege registration')
+  assert(not self.privileges[name],'privilege already registered: '..name)
+  self.privileges[name]=opts_copy(def)
+ end
  function api.register_on_dieplayer(callback)
   assert(type(callback)=='function')
   self.callbacks.on_dieplayer[#self.callbacks.on_dieplayer+1]=callback
