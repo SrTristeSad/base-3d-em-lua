@@ -164,6 +164,14 @@ assert(ok and out=='rightclick_handled')
 assert(user:get_wielded_item():get_count()==2)
 assert(events[#events]=='rightclick')
 assert(api.get_node(p(10,2,4)).name=='air')
+-- A player may open an interactive node with an empty hand.
+user:set_wielded_item(nil)
+local prior=#events
+ok,out=rt:placeNodeAsPlayer(user,p(10,2,4),
+ {type='node',under=p(10,1,4),above=p(10,2,4)})
+assert(ok and out=='rightclick_handled' and #events==prior+1)
+assert(user:get_wielded_item():is_empty())
+assert(api.get_node(p(10,2,4)).name=='air')
 -- Protection checked before custom callback on both destination and under.
 local was=#events
 api.is_protected=function(pos)
