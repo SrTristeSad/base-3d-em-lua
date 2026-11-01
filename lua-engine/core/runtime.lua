@@ -515,6 +515,19 @@ function Runtime.new(options)
   return nil
  end
  function api.get_node(pos) return self.map:get_node(pos) end
+ function api.get_node_boxes(box_type,pos,node)
+  assert(type(pos)=='table' and
+   type(pos.x)=='number' and type(pos.y)=='number' and
+   type(pos.z)=='number','get_node_boxes requires a valid position')
+  node=node or self.map:get_node(pos)
+  assert(type(node)=='table' and type(node.name)=='string',
+   'get_node_boxes requires a node')
+  local definition=self.registry.nodes[node.name]
+  if not definition then return {} end
+  return require('core.nodebox').boxes(definition,node,self.map,pos,
+   self.registry.nodes,box_type)
+ end
+
  function api.get_node_or_nil(pos) return self.map:get_node(pos) end
  function api.set_node(pos,node)
   local n=opts_copy(node)
