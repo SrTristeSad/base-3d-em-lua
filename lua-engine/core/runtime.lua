@@ -11,6 +11,7 @@ local Particles=require('core.particles')
 local NodeDrops=require('core.nodedrops')
 local Digging=require('core.digging')
 local Placement=require('core.placement')
+local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
 local Runtime={}
@@ -622,6 +623,23 @@ function Runtime.new(options)
  api.dir_to_wallmounted=Placement.dir_to_wallmounted
  api.dir_to_facedir=Placement.dir_to_facedir
  api.dir_to_fourdir=Placement.dir_to_fourdir
+ api.wallmounted_to_dir=Attached.wallmounted_to_dir
+ api.facedir_to_dir=Attached.facedir_to_dir
+ api.fourdir_to_dir=Attached.fourdir_to_dir
+ -- A host may supply a dynamic creative-mode predicate or a global flag.
+ -- The native API exists for mods even when creative mode is disabled.
+ function api.is_creative_enabled(player_name)
+  assert(type(player_name)=='string','creative mode requires player name')
+  if type(self.opts.creative_enabled)=='function' then
+   return self.opts.creative_enabled(player_name)==true
+  end
+  if type(self.opts.creative_players)=='table' then
+   if self.opts.creative_players[player_name]~=nil then
+    return self.opts.creative_players[player_name]==true
+   end
+  end
+  return self.opts.creative_mode==true
+ end
  function api.get_node_light(pos)
   local n=api.get_node(pos)
   local d=self.registry.nodes[n.name]
