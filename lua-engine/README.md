@@ -860,3 +860,47 @@ colisão com jogadores/objetos, mesclagem de nós de nível
 registrados em memória no runtime para o host; ainda não têm
 persistência própria em disco. Portanto, esta fase não promete
 compatibilidade 1:1 com o Luanti nem com o VoxeLibre.
+
+
+### Fase 32 — renderização de blocos em queda e itens soltos
+
+O renderizador LÖVR agora desenha objetos que não fazem parte dos
+mapblocks estáticos. `Renderer:draw_dynamic(pass,runtime,camera,radius)`
+renderiza blocos ativos de `core.get_falling_nodes()` nas posições
+interpoladas pelo estado de gravidade do runtime, e pequenos cubos
+texturizados para `core.get_dropped_items()`. A chamada ocorre
+depois de `Renderer:draw`, portanto o cache estático de chunks
+continua separado dos buffers dos objetos móveis.
+
+O `Mesher.single_node(node,registry[,scale])` reutiliza as mesmas
+regras de geometria, normais, UVs do atlas, `param2` e `node_box`
+do mesher de mapa, com vizinhos virtuais de ar para mostrar todas as
+faces do objeto isolado. `Mesher.item_cube(tile[,scale])` gera a
+representação cúbica reduzida para craftitems e ferramentas;
+`inventory_image` ou `wield_image` é priorizada, depois
+as texturas do nó, com fallback para a textura de item ausente.
+O cache GPU reutiliza geometria entre quadros e instâncias iguais,
+é liberado por `Renderer:reset()` e expira modelos sem uso após
+600 quadros. A renderização usa o `Pass:mesh` do LÖVR sem importar
+a API gráfica para o runtime de gameplay.
+
+**Teste no executável LÖVR:** pressione **F8** mirando um bloco para
+criar um bloco de areia seis células acima e observá-lo cair.
+Pressione **F9** para criar um pequeno item solto visível acima do
+bloco mirado. A tecla **3** seleciona areia na hotbar para testar
+colocação e queda normais. A tecla **F6** continua salvando o
+mapa estático. Os objetos em movimento e drops ainda não são
+gravados no arquivo do mundo.
+
+`tests/lua_engine_dynamic_rendering.lua` valida, sem exigir GPU,
+a construção de geometria, UVs, face winding existente, orientação,
+cache e liberação dos buffers, deslocamento vertical, culling
+por distância e transferência do bloco que pousou para o mapa
+estático. A suíte roda em Lua 5.4 e LuaJIT.
+
+**Limitações:** os itens soltos são cubos representativos, não
+sprites ou entidades Luanti completas; animações, transparência
+complexa, coleta automática, persistência, colisão com entidades,
+integração completa dos mods originais VoxeLibre e validação visual
+no Windows permanecem pendentes. O objetivo 1:1 continua em
+desenvolvimento, não foi alcançado nesta fase.
