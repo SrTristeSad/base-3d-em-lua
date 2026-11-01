@@ -13,6 +13,7 @@ local Digging=require('core.digging')
 local Placement=require('core.placement')
 local Falling=require('core.falling')
 local Raycast=require('core.raycast')
+local LuaEntities=require('core.luaentities')
 local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
@@ -39,7 +40,7 @@ function Runtime.new(options)
   registry={nodes={},items={},tools={},craftitems={},
     entities={},aliases={},crafts={},abms={},lbms={},
     biomes={},ores={},decorations={}},
-  fallingNodes={},droppedItems={},
+  fallingNodes={},droppedItems={},luaEntities={},nextLuaEntityId=0,
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
     on_placenode={},on_dignode={},on_punchnode={},on_punchplayer={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
@@ -335,8 +336,15 @@ function Runtime.new(options)
  function api.register_tool(name,def) register('tool',name,def) end
  function api.register_craftitem(name,def) register('craftitem',name,def) end
  function api.register_entity(name,def)
-  assert(type(name)=='string' and type(def)=='table')
+  assert(type(name)=='string' and name~='' and type(def)=='table',
+   'register_entity requires nonempty name and definition')
   self.registry.entities[name]=opts_copy(def)
+ end
+ function api.add_entity(pos,name,staticdata)
+  return LuaEntities.add(self,pos,name,staticdata)
+ end
+ function api.get_active_lua_entities()
+  return LuaEntities.get(self)
  end
  function api.register_alias(name,target)
   assert(type(name)=='string' and type(target)=='string')
@@ -676,7 +684,20 @@ function Runtime.new(options)
   return d and d.light_source or 0
  end
  function api.is_protected() return false end
- function api.get_objects_inside_radius() return {} end
+ function api.get_objects_inside_radius(pos,radius)
+  local out=LuaEntities.radius(self,pos,radius)
+  assert(type(radius)=='number' and radius>=0 and
+   radius==radius and radius~=math.huge,
+   'object radius must be finite and nonnegative')
+  for _,obj in ipairs(self.droppedItems or {}) do
+   if not obj.removed then
+    local p=obj:get_pos()
+    local dx,dy,dz=p.x-pos.x,p.y-pos.y,p.z-pos.z
+    if dx*dx+dy*dy+dz*dz<=radius*radius then out[#out+1]=obj end
+   end
+  end
+  return out
+ end
  -- First native-like raycast subset. Includes pointable registered nodes
  -- and real dropped/falling objects, not arbitrary LuaEntity refs yet.
  function api.raycast(from,to,objects,liquids)
@@ -735,6 +756,7 @@ function Runtime:step(dt)
  -- Falling object state advances before ABMs, with swept vertical collision
  -- to avoid tunneling through ground when the host supplies a large delta.
  Falling.step(self,dt)
+ LuaEntities.step(self,dt)
  -- When the host exposes a real player position, items can be collected
  -- automatically. Iterate by player name for deterministic contention.
  if self.opts.auto_pickup~=false then
@@ -899,6 +921,14 @@ end
 function Runtime:punchItemAsPlayer(player,item,reach)
  return Falling.punch_item(self,player,item,reach)
 end
+-- LuaEntity ObjectRefs have their own on_punch/on_rightclick callbacks.
+-- They are not item stacks and must not be processed as dropped items.
+function Runtime:punchLuaEntity(obj,puncher,interval,toolcaps,dir,damage)
+ return LuaEntities.punch(self,obj,puncher,interval,toolcaps,dir,damage)
+end
+function Runtime:rightclickLuaEntity(obj,clicker)
+ return LuaEntities.rightclick(self,obj,clicker)
+end
 -- Return the first real pointing hit; entities behind node collision
 -- geometry cannot be selected. Direction need not be normalized.
 function Runtime:raycast(origin,direction,reach,opts)
@@ -937,6 +967,41 @@ function Runtime:punchItemAlongRay(player,origin,direction,reach)
 end
 -- Return true when a Lua mod cancels the incoming player punch.
 -- This is a policy/callback preflight; the host owns actual HP and physics.
+-- Ray-directed LuaEntity interaction. The origin must be near the REAL
+-- connected player, and only the first visible pointed object is valid.
+function Runtime:interactObjectAlongRay(player,origin,direction,reach,action)
+ assert(type(player)=='table' and
+  type(player.get_player_name)=='function' and
+  self.players[player:get_player_name()]==player,
+  'ray interaction requires connected player')
+ assert(type(player.get_pos)=='function','player has no position')
+ assert(action=='punch' or action=='rightclick','invalid entity action')
+ local at=player:get_pos()
+ assert(type(origin)=='table' and type(origin.x)=='number' and
+  type(origin.y)=='number' and type(origin.z)=='number',
+  'ray requires eye position')
+ local dx,dy,dz=origin.x-at.x,origin.y-at.y,origin.z-at.z
+ if dx*dx+dz*dz>.75*.75 or dy<-.6 or dy>2.6 then
+  return false,'invalid_origin'
+ end
+ reach=reach or 4
+ local hit=self:raycast(origin,direction,reach)
+ if not hit or hit.type~='object' then return false,'not_object' end
+ for _,obj in ipairs(self.luaEntities) do
+  if obj==hit.ref and not obj.removed then
+   if action=='punch' then
+    self:punchLuaEntity(obj,player,1,nil,direction,0)
+   else self:rightclickLuaEntity(obj,player) end
+   return true,obj
+  end
+ end
+ if action=='punch' then
+  local ok,count=self:punchItemAsPlayer(player,hit.ref,reach)
+  if ok then return true,count end
+  return false,count
+ end
+ return false,'not_entity'
+end
 function Runtime:isPlayerPunchCancelled(player,hitter,interval,toolcaps,dir,damage)
  assert(type(player)=='table','punch victim required')
  for _,cb in ipairs(self.callbacks.on_punchplayer) do
