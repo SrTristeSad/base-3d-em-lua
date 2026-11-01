@@ -13,8 +13,22 @@ end
 local function compatible(a,b)
  return a:stackable(b)
 end
-function Inventory.new(registry)
- return setmetatable({lists={},widths={},registry=registry},mt)
+function Inventory.new(registry,location)
+ local actual=location or {type='undefined'}
+ assert(type(actual)=='table' and type(actual.type)=='string',
+  'inventory location must have a type')
+ return setmetatable({lists={},widths={},registry=registry,
+  location=actual},mt)
+end
+function methods:get_location()
+ local copy={}
+ for key,value in pairs(self.location) do
+  if type(value)=='table' then
+   copy[key]={}
+   for k,v in pairs(value) do copy[key][k]=v end
+  else copy[key]=value end
+ end
+ return copy
 end
 function methods:set_size(name,size)
  check_name(name)
