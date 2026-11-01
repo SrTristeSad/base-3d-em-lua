@@ -192,6 +192,19 @@ assert(simulated.pos.x<105.6,
 for _=1,10 do simulated:update(.05,{x=1,sprint=true}) end
 assert(simulated.pos.x<105.6,
  'fence collision must also block the original physics at sprint speed')
+-- Crouch edge protection must also respect an authentic partial-height
+-- VoxeLibre snow collision box, not just test-made full cube surfaces.
+rt.api.set_node({x=150,y=0,z=0},{name='mcl_core:stone'})
+rt.api.set_node({x=150,y=1,z=0},{name='mcl_core:snow_2'})
+local original_snow_box=rt.api.get_node_boxes('collision_box',
+ {x=150,y=1,z=0})
+assert(#original_snow_box>0,'original snow_2 must supply collision geometry')
+local top=original_snow_box[1][5]+1
+local edging=PlayerPhysics.new(rt.api,{x=150,y=top,z=0})
+for _=1,14 do edging:update(.05,{x=1,sneak=true}) end
+assert(edging.sneaking and edging.grounded and
+ edging.pos.x>150.4 and edging.pos.x<150.56,
+ 'sneak must keep the player over original partial snow support')
 assert(rt.api.registered_items['mcl_stonecutter:stonecutter'].groups.pickaxey==1)
 assert(#rt.callbacks.allow_player_inventory_action>=1)
 assert(#rt.callbacks.on_player_inventory_action>=1)
