@@ -37,7 +37,7 @@ api.register_node('test:fence',{
   disconnected_sides={-.375,.375,-.375,.375,.5,.375},
  }}
 api.register_node('test:stone',{groups={cracky=1}})
-api.register_node('test:wood',{groups={fence=1}})
+api.register_node('test:wood',{drawtype='airlike',groups={fence=1}})
 local fence=rt.registry.nodes['test:fence']
 local place=at(2,2,2)
 map:set_node(place,{name='test:fence'})
