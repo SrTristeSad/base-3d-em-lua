@@ -28,6 +28,20 @@ rt.api.register_privilege('test:example',{
 assert(rt.api.registered_privileges['test:example'].description=='Example privilege')
 assert(not pcall(rt.api.register_privilege,'test:example',{}),
  'duplicate privilege definition must fail')
+-- Node punches must notify without mining or removing blocks.
+rt.api.register_node('probe:punch_block',{description='Punch target'})
+local pos={x=2,y=3,z=4}
+rt.api.set_node(pos,{name='probe:punch_block'})
+local punched=0
+rt.api.register_on_punchnode(function(p,node,puncher,pointed)
+ assert(p.x==2 and p.y==3 and p.z==4)
+ assert(node.name=='probe:punch_block')
+ assert(puncher==nil and pointed.type=='node')
+ punched=punched+1
+end)
+rt:punchNode(pos,nil,{type='node',under=pos})
+assert(punched==1 and rt.api.get_node(pos).name=='probe:punch_block',
+ 'punch must not dig or replace node')
 local runner=Environment.new(rt)
 -- Permission regression: no arbitrary host file reads or writes.
 local file,err=runner.globals.io.open('lua-engine/main.lua','r')
