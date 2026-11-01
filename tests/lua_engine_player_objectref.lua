@@ -12,10 +12,12 @@ function player:get_player_name()return self.name end
 local joined=false
 api.register_on_joinplayer(function(p)
  if p~=player then return end
- assert(p:get_pos().y==2)
- assert(p:get_velocity().x==0)
- assert(p:get_properties().physical)
- assert(not p:get_player_control().jump)
+ if not joined then
+  assert(p:get_pos().y==2)
+  assert(p:get_velocity().x==0)
+  assert(p:get_properties().physical)
+  assert(not p:get_player_control().jump)
+ end
  joined=true
 end)
 assert(rt:connectPlayer(player,controller)==player)
@@ -114,6 +116,7 @@ assert(controller:get_pos().x==5,'host controller must not be destroyed')
 -- Explicitly reject control queries made with incorrect self.
 local again=Physics.new(api,vec(0,1,0))
 rt:connectPlayer(player,again)
+assert(player:get_pos().y==1,'new session must use new controller position')
 assert(not pcall(player.get_pos,custom))
 assert(rt:disconnectPlayer('Alice'))
 -- Transactional rollback if join callback fails after methods exist.
