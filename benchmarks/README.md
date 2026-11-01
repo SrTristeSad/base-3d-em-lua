@@ -44,10 +44,15 @@ compare **median CPU time** on the same hardware and Lua runtime.
 | `node_collision_uncached` | Same nodebox geometry via direct map and Nodebox.boxes reads | geometry queries |
 | `node_wide_sparse` | Wide AABB via stored-node mapblock index | geometry queries |
 | `node_wide_linear` | Same wide AABB through every voxel, including air | geometry queries |
+| `node_dense_adaptive` | Adaptive selection over completely filled three-dimensional terrain | geometry queries |
+| `node_dense_linear` | Identical solid terrain through the original full voxel/nodebox scan | geometry queries |
 
 All cases use explicit, reproducible positions, velocities and a
 fixed query order; counts are **32, 128** in CI, plus **256** in
 the default local run. `--quick` uses fewer iterations per case.
+For fully populated terrain, it compares the adaptive selector with the
+same raw-nodebox reference while verifying identical box totals. The dense
+fixture uses contiguous 9³, 16³ or 20³ stone cells depending on test size.
 For wide-area collision geometry, the runner also checks indexed and
 full-grid nodebox counts over the same long sweeps.
 For node geometry, the runner checks cached and uncached box counts on
