@@ -62,7 +62,7 @@ assert(table.concat(events,',')=='allow:move:9,allow:move:4,on:move:9,on:move:4'
 local before=#events
 
 -- Second direction restriction forbids full swap, even when first permits.
-ok,count=move('main',2,'limited',1,1)
+ok,count=move('main',2,'limited',1,6)
 assert(ok and count==2,'empty destination obeys destination allow restriction')
 assert(inv:get_stack('main',2):get_count()==7)
 assert(inv:get_stack('limited',1):get_count()==2)
