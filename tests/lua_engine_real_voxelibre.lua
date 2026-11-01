@@ -21,6 +21,7 @@ local paths={
  mcl_gamemode='mods/PLAYER/mcl_gamemode',
  mcl_death_drop='mods/PLAYER/mcl_death_drop',
  mcl_experience='mods/HUD/mcl_experience',
+ mcl_enchanting='mods/ITEMS/mcl_enchanting',
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
  mcl_util='mods/CORE/mcl_util',
@@ -105,6 +106,10 @@ assert(type(g.mcl_experience.add_xp)=='function' and
  rt.api.registered_entities['mcl_experience:orb'] and
  rt.api.registered_entities['mcl_experience:bottle'],
  'original XP entities and functions must register')
+assert(type(g.mcl_enchanting)=='table' and
+ type(g.mcl_enchanting.overlay)=='string' and
+ type(g.mcl_enchanting.enchantments)=='table',
+ 'original enchantment registry failed to initialize')
 assert(type(g.doc)=='table' and type(g.doc.sub.items.temp.build)=='string',
  'original doc_items must load before mcl_core')
 assert(rt.api.registered_nodes['mcl_stonecutter:stonecutter'],
