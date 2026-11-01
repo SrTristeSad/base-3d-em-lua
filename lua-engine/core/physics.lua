@@ -152,6 +152,101 @@ function Physics:get_physics_override()
  return result
 end
 
+-- Host-facing Player ObjectRef state. Returned vectors and tables are copies.
+-- Teleport is explicit and is NOT a collision-resolving movement.
+local function require_vector(v,label)
+ assert(type(v)=='table' and finite(v.x) and finite(v.y) and finite(v.z),
+  'invalid '..label..' vector')
+ return {x=v.x,y=v.y,z=v.z}
+end
+function Physics:get_pos()
+ return copy(self.pos)
+end
+function Physics:set_pos(position)
+ self.pos=require_vector(position,'position')
+ self.grounded=false
+ self.in_liquid=false
+ self.on_ladder=false
+ return true
+end
+function Physics:get_velocity()
+ return copy(self.velocity)
+end
+function Physics:set_velocity(velocity)
+ self.velocity=require_vector(velocity,'velocity')
+end
+function Physics:add_velocity(delta)
+ delta=require_vector(delta,'velocity')
+ self.velocity={x=self.velocity.x+delta.x,
+  y=self.velocity.y+delta.y,z=self.velocity.z+delta.z}
+end
+local control_names={
+ up=true,down=true,left=true,right=true,jump=true,
+ aux1=true,sneak=true,zoom=true,dig=true,place=true,
+ LMB=true,RMB=true,
+}
+function Physics:set_player_controls(controls)
+ assert(type(controls)=='table','player controls must be a table')
+ local snapshot={}
+ for key,value in pairs(controls) do
+  assert(control_names[key] and type(value)=='boolean',
+   'unsupported player control: '..tostring(key))
+  snapshot[key]=value
+ end
+ for name in pairs(control_names) do
+  if snapshot[name]==nil then snapshot[name]=false end
+ end
+ self.player_controls=snapshot
+end
+function Physics:get_player_controls()
+ local out={}
+ for name in pairs(control_names) do
+  out[name]=self.player_controls and self.player_controls[name] or false
+ end
+ return out
+end
+-- This subset intentionally refuses arbitrary visual/animation properties.
+-- Player collision is a symmetric horizontal box with feet at local y=0.
+function Physics:get_properties()
+ return {
+  physical=true,eye_height=self.eyeheight,stepheight=self.stepheight,
+  collisionbox={-self.radius,0,-self.radius,
+   self.radius,self.height,self.radius},
+ }
+end
+function Physics:set_properties(def)
+ assert(type(def)=='table','player properties must be a table')
+ local radius,height,eye,step=self.radius,self.height,
+  self.eyeheight,self.stepheight
+ for name,value in pairs(def) do
+  if name=='collisionbox' then
+   assert(type(value)=='table' and #value==6,
+    'collisionbox requires six numeric coordinates')
+   for i=1,6 do assert(finite(value[i]),'invalid collisionbox coordinate') end
+   assert(value[1]<0 and value[4]==-value[1] and
+    value[3]==value[1] and value[6]==value[4] and
+    value[2]==0 and value[5]>0,'unsupported player collisionbox shape')
+   radius=-value[1]
+   height=value[5]
+   assert(radius>0 and radius<=.5 and height<=3,
+    'player collisionbox outside supported bounds')
+  elseif name=='eye_height' then
+   assert(finite(value) and value>0,'invalid eye height')
+   eye=value
+  elseif name=='stepheight' then
+   assert(finite(value) and value>=0 and value<=1,'invalid stepheight')
+   step=value
+  elseif name=='physical' then
+   assert(value==true,'nonphysical player is not implemented')
+  else
+   error('unsupported player property: '..tostring(name))
+  end
+ end
+ assert(eye<=height,'eye height exceeds player collisionbox')
+ self.radius,self.height,self.eyeheight,self.stepheight=
+  radius,height,eye,step
+end
+
 function Physics:eye()
  return {x=self.pos.x,y=self.pos.y+self.eyeheight+self.view_offset,z=self.pos.z}
 end
