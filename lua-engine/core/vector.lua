@@ -71,4 +71,40 @@ mt.__mul=V.multiply
 mt.__div=V.divide
 mt.__unm=function(a) return v(-a.x,-a.y,-a.z) end
 mt.__tostring=V.to_string
+-- Additional Luanti vector helpers used by upstream gameplay mods.
+function V.check(a)
+ return type(a)=='table' and type(a.x)=='number'
+  and type(a.y)=='number' and type(a.z)=='number'
+end
+function V.angle(a,b)
+ local la,lb=V.length(a),V.length(b)
+ if la==0 or lb==0 then return 0 end
+ local cosine=V.dot(a,b)/(la*lb)
+ return math.acos(math.max(-1,math.min(1,cosine)))
+end
+function V.rotate(a,axis,angle)
+ assert(V.check(a) and V.check(axis),'rotate expects vectors')
+ assert(type(angle)=='number','rotate angle must be numeric')
+ local axis_length=V.length(axis)
+ if axis_length==0 then return V.copy(a) end
+ local u=V.divide(axis,axis_length)
+ local cosine,sine=math.cos(angle),math.sin(angle)
+ -- Rodrigues' rotation formula, preserving the input vectors.
+ return V.add(V.add(V.multiply(a,cosine),
+  V.multiply(V.cross(u,a),sine)),
+  V.multiply(u,V.dot(u,a)*(1-cosine)))
+end
+function V.from_string(s)
+ if type(s)~='string' then return nil end
+ local x,y,z=s:match('^%s*%(%s*([^,]+)%s*,%s*([^,]+)%s*,%s*([^%)]+)%s*%)%s*)
+ if not x then return nil end
+ x,y,z=tonumber(x),tonumber(y),tonumber(z)
+ if not x or not y or not z then return nil end
+ return v(x,y,z)
+end
+function V.in_area(p,minp,maxp)
+ return p.x>=minp.x and p.x<=maxp.x
+  and p.y>=minp.y and p.y<=maxp.y
+  and p.z>=minp.z and p.z<=maxp.z
+end
 return V
