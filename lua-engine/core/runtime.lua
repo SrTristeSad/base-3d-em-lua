@@ -33,7 +33,7 @@ function Runtime.new(options)
     entities={},aliases={},crafts={},abms={},lbms={},
     biomes={},ores={},decorations={}},
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
-    on_placenode={},on_dignode={},on_punchnode={},on_joinplayer={},
+    on_placenode={},on_dignode={},on_punchnode={},on_punchplayer={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
     on_craft={},craft_predict={},on_item_eat={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
@@ -433,6 +433,12 @@ function Runtime.new(options)
   local callbacks=self.callbacks.on_item_eat
   callbacks[#callbacks+1]=callback
  end
+ function api.register_on_punchplayer(callback)
+  assert(type(callback)=='function',
+   'punch player callback must be callable')
+  local list=self.callbacks.on_punchplayer
+  list[#list+1]=callback
+ end
  function api.register_on_punchnode(callback)
   assert(type(callback)=='function','punch callback must be callable')
   local callbacks=self.callbacks.on_punchnode
@@ -702,6 +708,17 @@ function Runtime:disconnectPlayer(name)
  self:emit('on_leaveplayer',player)
  self.players[name]=nil
  return true
+end
+-- Return true when a Lua mod cancels the incoming player punch.
+-- This is a policy/callback preflight; the host owns actual HP and physics.
+function Runtime:isPlayerPunchCancelled(player,hitter,interval,toolcaps,dir,damage)
+ assert(type(player)=='table','punch victim required')
+ for _,cb in ipairs(self.callbacks.on_punchplayer) do
+  if cb(player,hitter,interval,toolcaps,dir,damage)==true then
+   return true
+  end
+ end
+ return false
 end
 -- A punch is distinct from digging a node: do not remove the node or
 -- simulate a player.  The host passes the actual puncher when available.
