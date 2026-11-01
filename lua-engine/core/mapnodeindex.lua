@@ -15,8 +15,8 @@ local function position(k)
 end
 local function create(map)
  local index={nodes=map.nodes,blocks={},entries={},
-  count=0,queries=0,candidates_examined=0,blocks_examined=0,
-  rebuilds=1}
+  count=0,block_count=0,queries=0,candidates_examined=0,
+  blocks_examined=0,dense_rejections=0,rebuilds=1}
  for k in pairs(map.nodes) do
   local pos=position(k)
   local bk=block(pos.x,pos.y,pos.z)
@@ -25,6 +25,7 @@ local function create(map)
    bucket={x=floor(pos.x/SIZE),y=floor(pos.y/SIZE),
     z=floor(pos.z/SIZE),nodes={},count=0}
    index.blocks[bk]=bucket
+   index.block_count=index.block_count+1
   end
   bucket.nodes[k]=pos
   bucket.count=bucket.count+1
@@ -60,6 +61,7 @@ function Index.changed(map,x,y,z,present)
    bucket={x=floor(x/SIZE),y=floor(y/SIZE),z=floor(z/SIZE),
     nodes={},count=0}
    index.blocks[bk]=bucket
+   index.block_count=index.block_count+1
   end
   bucket.nodes[k]={x=x,y=y,z=z}
   bucket.count=bucket.count+1
@@ -69,15 +71,20 @@ function Index.changed(map,x,y,z,present)
   local bucket=index.blocks[existing]
   bucket.nodes[k]=nil
   bucket.count=bucket.count-1
-  if bucket.count==0 then index.blocks[existing]=nil end
+  if bucket.count==0 then
+   index.blocks[existing]=nil
+   index.block_count=index.block_count-1
+  end
   index.entries[k]=nil
   index.count=index.count-1
  end
 end
--- Enumerate only stored cells within inclusive voxel bounds.
--- Choose whichever is cheaper: the bounded grid of mapblocks or the
--- currently occupied mapblocks (useful for very long empty sweeps).
-function Index.query(map,x1,x2,y1,y2,z1,z2)
+-- If max_candidates is supplied, return nil when whole mapblock
+-- occupancy predicts more work than a dense grid scan. This estimate is
+-- deliberately conservative: edge mapblocks may contain out-of-range
+-- cells, but a dense fallback cannot miss any collisions.
+-- The query without that optional argument retains its Phase 49 API.
+function Index.query(map,x1,x2,y1,y2,z1,z2,max_candidates)
  local index=Index.ensure(map)
  index.queries=index.queries+1
  local bx1,bx2=floor(x1/SIZE),floor(x2/SIZE)
@@ -85,11 +92,24 @@ function Index.query(map,x1,x2,y1,y2,z1,z2)
  local bz1,bz2=floor(z1/SIZE),floor(z2/SIZE)
  local volume=(bx2-bx1+1)*(by2-by1+1)*(bz2-bz1+1)
  local buckets={}
- if volume<=index.count then
+ local predicted=0
+ local function add(bucket)
+  if not bucket then return true end
+  predicted=predicted+bucket.count
+  if max_candidates and predicted>=max_candidates then
+   index.dense_rejections=index.dense_rejections+1
+   return false
+  end
+  buckets[#buckets+1]=bucket
+  return true
+ end
+ -- Choose between traversing the target mapblock grid and traversing
+ -- existing occupied mapblocks. Compare units to block count (not node
+ -- count), avoiding the Phase 49 mismatch on dense worlds.
+ if volume<=index.block_count then
   for x=bx1,bx2 do for y=by1,by2 do for z=bz1,bz2 do
    index.blocks_examined=index.blocks_examined+1
-   local bucket=index.blocks[x..','..y..','..z]
-   if bucket then buckets[#buckets+1]=bucket end
+   if not add(index.blocks[x..','..y..','..z]) then return nil end
   end end end
  else
   for _,bucket in pairs(index.blocks) do
@@ -97,7 +117,7 @@ function Index.query(map,x1,x2,y1,y2,z1,z2)
    if bucket.x>=bx1 and bucket.x<=bx2 and
       bucket.y>=by1 and bucket.y<=by2 and
       bucket.z>=bz1 and bucket.z<=bz2 then
-    buckets[#buckets+1]=bucket
+    if not add(bucket) then return nil end
    end
   end
  end
