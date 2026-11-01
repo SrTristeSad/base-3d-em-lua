@@ -49,7 +49,9 @@ rt.api.register_on_leaveplayer(function(player) left=left+1 end)
 local testplayer={get_player_name=function() return 'ProbePlayer' end}
 assert(#rt.api.get_connected_players()==0)
 rt:connectPlayer(testplayer)
-assert(rt.api.get_player_by_name('ProbePlayer')==testplayer)
+assert(rt.players['ProbePlayer']==testplayer,'host registry did not retain player')
+assert(rt.api.get_player_by_name('ProbePlayer')==testplayer,
+ 'get_player_by_name lookup failed for attached player')
 assert(rt.api.get_connected_players()[1]==testplayer)
 assert(joined==1)
 assert(rt:disconnectPlayer('ProbePlayer')==true)
