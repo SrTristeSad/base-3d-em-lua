@@ -19,7 +19,7 @@ local function fresh(rt)
   registry=rt.registry.nodes,revision=rt.map.geometry_revision or 0,
   data={},count=0,hits=0,misses=0,resets=0,
   nodes_examined=0,sparse_queries=0,dense_queries=0,
-  dense_fallbacks=0}
+  dense_fallbacks=0,selective_updates=0,evicted_entries=0}
 end
 function Geometry.cache(rt)
  local cache=rt.collisionNodeCache
@@ -38,6 +38,31 @@ function Geometry.cache(rt)
 end
 function Geometry.invalidate(rt)
  rt.collisionNodeCache=nil
+end
+-- Called synchronously after a real Map:set_node mutation. Only the
+-- changed voxel and its six cardinal neighbours can have different
+-- connected collision_box geometry (see core.nodebox). Preserve all
+-- unrelated cached shapes across edits and during active physics ticks.
+-- A missing/stale cache still uses the revision-based full reset.
+function Geometry.node_changed(rt,map,x,y,z)
+ local cache=rt.collisionNodeCache
+ if not cache or cache.map~=map or cache.nodes~=map.nodes or
+    cache.registry~=rt.registry.nodes or
+    cache.revision~=(map.geometry_revision or 0)-1 then
+  return
+ end
+ local offsets={{0,0,0},{1,0,0},{-1,0,0},
+  {0,1,0},{0,-1,0},{0,0,1},{0,0,-1}}
+ for _,v in ipairs(offsets) do
+  local k=key(x+v[1],y+v[2],z+v[3])
+  if cache.data[k] then
+   cache.data[k]=nil
+   cache.count=cache.count-1
+   cache.evicted_entries=cache.evicted_entries+1
+  end
+ end
+ cache.revision=map.geometry_revision
+ cache.selective_updates=cache.selective_updates+1
 end
 -- A map node is sampled just once while unchanged. Position is an integer
 -- cell coordinate, so absolute boxes are reusable for every swept query.
