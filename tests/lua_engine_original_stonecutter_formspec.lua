@@ -98,6 +98,20 @@ assert(inv:get_stack('main',2):get_count()==2)
 assert(inv:get_stack('stonecutter_input',1):get_count()==2,
  'upstream on_move must consume exactly one input for 2 outputs')
 assert(inv:get_stack('stonecutter_output',1):get_count()==2)
+-- Luanti's other original inventory callback, on_player_inventory_action
+-- "take", must consume raw material when an output is taken into a host
+-- cursor and then put into the player's inventory.
+local taken
+moved,taken=rt:takePlayerInventoryStack('TestPlayer',{
+ listname='stonecutter_output',index=1,count=2})
+assert(moved and taken:get_name()=='probe:slab' and taken:get_count()==2)
+assert(inv:get_stack('stonecutter_input',1):get_count()==1,
+ 'upstream stonecutter take callback must consume another raw stone')
+moved,amount=rt:putPlayerInventoryStack('TestPlayer',{
+ listname='main',index=3,stack=taken})
+assert(moved and amount==2 and taken:is_empty())
+assert(inv:get_stack('main',3):get_name()=='probe:slab')
+assert(inv:get_stack('main',3):get_count()==2)
 assert(rt:getPlayerFormspec('TestPlayer').formspec:find(
  'mcl_inventory_button9_pressed.png',1,true),
  'original mod must update selected-button style')
@@ -108,14 +122,14 @@ assert(player:get_meta():get_int('mcl_stonecutter:switch_stack')==1)
 assert(rt:receiveFormFields('TestPlayer','mcl_stonecutter:stonecutter',
  {__switch_stack='true'}))
 assert(player:get_meta():get_int('mcl_stonecutter:switch_stack')==64)
-assert(inv:get_stack('stonecutter_output',1):get_count()==4)
+assert(inv:get_stack('stonecutter_output',1):get_count()==2)
 -- Client close must run the original inventory-return callback.
 assert(rt:receiveFormFields('TestPlayer','mcl_stonecutter:stonecutter',
  {quit='true'}))
 assert(rt:getPlayerFormspec('TestPlayer')==nil)
 assert(inv:get_stack('stonecutter_input',1):is_empty())
 assert(inv:get_stack('stonecutter_output',1):is_empty())
-assert(inv:contains_item('main','probe:raw_stone 2'),
+assert(inv:contains_item('main','probe:raw_stone 1'),
  'stonecutter quit must move the remaining actual input to inventory')
 assert(rt:disconnectPlayer('TestPlayer'))
 print(('ORIGINAL VOXELIBRE STONECUTTER FORMSPEC PASS: %d modules, %d source files')

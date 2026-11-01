@@ -55,10 +55,10 @@ assert(ok and n==1 and inv:get_stack('input',2):get_count()==64)
 assert(inv:get_stack('main',1):get_count()==5)
 ok,n=move('main',1,'input',2,3)
 assert(not ok and n=='destination_full')
--- Different items are not silently exchanged by this preliminary transport.
+-- A complete swap must pass permission checks in both directions.
 inv:set_stack('input',2,'test:other 8')
 ok,n=move('main',1,'input',2,5)
-assert(not ok and n=='swap_not_supported')
+assert(not ok and n=='not_allowed')
 assert(inv:get_stack('main',1):get_count()==5)
 assert(inv:get_stack('input',2):get_count()==8)
 local previous=#calls
@@ -83,7 +83,7 @@ local another=api.ItemStack('test:stone 1')
 another:get_meta():set_string('source','B')
 inv:set_stack('input',2,another)
 ok,n=move('main',3,'input',2,2)
-assert(not ok and n=='swap_not_supported')
+assert(not ok and n=='not_allowed')
 assert(inv:get_stack('main',3):get_meta():get_string('source')=='A')
 
 -- Protection callback that mutates the inventory cannot authorize a stale
@@ -93,12 +93,13 @@ api.register_allow_player_inventory_action(function(_,_,inventory,info)
   inventory:set_stack('input',2,'test:other 2')
  end
 end)
+local stale_previous=#calls
 inv:set_stack('input',2,'')
 ok,n=move('main',1,'input',2,1)
 assert(not ok and n=='inventory_changed_during_check')
 assert(inv:get_stack('main',1):get_count()==5)
 assert(inv:get_stack('input',2):get_name()=='test:other')
-assert(#calls==previous+1,'only preflight, never on_change, for stale move')
+assert(#calls==stale_previous+1,'only preflight, never on_change, for stale move')
 assert(rt:disconnectPlayer('Alice'))
 assert(rt:movePlayerInventoryStack('Alice',{
  from_list='main',from_index=1,to_list='input',to_index=1,count=1

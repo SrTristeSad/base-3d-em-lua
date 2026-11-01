@@ -256,3 +256,36 @@ considerado um dos módulos integrados.**
 - **Não está pronto:** o LÖVR ainda não desenha os elementos formspec, a
   integração completa de inventário de nós e as transações de UI não estão
   implementadas, nem existe multiplayer/rede ou gameplay completo do VoxeLibre.
+
+
+### Fase 60 — trocas de pilhas e ações put/take do inventário do jogador
+
+- `Runtime:movePlayerInventoryStack` agora implementa **troca de pilhas**
+  diferentes entre slots do mesmo `InvRef`, segundo
+  `IMoveAction::apply` do Luanti 5.18.0: checagem de autorização nas
+  **duas direções**, troca dos itens completos e envio de dois eventos
+  `on_player_inventory_action(..., "move", ...)`, com origem e destino
+  invertidos no segundo evento. Ações proibidas não alteram os slots.
+- Novas funções exclusivas do host: `Runtime:takePlayerInventoryStack`
+  retorna um `ItemStack` efetivamente retirado do jogador;
+  `Runtime:putPlayerInventoryStack` consome o objeto de pilha mantido
+  pelo host, respeitando capacidade e autorização de mods. Para ambas,
+  `allow_player_inventory_action` ocorre antes da alteração e
+  `on_player_inventory_action` depois, com `inventory_info.stack`
+  contendo o quantitativo realmente transferido.
+- Os três caminhos validam jogador conectado, índices válidos, contagens
+  e alterações durante a checagem de permissão. Pilhas com metadados não
+  se misturam indevidamente. A pilha mantida pelo host é decrementada
+  somente quando o put é realizado com sucesso.
+- A integração do `mcl_stonecutter` original foi ampliada: após os
+  movimentos já existentes, o teste retira o produto do slot de saída
+  por `take`, verifica o consumo dos ingredientes realizado pelo mod,
+  e deposita o produto no inventário por `put`.
+- Testes de regressão: `tests/lua_engine_inventory_swap_put_take.lua`,
+  `tests/lua_engine_player_inventory_actions.lua` e
+  `tests/lua_engine_original_stonecutter_formspec.lua`, em Lua 5.4 e LuaJIT.
+- **Atenção:** este transporte trata apenas do `InvRef` de um jogador.
+  A ligação de inventários entre jogadores, nós, entidades e detaches
+  continua incompleta. O motor ainda não tem um cliente formspec visual
+  plenamente funcional ou uma implementação de todos os casos especiais
+  da lógica original do inventário, como estoques infinitos.
