@@ -218,6 +218,52 @@ local function normalized_boxes(def,node,map,pos,registry)
  return nil
 end
 
+-- Public pure-Lua geometry query, matching the shape of
+-- core.get_node_boxes("node_box"|"selection_box"|"collision_box",pos,node).
+-- Return axis-aligned boxes AFTER cardinal orientation and connections.
+function N.boxes(def,node,map,pos,registry,box_type)
+ if type(def)~='table' then return {} end
+ box_type=box_type or 'node_box'
+ assert(box_type=='node_box' or box_type=='selection_box' or
+  box_type=='collision_box','invalid node box type')
+ local box_def=def[box_type]
+ if type(box_def)~='table' then
+  if box_type~='node_box' and def.drawtype=='nodebox' then
+   box_def=def.node_box
+  else
+   box_def={type='regular'}
+  end
+ end
+ local shadow={}
+ for k,v in pairs(def) do shadow[k]=v end
+ shadow.node_box=box_def
+ local boxes=normalized_boxes(shadow,node,map,pos,registry)
+ if not boxes then return {} end
+ local rotate=(box_def.type~='connected' and box_def.type~='wallmounted'
+   and box_def.type~='leveled') and def.paramtype2 or nil
+ local out={}
+ for _,box in ipairs(boxes) do
+  if rotate then
+   local minv={math.huge,math.huge,math.huge}
+   local maxv={-math.huge,-math.huge,-math.huge}
+   for _,x in ipairs({box[1],box[4]}) do
+    for _,y in ipairs({box[2],box[5]}) do
+     for _,z in ipairs({box[3],box[6]}) do
+      local v=N.rotate({x,y,z},rotate,node and node.param2 or 0)
+      for i=1,3 do
+       minv[i]=math.min(minv[i],v[i])
+       maxv[i]=math.max(maxv[i],v[i])
+      end
+     end
+    end
+   end
+   out[#out+1]={minv[1],minv[2],minv[3],maxv[1],maxv[2],maxv[3]}
+  else
+   out[#out+1]=box
+  end
+ end
+ return out
+end
 function N.faces(def,node,map,pos,registry)
  local boxes=normalized_boxes(def,node,map,pos,registry)
  if not boxes then return nil end
