@@ -144,7 +144,7 @@ api.register_entity('test:body',{
  initial_properties={physical=true,
   collisionbox={-.3,-.3,-.3,.3,.3,.3}},
  on_step=function(self,dt,result)self.result=result end})
-local mob=api.add_entity(p(0,.8,1),'test:body')
+local mob=api.add_entity(p(0,.7,1),'test:body')
 mob:set_velocity(p(0,0,-2))
 rt:step(1)
 assert(mob:get_pos().z>=.8-1e-8,
