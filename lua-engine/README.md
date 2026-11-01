@@ -327,10 +327,15 @@ da altura do bloco, com o valor inicial configurado em `leveled`.
 
 Os testes de geometria testam cercas conectadas, filtros de
 conexão, giro sem alteração das formas, altura, posições de parede
-e atualização de malhas. A integração também verifica os
-módulos originais do VoxeLibre `mcl_nether` e `mcl_fences`,
-incluindo a construção e a remoção das barras de uma cerca
-real, quando disponíveis no carregamento de mods.
+e atualização de malhas. A integração já executa **26 módulos originais e 56 arquivos Lua**,
+incluindo `mcl_nether` e `mcl_fences`, sem modificar o upstream.
+O teste verifica as barras de uma cerca real após colocar ou
+remover sua vizinha.
+
+A API `core.get_node_boxes(box_type, pos, node)` também retorna
+as caixas resolvidas (`node_box`, `collision_box` e `selection_box`),
+com a orientação e as conexões atuais. A consulta é utilizada nos
+testes de seleção e colisão, mas ainda não aciona um motor de física.
 
 **Limites atuais:** ainda falta o tratamento exato de oclusão parcial
 entre caixas complexas, a equivalência entre `node_box` visível e
