@@ -40,11 +40,15 @@ compare **median CPU time** on the same hardware and Lua runtime.
 | `physical_entity_step` | `Runtime:step(1/30)` of moving physical LuaEntities | entity-steps |
 | `collision_event_search` | Indexed head-on TOI planning in sparse worlds | event batches |
 | `spatial_relocation` | `ObjectRef:set_pos` with index maintenance | calls |
+| `node_collision_cached` | Shared, revision-aware node collision AABB cache | geometry queries |
+| `node_collision_uncached` | Same nodebox geometry via direct map and Nodebox.boxes reads | geometry queries |
 
 All cases use explicit, reproducible positions, velocities and a
 fixed query order; counts are **32, 128** in CI, plus **256** in
 the default local run. `--quick` uses fewer iterations per case.
-For radius searches, the runner checks the indexed results against
+For node geometry, the runner checks cached and uncached box counts on
+identical maps containing regular cubes and slabs. For radius searches,
+the runner checks the indexed results against
 the linear baseline by object count. The independent report
 validator verifies every paired checksum at each population size.
 
