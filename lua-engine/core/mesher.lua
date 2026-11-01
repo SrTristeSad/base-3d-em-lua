@@ -141,6 +141,41 @@ function M.build(map,registry,cx,cy,cz)
  metrics.vertices=#vertices
  return vertices,metrics
 end
+-- Standalone, origin-centered node mesh for host-owned moving objects.
+-- Reuses precisely the mapblock renderer's geometry, UVs, and orientation.
+-- Only the virtual origin voxel exists; all six neighbors are air, so a
+-- moving block never inherits occlusion from its original world position.
+function M.single_node(node,registry,scale)
+ assert(type(node)=='table' and type(node.name)=='string',
+  'single node requires a registered node description')
+ assert(type(registry)=='table','single node requires node registry')
+ scale=scale or 1
+ assert(type(scale)=='number' and scale>0 and scale==scale and
+  scale~=math.huge,'invalid standalone mesh scale')
+ local ghost={}
+ function ghost:get_node(p)
+  if p.x==0 and p.y==0 and p.z==0 then
+   return {name=node.name,param1=node.param1 or 0,
+    param2=node.param2 or 0}
+  end
+  return {name='air',param1=0,param2=0}
+ end
+ local vertices,stats=M.build(ghost,registry,0,0,0)
+ if scale~=1 then
+  for _,v in ipairs(vertices) do
+   v[1],v[2],v[3]=v[1]*scale,v[2]*scale,v[3]*scale
+  end
+ end
+ return vertices,stats
+end
+-- Items with no registered node (craftitems and tools) are drawn as small
+-- representative cubes using their inventory_image, or a missing atlas tile.
+function M.item_cube(tile,scale)
+ local name='__lua_engine_item_visual'
+ return M.single_node({name=name},{
+  [name]={drawtype='normal',tiles={tile or 'missing.png'}}
+ },scale or .32)
+end
 -- Block boundary changes invalidate visible faces in both mapblocks.
 function M.fingerprint(map,cx,cy,cz)
  local revisions=map.revisions or {}
