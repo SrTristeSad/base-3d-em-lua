@@ -36,7 +36,13 @@ local function props(def)
  if value.pointable==nil then value.pointable=true end
  if value.hp_max==nil then value.hp_max=10 end
  if value.physical==nil then value.physical=false end
+ if value.collide_with_objects==nil then value.collide_with_objects=true end
+ if value.stepheight==nil then value.stepheight=0 end
  assert(type(value.physical)=='boolean','entity physical flag must be boolean')
+ assert(type(value.collide_with_objects)=='boolean',
+  'entity collide_with_objects flag must be boolean')
+ assert(finite(value.stepheight) and value.stepheight>=0 and
+  value.stepheight<=3,'entity stepheight outside supported range')
  assert(type(value.collisionbox)=='table' and
   type(value.selectionbox)=='table',
   'entity collision/selection boxes required')
