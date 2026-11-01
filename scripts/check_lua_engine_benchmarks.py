@@ -25,6 +25,8 @@ CASES = {
     "node_dense_linear",
     "node_mixed_cached",
     "node_mixed_linear",
+    "node_edit_selective",
+    "node_edit_full_reset",
 }
 FIELDS = {
     "name", "entities", "iterations", "unit", "cpu_seconds_median",
@@ -53,7 +55,7 @@ def validate(path: Path):
         assert item["name"] in CASES, item
         assert item["entities"] in expected_sizes, item
         assert isinstance(item["iterations"], int) and item["iterations"] > 0
-        assert item["unit"] in {"queries", "entity_steps", "event_batches", "set_pos", "geometry_queries"}
+        assert item["unit"] in {"queries", "entity_steps", "event_batches", "set_pos", "geometry_queries", "edit_cycles"}
         for key in NUMBERS:
             value = item[key]
             assert isinstance(value, (int, float)) and math.isfinite(value), (
@@ -102,6 +104,13 @@ def validate(path: Path):
         assert a["iterations"] == b["iterations"]
         assert a["checksum"] == b["checksum"], (
             path, n, "mixed terrain collision boxes diverged from raw geometry"
+        )
+    for n in expected_sizes:
+        a = seen[("node_edit_selective", n)]
+        b = seen[("node_edit_full_reset", n)]
+        assert a["iterations"] == b["iterations"]
+        assert a["checksum"] == b["checksum"], (
+            path, n, "live terrain edits differ from reference reset behavior"
         )
     print(
         f"VALID BENCHMARK {path}: {data['runtime']}, "
