@@ -41,12 +41,21 @@ api.register_node('lua:coal_ore',{tiles={'mcl_core_coal_ore.png'},description='C
 api.register_node('lua:plank',{description='Wooden Planks',
  tiles={'default_wood.png'},groups={choppy=2}})
 api.register_craftitem('lua:stick',{description='Stick'})
+api.register_node('lua:crafting_table',{description='Crafting Table',
+ tiles={'default_wood.png'},groups={choppy=2}})
 api.register_craft({type='shapeless',output='lua:plank 4',
  recipe={'lua:wood'}})
 api.register_craft({output='lua:stick 4',
  recipe={{'lua:plank'},{'lua:plank'}}})
 api.register_craft({output='lua:slab 4',
  recipe={{'lua:stone','lua:stone'}}})
+api.register_craft({output='lua:crafting_table',
+ recipe={{'lua:plank','lua:plank'},
+         {'lua:plank','lua:plank'}}})
+api.register_craft({output='lua:pickaxe',
+ recipe={{'lua:plank','lua:plank','lua:plank'},
+         {'','lua:stick',''},
+         {'','lua:stick',''}}})
 api.register_tool('lua:pickaxe',{description='Demo pickaxe',stack_max=1,
  tool_capabilities={groupcaps={
  cracky={times={[1]=2,[2]=3,[3]=5},uses=30,maxlevel=1},
@@ -264,6 +273,15 @@ function lovr.mousepressed(x,y,button)
    demo_player,from,dir,4,'rightclick')
   if not ok then print('object interaction rejected:',reason) end
  elseif button==2 and pointed and pointed.type=='node' then
+  if api.get_node(pointed.under).name=='lua:crafting_table' then
+   if digging_target then
+    engine:cancelDigNodeAsPlayer(demo_player)
+    digging_target=nil
+   end
+   inventory_screen:openWorkbench()
+   lovr.system.setMouseMode('normal')
+   return
+  end
   local ok,reason=engine:placeNodeAsPlayer(demo_player,pointed.above,
    {type='node',under=pointed.under,above=pointed.above})
   if not ok then print('place rejected:',reason) end
