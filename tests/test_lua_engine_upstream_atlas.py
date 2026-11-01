@@ -16,18 +16,29 @@ game = Path("games/voxelibre")
 assert (game / "textures/default_stone.png").is_file(), (
     "VoxeLibre submodule not checked out")
 names = tile_names(source)
-assert len(names) == 16
+assert len(names) == 20
 assert names[3] == "default_stone.png"
 assert names[11] == "mcl_core_water_source_animation.png"
+assert names[16] == "default_glass.png"
+assert names[18] == "mcl_core_lava_source_animation.png"
 pixels = create_upstream(source, game)
 assert pixels == create_upstream(source, game), "upstream atlas must be deterministic"
 assert pixels != create(source, None), "release cannot silently use placeholders"
 with Image.open(BytesIO(pixels)) as atlas:
     atlas.load()
-    assert atlas.size == (64, 64) and atlas.mode == "RGBA"
+    assert atlas.size == (64, 80) and atlas.mode == "RGBA"
     with Image.open(game / "textures/default_stone.png") as original:
         tile = original.convert("RGBA").resize((16, 16), Image.Resampling.NEAREST)
         assert atlas.crop((48, 0, 64, 16)).tobytes() == tile.tobytes()
+    with Image.open(game / "textures/default_glass.png") as glass:
+        raw = glass.convert("RGBA").resize((16, 16), Image.Resampling.NEAREST)
+        assert atlas.crop((0, 64, 16, 80)).tobytes() == raw.tobytes()
+    with Image.open(game / "textures/mcl_core_lava_source_animation.png") as lava:
+        first = lava.convert("RGBA")
+        if first.height > first.width:
+            first = first.crop((0, 0, first.width, first.width))
+        first = first.resize((16, 16), Image.Resampling.NEAREST)
+        assert atlas.crop((32, 64, 48, 80)).tobytes() == first.tobytes()
     with Image.open(game / "textures/default_dirt.png") as dirt:
         base = dirt.convert("RGBA").resize((16, 16), Image.Resampling.NEAREST)
     with Image.open(game / "textures/mcl_dirt_grass_shadow.png") as shadow:
