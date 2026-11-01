@@ -66,11 +66,11 @@ assert(placed and api.get_node(fourth).param2==3)
 -- Palette index is copied from ItemStack metadata into param2's high bits.
 local colored=p(10,2,1)
 local colored_stack=api.ItemStack('test:colored')
-colored_stack:get_meta():set_int('palette_index',3)
+colored_stack:get_meta():set_int('palette_index',27)
 remaining,placed=api.item_place_node(colored_stack,player,
  pointed(p(10,1,1),colored))
 assert(placed and api.get_node(colored).param2==25,
- 'palette index 3 occupies high bits, floor mount has value 1')
+ 'palette index 27 occupies high bits, floor mount has value 1')
 
 -- A mod can call core.item_place to invoke on_rightclick or default place.
 local clicked=0
