@@ -51,7 +51,7 @@ apenas por existir uma API com os mesmos nomes.
 - `lua-engine/core/inventory.lua`: listas `InvRef` e inserção com sobras.
 - `lua-engine/core/modloader.lua`: leitura de `mod.conf`, ordenação por dependências e falha explícita.
 - `lua-engine/core/modenvironment.lua`: ambiente de globais separado que executa arquivos Lua reais dos mods de referência, com acesso ao sistema de arquivos limitado aos diretórios de mods declarados. **Não é sandbox de segurança contra código não confiável.**
-- `lua-engine/core/modstorage.lua`: armazenamento de mod por runtime, ainda sem persistência em disco.
+- `lua-engine/core/modstorage.lua`: `StorageRef` por mod/mundo, com persistência versionada opcional via filesystem de host; o formato não reproduz o backend SQLite do Luanti.
 - `lua-engine/core/bitops.lua`: bitops de 32 bits em Lua sem operadores da sintaxe Lua 5.3.
 - `lua-engine/core/pcgrandom.lua`: gerador PCG32 com dois limbs de 32 bits e estado restaurável; referência Luanti 5.18.0.
 - `tests/lua_engine_real_voxelibre.lua`: executa 11 módulos upstream em CI Lua 5.4 e LuaJIT, incluindo verificações de flowlib e conversão de inventários com vl_legacy.
