@@ -169,4 +169,18 @@ api.register_on_punchplayer(function() punch_count=punch_count+1;return true end
 assert(env:isPlayerPunchCancelled(victim,nil,0.5,
  {damage_groups={fleshy=2}},{x=0,y=0,z=1},2))
 eq(punch_count,3,'punch callbacks executed')
+-- Real player inventory lookup must follow connected session state.
+local player_inv=require('core.inventory').new(env.registry.items,
+ {type='player',name='TestPlayer'})
+local player={
+ get_player_name=function() return 'TestPlayer' end,
+ get_inventory=function() return player_inv end,
+}
+assert(api.get_inventory({type='player',name='TestPlayer'})==nil)
+env:connectPlayer(player)
+assert(api.get_inventory({type='player',name='TestPlayer'})==player_inv)
+assert(player_inv:get_location().type=='player')
+assert(player_inv:get_location().name=='TestPlayer')
+env:disconnectPlayer('TestPlayer')
+assert(api.get_inventory({type='player',name='TestPlayer'})==nil)
 print('lua_engine_core: OK')
