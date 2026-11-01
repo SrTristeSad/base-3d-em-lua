@@ -66,6 +66,19 @@ function Index.ensure(rt)
 end
 function Index.update(rt,obj)
  local index=Index.ensure(rt)
+ local old=index.members[obj]
+ if not eligible(obj) then
+  if old then remove(index,obj) end
+  return
+ end
+ local current=cells(boxes(obj))
+ if old and #old==#current then
+  local same=true
+  for i=1,#current do
+   if old[i]~=current[i] then same=false;break end
+  end
+  if same then return end -- common case: no cell boundary crossed
+ end
  remove(index,obj)
  insert(index,obj)
 end
