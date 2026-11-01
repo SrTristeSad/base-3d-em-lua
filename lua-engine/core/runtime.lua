@@ -719,6 +719,17 @@ function Runtime.new(options)
  function api.raycast(from,to,objects,liquids)
   return Raycast.iterator(self,from,to,objects,liquids)
  end
+ -- A mod world can be configured with a sidecar filename and a host
+ -- filesystem. Load before *any* mod init so upstream get_mod_storage()
+ -- sees the previous world's fields during normal boot.
+ if self.opts.mod_storage_path then
+  assert(self.opts.mod_storage_fs,
+   'mod_storage_fs is required when mod_storage_path is configured')
+  local ok,err=self:loadModStorage(
+   self.opts.mod_storage_path,self.opts.mod_storage_fs)
+  assert(ok or err=='not found',
+   'cannot load world mod storage: '..tostring(err))
+ end
  -- Access to not-yet-ported APIs intentionally raises instead of returning
  -- plausible but false results. This is essential to track compatibility.
  return self
@@ -1104,10 +1115,49 @@ function Runtime:allowedInventoryAction(player,action,inventory,info)
 end
 -- Called once by the host when the world/session closes.  Luanti's
 -- register_on_shutdown callbacks are not regular per-frame callbacks.
+-- Explicit mod-storage API supports a host's filesystem, while the
+-- optional mod_storage_path/fs constructor options enable load-before-mods
+-- and save-after-shutdown-callbacks lifecycle automatically.
+function Runtime:saveModStorage(path,fs)
+ return ModStorage.save(self.mod_storage,path,fs)
+end
+function Runtime:restoreModStorage(data)
+ -- Decode and validate the ENTIRE world snapshot before replacing any
+ -- fields. Existing StorageRef handles remain usable by mods after reload.
+ local parsed=ModStorage.decode(data)
+ for name,ref in pairs(self.mod_storage) do
+  ref:from_table({fields=parsed[name] or {}})
+ end
+ for name,fields in pairs(parsed) do
+  if not self.mod_storage[name] then
+   self.mod_storage[name]=ModStorage.new(fields)
+  end
+ end
+ return true
+end
+function Runtime:loadModStorage(path,fs)
+ local decoded,err=ModStorage.load(path,fs)
+ if not decoded then return nil,err end
+ -- Re-encode via validated serializer to keep restore semantics identical
+ -- to an explicit in-memory snapshot and avoid silent partial imports.
+ return self:restoreModStorage(ModStorage.encode(
+  (function()
+   local refs={}
+   for name,fields in pairs(decoded) do
+    refs[name]=ModStorage.new(fields)
+   end
+   return refs
+  end)()))
+end
 function Runtime:shutdown()
  if self.shut_down then return false end
- self.shut_down=true
  self:emit('shutdown')
+ if self.opts.mod_storage_path then
+  local ok,err=self:saveModStorage(
+   self.opts.mod_storage_path,self.opts.mod_storage_fs)
+  assert(ok,'cannot save world mod storage: '..tostring(err))
+ end
+ self.shut_down=true
  return true
 end
 function Runtime:emit(event,...)
