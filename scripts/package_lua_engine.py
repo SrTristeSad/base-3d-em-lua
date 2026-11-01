@@ -14,7 +14,8 @@ REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/bitops.lua", "core/pcgrandom.lua", "core/voxel.lua",
             "core/worldgen.lua", "core/particles.lua",
             "core/nodedrops.lua", "core/pseudorandom.lua",
-            "core/atlas.lua", "core/mesher.lua", "core/renderer.lua")
+            "core/atlas.lua", "core/mesher.lua", "core/nodebox.lua",
+            "core/renderer.lua")
 
 
 def build(source: Path, output: Path, game: Path | None = None,
