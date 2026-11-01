@@ -91,6 +91,8 @@ local item_buffer=dropcall.buffer
 
 calls={}
 renderer:draw(pass,rt.map,rt.registry.nodes,camera,1)
+-- Static map draw calls are separate from the two dynamic objects.
+calls={}
 renderer:draw_dynamic(pass,rt,camera,20)
 assert(#calls==2 and uploads==static_uploads+2,
  'moving objects must reuse GPU vertex buffers across frames')
