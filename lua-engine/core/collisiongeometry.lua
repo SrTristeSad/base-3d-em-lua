@@ -2,9 +2,11 @@
 -- physics. Cache is runtime-private: public get_node_boxes keeps producing
 -- fresh, mutable shape copies for mods.
 local Nodebox=require('core.nodebox')
+local MapNodeIndex=require('core.mapnodeindex')
 local Geometry={}
 local floor,min,max=math.floor,math.min,math.max
 local MAX_ENTRIES=8192
+local SPARSE_THRESHOLD=512
 local EMPTY={boxes={}}
 local function key(x,y,z)
  return x..','..y..','..z
@@ -13,7 +15,7 @@ local function fresh(rt)
  return {map=rt.map,nodes=rt.map.nodes,
   registry=rt.registry.nodes,revision=rt.map.geometry_revision or 0,
   data={},count=0,hits=0,misses=0,resets=0,
-  nodes_examined=0}
+  nodes_examined=0,sparse_queries=0,dense_queries=0}
 end
 function Geometry.cache(rt)
  local cache=rt.collisionNodeCache
@@ -92,7 +94,13 @@ function Geometry.collect(rt,swept,pad,exclude_buildable)
  local z1,z2=max(-31000,floor(swept[3]-pad)),
   min(31000,floor(swept[6]+pad))
  local out={}
- for x=x1,x2 do for y=y1,y2 do for z=z1,z2 do
+ -- Sparse stored-node search is worthwhile for wider AABBs. Its output
+ -- is sorted x/y/z to preserve exact node tie-breaking in physical sweeps.
+ -- Air must be non-collidable; otherwise the dense walk remains necessary.
+ local volume=(x2-x1+1)*(y2-y1+1)*(z2-z1+1)
+ local air=rt.registry.nodes.air
+ local sparse=volume>SPARSE_THRESHOLD and air and air.walkable==false
+ local function visit(x,y,z)
   cache.nodes_examined=cache.nodes_examined+1
   local node=entry(rt,cache,x,y,z)
   if not exclude_buildable or not node.buildable_to then
@@ -100,7 +108,19 @@ function Geometry.collect(rt,swept,pad,exclude_buildable)
     out[#out+1]={type='node',box=box,node_pos=node.node_pos}
    end
   end
- end end end
+ end
+ if sparse then
+  cache.sparse_queries=cache.sparse_queries+1
+  local candidates=MapNodeIndex.query(rt.map,x1,x2,y1,y2,z1,z2)
+  for _,pos in ipairs(candidates) do
+   visit(pos.x,pos.y,pos.z)
+  end
+ else
+  cache.dense_queries=cache.dense_queries+1
+  for x=x1,x2 do for y=y1,y2 do for z=z1,z2 do
+   visit(x,y,z)
+  end end end
+ end
  return out
 end
 return Geometry
