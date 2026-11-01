@@ -32,7 +32,7 @@ function Runtime.new(options)
   registry={nodes={},items={},tools={},craftitems={},
     entities={},aliases={},crafts={},abms={},lbms={},
     biomes={},ores={},decorations={}},
-  callbacks={globalstep={},generated={},mods_loaded={},
+  callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
     on_placenode={},on_dignode={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
     allow_player_inventory_action={},on_player_inventory_action={}},
@@ -316,6 +316,10 @@ function Runtime.new(options)
  function api.register_on_generated(callback)
   assert(type(callback)=='function')
   self.callbacks.generated[#self.callbacks.generated+1]=callback
+ end
+ function api.register_on_shutdown(callback)
+  assert(type(callback)=='function','shutdown callback must be a function')
+  self.callbacks.shutdown[#self.callbacks.shutdown+1]=callback
  end
  function api.register_on_mods_loaded(callback)
   assert(type(callback)=='function')
