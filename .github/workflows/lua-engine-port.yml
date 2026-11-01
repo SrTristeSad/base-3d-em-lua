@@ -25,6 +25,7 @@ on:
       - 'tests/lua_engine_player_objectref.lua'
       - 'tests/lua_engine_player_gameplay.lua'
       - 'tests/lua_engine_timed_digging.lua'
+      - 'tests/lua_engine_custom_interactions.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -62,6 +63,7 @@ on:
       - 'tests/lua_engine_player_objectref.lua'
       - 'tests/lua_engine_player_gameplay.lua'
       - 'tests/lua_engine_timed_digging.lua'
+      - 'tests/lua_engine_custom_interactions.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -115,6 +117,10 @@ jobs:
         run: lua5.4 tests/lua_engine_worldgen.lua
       - name: Same worldgen tests on LuaJIT
         run: luajit tests/lua_engine_worldgen.lua
+      - name: Original item/node custom callbacks and pointed interactions (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_custom_interactions.lua
+          luajit tests/lua_engine_custom_interactions.lua
       - name: Timed mining, tool wear and callbacks (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_timed_digging.lua
