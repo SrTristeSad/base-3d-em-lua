@@ -28,10 +28,13 @@ function M.is_cube(def)
  if type(def)~='table' then return false end
  local drawtype=def.drawtype or 'normal'
  return drawtype=='normal' or drawtype=='allfaces' or
-  drawtype=='glasslike' or drawtype=='liquid' or drawtype=='flowingliquid'
+  drawtype=='glasslike' or drawtype=='glasslike_framed' or
+  drawtype=='glasslike_framed_optional' or drawtype=='liquid' or drawtype=='flowingliquid'
 end
 local function occludes(def)
  return M.is_cube(def) and (def.drawtype or 'normal')~='glasslike'
+  and def.drawtype~='glasslike_framed'
+  and def.drawtype~='glasslike_framed_optional'
   and def.drawtype~='liquid' and def.drawtype~='flowingliquid'
   and def.use_texture_alpha~='blend'
   and def.use_texture_alpha~='clip' and def.sunlight_propagates~=true
@@ -84,6 +87,8 @@ function M.build(map,registry,cx,cy,cz)
     metrics.cubes=metrics.cubes+1
     local drawtype=def.drawtype or 'normal'
     local transparent=drawtype=='glasslike' or
+     drawtype=='glasslike_framed' or
+     drawtype=='glasslike_framed_optional' or
      drawtype=='liquid' or drawtype=='flowingliquid'
     if drawtype=='liquid' or drawtype=='flowingliquid' then
      metrics.liquids=metrics.liquids+1
