@@ -161,7 +161,8 @@ function lovr.mousepressed(x,y,button)
   if ok then digging_target=hit
   else print('dig rejected:',reason) end
  elseif button==2 and previous then
-  local ok,reason=engine:placeNodeAsPlayer(demo_player,previous)
+  local ok,reason=engine:placeNodeAsPlayer(demo_player,previous,
+   {type='node',under=hit,above=previous})
   if not ok then print('place rejected:',reason) end
  end
 end

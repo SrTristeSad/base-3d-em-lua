@@ -645,3 +645,50 @@ completa de `get_dig_params`, `on_dig` customizado,
 `on_place` para itens, regras completas de privilégio e modo
 criativo, partículas de progresso, pontuação de experiência
 e persistência do desgaste por inventário entre sessões.
+
+### Callbacks personalizados de interação com nós (Fase 27)
+
+O motor aceita `on_dig(pos,node,digger)` definido por mods:
+o jogador é o mesmo objeto conectado que executou a ação.
+O resultado `false` cancela a operação; `true` e `nil`
+(depreciado pelo Luanti) indicam que o mod tratou o evento.
+**O motor não duplica drops nem remove o bloco automaticamente
+após um callback customizado**: esse trabalho pertence ao mod.
+Mods podem reutilizar `core.node_dig(pos,node,digger)`, que
+executa o caminho de mineração padrão, com drops, metadados
+anteriores e callbacks, sem recursão para `on_dig`.
+A mineração progressiva também chama o callback personalizado
+quando o tempo de escavação termina.
+
+O comando `placeNodeAsPlayer(player,pos,pointed_thing)`
+passa o `ItemStack`, o jogador e as posições `under`/`above`
+para `on_place`, inclusive de `craftitem` e ferramentas.
+O retorno `ItemStack` substitui a ferramenta/item apenas quando
+o próprio callback não modificou diretamente o inventário;
+`nil` preserva a pilha original. Quando o bloco apontado tem
+`on_rightclick`, ele recebe prioridade em relação à colocação
+do item. A proteção das posições é conferida antes de invocar
+esses callbacks. A demo LÖVR agora repassa `under`/`above`
+reais do raycast.
+
+`core.item_place_node(itemstack,placer,pointed_thing[,param2,
+prevent_after_place])` oferece o caminho simples de colocar
+nós a partir de um callback personalizado. O helper devolve
+`ItemStack, bool`, executa `on_construct` e
+`after_place_node`, e chama `register_on_placenode` apenas
+quando colocou o bloco, sem consumir itens duas vezes. Retorno
+`true` de `after_place_node` preserva a pilha.
+
+Os testes em `tests/lua_engine_custom_interactions.lua`
+verificam escavação delegada e customizada, cancelamento,
+retorno `nil`, ausência de drops duplicados, chamadas de
+`on_place`, `on_rightclick`, proteção, integridade do
+inventário, orientação `param2` e callbacks após mineração
+com tempo em Lua 5.4 e LuaJIT.
+
+**Limitações:** estes helpers ainda não representam toda a
+implementação builtin Luanti: faltam `core.item_place` genérico,
+fluxos de controle cliente-servidor, orientação automática completa,
+interação com entidades, privilegios completos, drops como entidades
+e regras especiais de mineração. A compatibilidade 1:1 com VoxeLibre
+continua sendo uma meta, não uma funcionalidade já alcançada.

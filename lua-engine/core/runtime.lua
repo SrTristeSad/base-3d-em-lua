@@ -597,6 +597,18 @@ function Runtime.new(options)
   end
   return true
  end
+ -- Minimal builtin callback helpers for custom mods using
+ -- on_dig=core.node_dig or calling core.item_place_node.
+ -- Only real connected host players are supported in this port.
+ function api.node_dig(pos,node,digger)
+  if not digger then return false end
+  return require('core.playeractions').dig(self,digger,pos,true)
+ end
+ function api.item_place_node(itemstack,placer,pointed_thing,param2,prevent_after_place)
+  if not placer then return api.ItemStack(itemstack),false end
+  return require('core.playeractions').default_place(self,
+   itemstack,placer,pointed_thing,param2,prevent_after_place)
+ end
  function api.get_node_light(pos)
   local n=api.get_node(pos)
   local d=self.registry.nodes[n.name]
@@ -794,8 +806,8 @@ end
 function Runtime:digNodeAsPlayer(player,pos)
  return require('core.playeractions').dig(self,player,pos)
 end
-function Runtime:placeNodeAsPlayer(player,pos)
- return require('core.playeractions').place(self,player,pos)
+function Runtime:placeNodeAsPlayer(player,pos,pointed_thing)
+ return require('core.playeractions').place(self,player,pos,pointed_thing)
 end
 -- Return true when a Lua mod cancels the incoming player punch.
 -- This is a policy/callback preflight; the host owns actual HP and physics.
