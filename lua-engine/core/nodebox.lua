@@ -6,17 +6,17 @@ local N={}
 local abs=math.abs
 local shapes={
  {n={0,1,0},tile=1,shade=1,
-  corners={{1,4,3},{2,4,3},{2,4,6},{1,4,6}}},
+  corners={{1,4,3},{1,4,6},{2,4,6},{2,4,3}}},
  {n={0,-1,0},tile=2,shade=.58,
-  corners={{1,5,6},{2,5,6},{2,5,3},{1,5,3}}},
+  corners={{1,5,6},{1,5,3},{2,5,3},{2,5,6}}},
  {n={1,0,0},tile=3,shade=.82,
-  corners={{2,5,6},{2,4,6},{2,4,3},{2,5,3}}},
+  corners={{2,5,6},{2,5,3},{2,4,3},{2,4,6}}},
  {n={-1,0,0},tile=4,shade=.76,
-  corners={{1,5,3},{1,4,3},{1,4,6},{1,5,6}}},
+  corners={{1,5,3},{1,5,6},{1,4,6},{1,4,3}}},
  {n={0,0,1},tile=5,shade=.9,
-  corners={{1,5,6},{1,4,6},{2,4,6},{2,5,6}}},
+  corners={{1,5,6},{2,5,6},{2,4,6},{1,4,6}}},
  {n={0,0,-1},tile=6,shade=.72,
-  corners={{2,5,3},{2,4,3},{1,4,3},{1,5,3}}},
+  corners={{2,5,3},{1,5,3},{1,4,3},{2,4,3}}},
 }
 -- Above vertices use box indices:
 -- 1=xmin, 2=xmax, 3=zmin, 4=ymax, 5=ymin, 6=zmax.
@@ -92,11 +92,11 @@ function N.faces(def,node)
   local v={b[1],b[4],b[3],b[5],b[2],b[6]}
   for _,shape in ipairs(shapes) do
    local axis=shape.n[1]~=0 and 1 or shape.n[2]~=0 and 2 or 3
-   local lower=axis==1 and b[1] or axis==2 and b[2] or b[3]
-   local upper=axis==1 and b[4] or axis==2 and b[5] or b[6]
-   -- Degenerate planes are visible from both sides only on the
-   -- zero-thickness axis (stonecutter's upright saw blade).
-   if upper>lower or shape.n[axis]~=0 then
+   -- Only emit nonzero-area quads. For a zero-thickness box, this
+   -- preserves both sides of its actual plane without bogus side faces.
+   local dx,dy,dz=b[4]-b[1],b[5]-b[2],b[6]-b[3]
+   local area=axis==1 and dy*dz or axis==2 and dx*dz or dx*dy
+   if area>0 then
     local corners={}
     for _,indices in ipairs(shape.corners) do
      corners[#corners]=N.rotate({v[indices[1]],v[indices[2]],
