@@ -22,6 +22,11 @@ rt.api.register_on_shutdown(function() fired=fired+1 end)
 assert(#rt.callbacks.shutdown==1)
 rt:emit('shutdown')
 assert(fired==1,'shutdown event must fire registered callbacks')
+rt.api.register_privilege('test:example',{
+ description='Example privilege',give_to_singleplayer=false})
+assert(rt.api.registered_privileges['test:example'].description=='Example privilege')
+assert(not pcall(rt.api.register_privilege,'test:example',{}),
+ 'duplicate privilege definition must fail')
 local runner=Environment.new(rt)
 -- Permission regression: no arbitrary host file reads or writes.
 local file,err=runner.globals.io.open('lua-engine/main.lua','r')
