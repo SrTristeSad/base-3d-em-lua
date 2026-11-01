@@ -16,13 +16,15 @@ api.register_node('lua:stone',{tiles={'default_stone.png'},description='Stone',g
 api.register_node('lua:wood',{tiles={'default_tree.png'},description='Wood',groups={choppy=2}})
 api.register_node('lua:leaves',{tiles={'default_leaves.png'},description='Leaves',groups={snappy=3}})
 api.register_node('lua:sand',{tiles={'default_sand.png'},description='Sand',groups={crumbly=3}})
-api.register_node('lua:water',{drawtype='liquid',use_texture_alpha='blend',tiles={'mcl_core_water_source_animation.png'},description='Water',groups={water=1,liquid=1},
+api.register_node('lua:water',{drawtype='liquid',liquidtype='source',use_texture_alpha='blend',tiles={'mcl_core_water_source_animation.png'},description='Water',groups={water=1,liquid=1},
  walkable=false})
 api.register_node('lua:glass',{description='Glass',drawtype='glasslike',
  use_texture_alpha='blend',walkable=true,tiles={'default_glass.png'}})
 api.register_node('lua:lava',{description='Lava',drawtype='liquid',
  use_texture_alpha='blend',walkable=false,
  tiles={'mcl_core_lava_source_animation.png'}})
+api.register_node('lua:ladder',{description='Ladder (experimental)',drawtype='plantlike',
+ walkable=false,climbable=true,tiles={'default_wood.png'},groups={}})
 api.register_node('lua:flower',{description='Flower',drawtype='plantlike',
  tiles={'flowers_dandelion_yellow.png'},walkable=false})
 api.register_node('lua:coal_ore',{tiles={'mcl_core_coal_ore.png'},description='Coal Ore',groups={cracky=2}})
@@ -54,6 +56,11 @@ local function createWorld()
  api.set_node({x=4,y=3,z=3},{name='lua:glass'})
  api.set_node({x=5,y=3,z=3},{name='lua:glass'})
  api.set_node({x=-4,y=2,z=5},{name='lua:lava'})
+ -- Minimal demo fixtures for swimming and ladders; no new gameplay mods.
+ for y=1,3 do
+  api.set_node({x=-1,y=y,z=3},{name='lua:water'})
+  api.set_node({x=7,y=y,z=3},{name='lua:ladder'})
+ end
 end
 local function look()
  local dx=math.sin(camera.yaw)*math.cos(camera.pitch)
@@ -99,7 +106,8 @@ function lovr.update(dt)
  character:update(dt,{
   x=dx,z=dz,
   jump=down('space'),
-  sprint=down('lshift','rshift')
+  sprint=down('lshift','rshift'),
+  sneak=down('lctrl','rctrl')
  })
  local eye=character:eye()
  camera.x,camera.y,camera.z=eye.x,eye.y,eye.z
