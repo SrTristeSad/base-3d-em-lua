@@ -15,7 +15,7 @@ api.register_node('lua:dirt',{tiles={'default_dirt.png'},description='Dirt',grou
 api.register_node('lua:stone',{tiles={'default_stone.png'},description='Stone',groups={cracky=3}})
 api.register_node('lua:wood',{tiles={'default_tree.png'},description='Wood',groups={choppy=2}})
 api.register_node('lua:leaves',{tiles={'default_leaves.png'},description='Leaves',groups={snappy=3}})
-api.register_node('lua:sand',{tiles={'default_sand.png'},description='Sand',groups={crumbly=3}})
+api.register_node('lua:sand',{tiles={'default_sand.png'},description='Sand',groups={crumbly=3,falling_node=1}})
 api.register_node('lua:water',{drawtype='liquid',liquidtype='source',use_texture_alpha='blend',tiles={'mcl_core_water_source_animation.png'},description='Water',groups={water=1,liquid=1},
  walkable=false})
 api.register_node('lua:glass',{description='Glass',drawtype='glasslike',
@@ -110,6 +110,7 @@ function lovr.load()
  local inv=demo_player:get_inventory()
  inv:set_stack('main',1,'lua:stone 64')
  inv:set_stack('main',2,'lua:pickaxe')
+ inv:set_stack('main',3,'lua:sand 64')
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
@@ -186,6 +187,18 @@ function lovr.keypressed(key)
   local ok,generated,writes=pcall(generator.generate,generator,cx,cz)
   if not ok then print('chunk generation failed:',generated)
   else print('chunk',cx,cz,generated and 'generated' or 'already generated',writes) end
+ elseif key=='f8' then
+  -- Visual QA: spawn a test sand block above the current pointed node.
+  -- The physics API removes it from the voxel map until it lands.
+  local hit=target()
+  if hit then
+   local spawn={x=hit.x,y=hit.y+6,z=hit.z}
+   if api.get_node(spawn).name=='air' then
+    api.set_node(spawn,{name='lua:sand'})
+    local created=api.spawn_falling_node(spawn)
+    print('falling node spawned',created)
+   else print('falling node demo blocked at',spawn.x,spawn.y,spawn.z) end
+  else print('look at a block before pressing F8') end
  elseif key=='f6' then
   local ok,err=Storage.save(engine.map,savepath,lovr.filesystem)
   if not ok then print('save failed',err) end
@@ -211,4 +224,6 @@ function lovr.draw(pass)
  pass:setProjection('perspective',math.rad(75))
  -- GPU draws batched exposed faces, not one box for every saved node.
  renderer:draw(pass,engine.map,engine.registry.nodes,camera,20)
+ -- Moving blocks and loose items are absent from the static map mesh.
+ renderer:draw_dynamic(pass,engine,camera,20)
 end
