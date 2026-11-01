@@ -34,6 +34,7 @@ on:
       - 'tests/lua_engine_item_pickup.lua'
       - 'tests/lua_engine_item_physics_persistence.lua'
       - 'tests/lua_engine_item_nodebox_liquids.lua'
+      - 'tests/lua_engine_item_player_interaction.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -80,6 +81,7 @@ on:
       - 'tests/lua_engine_item_pickup.lua'
       - 'tests/lua_engine_item_physics_persistence.lua'
       - 'tests/lua_engine_item_nodebox_liquids.lua'
+      - 'tests/lua_engine_item_player_interaction.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -173,6 +175,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_item_nodebox_liquids.lua
           luajit tests/lua_engine_item_nodebox_liquids.lua
+      - name: Embedded item recovery and validated player punch (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_item_player_interaction.lua
+          luajit tests/lua_engine_item_player_interaction.lua
       - name: Player inventory, wield and node interactions (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_player_gameplay.lua
