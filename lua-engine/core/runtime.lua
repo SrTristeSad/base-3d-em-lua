@@ -844,8 +844,8 @@ function Runtime:bindPlayerPhysics(name,controller)
   'character controller belongs to a different runtime')
  local release=PlayerPhysics.attach(player,controller)
  local previous_provider=controller.object_colliders
- controller.object_colliders=function()
-  local boxes=EntityPhysics.entity_boxes(self)
+ controller.object_colliders=function(swept)
+  local boxes=EntityPhysics.entity_boxes(self,swept)
   -- Connected player controllers also block each other. Never infer
   -- collision data from unbound/native host-owned player objects.
   local names={}
