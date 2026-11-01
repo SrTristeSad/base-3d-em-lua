@@ -365,6 +365,49 @@ function Runtime.new(options)
   local callbacks=self.callbacks.on_craft
   callbacks[#callbacks+1]=callback
  end
+ -- Headless subset of Luanti's builtin item-eating lifecycle.
+ -- Callback cancellation, item consumption, HP changes and replacements that
+ -- fit a stack or inventory are supported. Audible eat sounds and dropped
+ -- entity overflow remain unsupported until their respective systems exist.
+ function api.do_item_eat(hp_change,replace_with_item,itemstack,user,pointed_thing)
+  assert(type(hp_change)=='number','item_eat requires numeric HP change')
+  assert(type(itemstack)=='table' and type(itemstack.take_item)=='function',
+   'item_eat requires an ItemStack')
+  assert(type(user)=='table' and type(user.get_hp)=='function'
+   and type(user.set_hp)=='function','item_eat requires a player HP API')
+  for _,callback in ipairs(self.callbacks.on_item_eat) do
+   local result=callback(hp_change,replace_with_item,itemstack,user,pointed_thing)
+   if result then return result end
+  end
+  if itemstack:is_empty() then return itemstack end
+  local preview=itemstack:copy()
+  preview:take_item(1)
+  local overflow=preview:add_item(replace_with_item or '')
+  local inventory
+  if not overflow:is_empty() then
+   inventory=type(user.get_inventory)=='function' and user:get_inventory() or nil
+   assert(inventory and inventory:room_for_item('main',overflow),
+    'item entity overflow is not yet implemented')
+  end
+  itemstack:take_item(1)
+  local leftover=itemstack:add_item(replace_with_item or '')
+  if not leftover:is_empty() then
+   local still=inventory:add_item('main',leftover)
+   assert(still:is_empty(),'inventory changed during item_eat')
+  end
+  user:set_hp(user:get_hp()+hp_change,
+   {type='set_hp',custom_type='__builtin:item_eat'})
+  return nil
+ end
+ function api.item_eat(hp_change,replace_with_item)
+  assert(type(hp_change)=='number','item_eat HP must be numeric')
+  return function(itemstack,user,pointed_thing)
+   if user then
+    return api.do_item_eat(hp_change,replace_with_item,
+     itemstack,user,pointed_thing)
+   end
+  end
+ end
  function api.register_on_liquid_transformed(callback)
   assert(type(callback)=='function',
    'liquid transformation callback must be callable')
