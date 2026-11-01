@@ -73,7 +73,7 @@ local a=fa.add_entity(p(0,2,0),'test:body')
 local b=fa.add_entity(p(3,2,0),'test:body')
 a:set_velocity(p(.1,-20,0))
 b:set_velocity(p(-.1,-20,0))
-fa:step(.2)
+fall:step(.2)
 near(a:get_pos().y,.8,'first body must land at ground top')
 near(b:get_pos().y,.8,'second body must land at ground top')
 local ahit=a:get_luaentity().hit
