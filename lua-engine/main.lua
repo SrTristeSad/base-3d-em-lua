@@ -187,6 +187,13 @@ function lovr.keypressed(key)
   local ok,generated,writes=pcall(generator.generate,generator,cx,cz)
   if not ok then print('chunk generation failed:',generated)
   else print('chunk',cx,cz,generated and 'generated' or 'already generated',writes) end
+ elseif key=='f9' then
+  -- Show a loose item mesh without waiting for node-drop inventory overflow.
+  local hit=target()
+  if hit then
+   local item=api.add_item({x=hit.x,y=hit.y+1,z=hit.z},'lua:sand')
+   print('loose sand item spawned',item~=nil)
+  else print('look at a block before pressing F9') end
  elseif key=='f8' then
   -- Visual QA: spawn a test sand block above the current pointed node.
   -- The physics API removes it from the voxel map until it lands.
