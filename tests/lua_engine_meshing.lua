@@ -53,11 +53,12 @@ assert(other.faces==5,'neighbor chunk must not draw shared face')
 assert(Atlas.index('default_stone.png')==4)
 assert(Atlas.index({name='default_dirt.png^overlay.png'})==3)
 assert(Atlas.index('nonexistent.png')==1)
-map:set_node(pos(3,3,3),{name='test:grass'})
-local grass=Mesher.build(map,rt.registry.nodes,0,0,0)
+local grassmap=Engine.new().map
+grassmap:set_node(pos(3,3,3),{name='test:grass'})
+local grass=Mesher.build(grassmap,rt.registry.nodes,0,0,0)
 local topu,topv=Atlas.uv('mcl_core_grass_block_top.png')
-assert(math.abs(grass[#grass-35][7]-topu)<.001)
-assert(math.abs(grass[#grass-35][8]-topv)>.001)
+assert(math.abs(grass[1][7]-topu)<.001)
+assert(math.abs(grass[1][8]-topv)>.001)
 local uploads,releases,drawcalls=0,0,0
 local graphics={
  newBuffer=function(format,values)
