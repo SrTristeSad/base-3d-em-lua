@@ -99,6 +99,8 @@ compare(rt,swept,2,true,'entity repeated')
 assert(Geometry.cache(rt)==cache and cache.hits>hits,
  'repeated node probes must reuse the same geometry cache')
 assert(cache.count>0 and cache.misses>0)
+assert(cache.count<25,
+ 'sparse air cells must never fill and churn the collision cache')
 -- Public API returns fresh mutable nodeboxes; modifying one must not
 -- mutate the collision cache or a subsequent API query.
 local returned=api.get_node_boxes('collision_box',p(1,0,0))
