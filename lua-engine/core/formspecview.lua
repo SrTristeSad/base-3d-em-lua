@@ -594,7 +594,7 @@ function View:close()
  return self:submit({quit='true'})
 end
 function View:scrollbarChange(field,position)
- if type(field)~='string' or type(position)~='number' then
+ if type(field)~='string' or not number(position) then
   return false,'invalid_scrollbar'
  end
  local layout=self:layout(self.width or 1100,self.height or 800)
