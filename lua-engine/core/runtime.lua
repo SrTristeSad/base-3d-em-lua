@@ -582,6 +582,14 @@ function Runtime:allowedInventoryAction(player,action,inventory,info)
  end
  return count
 end
+-- Called once by the host when the world/session closes.  Luanti's
+-- register_on_shutdown callbacks are not regular per-frame callbacks.
+function Runtime:shutdown()
+ if self.shut_down then return false end
+ self.shut_down=true
+ self:emit('shutdown')
+ return true
+end
 function Runtime:emit(event,...)
  local callbacks=self.callbacks[event]
  assert(callbacks,'unknown runtime event: '..tostring(event))
