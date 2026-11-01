@@ -463,3 +463,32 @@ considerado um dos módulos integrados.**
   e layout global ainda não reproduzem todas as regras do Luanti C++.
   A melhoria representa o recorte dos filhos desse subconjunto e não
   significa paridade visual ou funcional 1:1 completa.
+
+### Fase 68 — scroll_container aninhado e rolagem horizontal
+
+- O parser de formspec mantém uma pilha de até 16 pares clipper/mover
+  de `scroll_container[]`, seguindo o modelo de
+  `GUIFormSpecMenu::parseScrollContainer` do Luanti original. Cada
+  elemento usa coordenadas locais ao contêiner mais interno; rolagens
+  de ancestrais deslocam seus descendentes automaticamente.
+- O recorte efetivo é a **interseção** da janela de rolagem atual com
+  a janela já recortada do contêiner pai. Tanto `Pass:setScissor`
+  quanto o hit testing aplicam essa interseção. Elementos totalmente
+  ocultos são excluídos da apresentação.
+- O movimento de scroll leva em conta `vertical` e `horizontal`,
+  acrescentando suporte a padding de conteúdo (`content padding`).
+  O alcance é calculado com todas as extensões dos filhos, mesmo
+  quando estão atualmente fora do viewport.
+- Eventos da roda do mouse são oferecidos primeiro ao contêiner
+  visível mais interno. Quando atingem um limite sem alterar sua
+  posição, a roda pode rolar o contêiner pai. A rolagem de um filho
+  não altera a posição do pai.
+- Novo teste `tests/lua_engine_formspec_nested_scroll.lua` valida
+  posicionamento local, interseção dos clipes, imagens e slots
+  parcialmente visíveis, rolagem independente em dois eixos,
+  callbacks, estado do scissor e reset da sessão, em Lua 5.4 e LuaJIT.
+- **Limites:** o mecanismo atual da roda usa deslocamento simplificado
+  de apresentação; `scrollbar[]`, `scrollbaroptions[]` e eventos
+  de alteração de scrollbar ainda precisam ser conectados ao
+  controlador de rolagem para paridade completa. Geometria geral
+  do formspec e outras partes do Luanti continuam incompletas.

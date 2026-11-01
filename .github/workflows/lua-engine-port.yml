@@ -35,6 +35,7 @@ on:
       - 'tests/lua_engine_formspec_nine_slice.lua'
       - 'tests/lua_engine_formspec_background_clip.lua'
       - 'tests/lua_engine_formspec_scroll_clip.lua'
+      - 'tests/lua_engine_formspec_nested_scroll.lua'
       - 'tests/lua_engine_formspec_input_controls.lua'
       - 'tests/lua_engine_player_inventory_actions.lua'
       - 'tests/lua_engine_inventory_swap_put_take.lua'
@@ -118,6 +119,7 @@ on:
       - 'tests/lua_engine_formspec_nine_slice.lua'
       - 'tests/lua_engine_formspec_background_clip.lua'
       - 'tests/lua_engine_formspec_scroll_clip.lua'
+      - 'tests/lua_engine_formspec_nested_scroll.lua'
       - 'tests/lua_engine_formspec_input_controls.lua'
       - 'tests/lua_engine_player_inventory_actions.lua'
       - 'tests/lua_engine_inventory_swap_put_take.lua'
@@ -351,6 +353,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_formspec_input_controls.lua
           luajit tests/lua_engine_formspec_input_controls.lua
+      - name: Nested Luanti scroll containers, horizontal movers and wheel priority (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_formspec_nested_scroll.lua
+          luajit tests/lua_engine_formspec_nested_scroll.lua
       - name: Partially clipped Luanti scroll_container controls, real GPU scissor and mouse events (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_formspec_scroll_clip.lua
