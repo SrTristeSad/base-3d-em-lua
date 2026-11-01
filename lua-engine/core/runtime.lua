@@ -21,6 +21,7 @@ local PlayerPhysics=require('core.playerphysics')
 local PlayerHP=require('core.playerhp')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
+local PlayerInventoryActions=require('core.playerinventoryactions')
 local Serialization=require('core.serialization')
 local Runtime={}
 Runtime.__index=Runtime
@@ -1128,10 +1129,13 @@ function Runtime:punchNode(pos,puncher,pointed_thing)
  self.api.check_for_falling(pos)
  return node
 end
--- Explicit event dispatch for tests and future player integration.
+-- A UI/host-initiated action enters here; Lua callbacks are the authority.
+-- Only same-InvRef moves are supported so far. Do not silently fake swaps.
+function Runtime:movePlayerInventoryStack(playername,info)
+ return PlayerInventoryActions.move(self,playername,info)
+end
 -- Count-restrictions from upstream callbacks are combined conservatively.
--- This checks permissions only: actual moving/taking must be performed by
--- a future player backend after this preflight succeeds.
+-- This function is the permission preflight for supported transactions.
 function Runtime:allowedInventoryAction(player,action,inventory,info)
  assert(type(action)=='string' and type(info)=='table',
   'invalid inventory action')
