@@ -19,7 +19,7 @@ api.register_node('test:unbreakable',{diggable=false})
 api.register_node('test:custom',{on_dig=function()error('must not be called')end})
 api.register_node('test:ore',{drop={items={{items={'test:gem 2'},
  tools={'test:pick'}}}}})
-api.register_node('test:gem',{})
+api.register_craftitem('test:gem',{})
 api.register_tool('test:pick',{stack_max=1})
 local events={}
 api.register_on_dignode(function(pos,old,digger)
