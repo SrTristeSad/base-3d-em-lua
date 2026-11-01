@@ -174,7 +174,9 @@ local PlayerPhysics=require('core.physics')
 for bx=98,110 do
  rt.api.set_node({x=bx,y=0,z=0},{name='mcl_core:stone'})
 end
-rt.api.set_node({x=102,y=1,z=0},{name='mcl_core:snow'})
+assert(rt.api.registered_nodes['mcl_core:snow'].walkable==false)
+assert(rt.api.registered_nodes['mcl_core:snow_2'].walkable==true)
+rt.api.set_node({x=102,y=1,z=0},{name='mcl_core:snow_2'})
 rt.api.set_node({x=106,y=1,z=0},{name='mcl_fences:fence'})
 local simulated=PlayerPhysics.new(rt.api,{x=100,y=.5,z=0})
 local climbed=false
