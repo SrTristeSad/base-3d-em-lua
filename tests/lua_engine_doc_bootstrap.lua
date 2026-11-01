@@ -17,6 +17,11 @@ for name,path in pairs(paths) do
 end
 local rt=Engine.new({settings={},mapgen={seed=42,mg_name='v7'},
  game_info={path=root,title='VoxeLibre'},modpaths=paths})
+local fired=0
+rt.api.register_on_shutdown(function() fired=fired+1 end)
+assert(#rt.callbacks.shutdown==1)
+rt:emit('shutdown')
+assert(fired==1,'shutdown event must fire registered callbacks')
 local runner=Environment.new(rt)
 -- Permission regression: no arbitrary host file reads or writes.
 local file,err=runner.globals.io.open('lua-engine/main.lua','r')
