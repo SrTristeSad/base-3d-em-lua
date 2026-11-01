@@ -1940,3 +1940,54 @@ Ainda faltam arrastar pilhas com o mouse, uma bancada
 3×3, inventários de baús, imagens de ícones e formspecs
 genéricos. Não se afirma que o jogo completo VoxeLibre
 inicializa na janela; o teste gráfico manual segue pendente.
+
+
+### Fase 55 — bancada de crafting 3×3 no mundo e na demo
+
+A demo desktop passou a incluir o bloco colocável
+`lua:crafting_table` e uma bancada de crafting **3×3**. Para
+construí-la, transforme madeira em tábuas usando as receitas
+existentes e coloque quatro tábuas num quadrado 2×2 para
+produzir a bancada. Depois de colocá-la no mundo,
+**clique direito sobre a própria bancada** para abrir a
+tela de fabricação de nove células. O inventário pessoal
+continua disponível com **E**, em sua grade 2×2 anterior.
+
+A bancada utiliza a lista real `craft_table` com nove
+posições e largura três, separada da lista `craft` do
+inventário pessoal. Trocar de tela não apaga nem mistura
+ingredientes. O método de cálculo e consumo é o mesmo
+`get_craft_result`/`lua_engine_craft_inventory` da
+Fase 54: se o resultado não couber no inventário, a
+transação é recusada sem gastar materiais.
+
+Uma nova receita que **exige largura três** permite
+criar `lua:pickaxe` usando três tábuas na linha
+superior e dois gravetos centralizados abaixo. Na
+tela 3×3, pode-se clicar nas nove células ou usar
+as teclas **1–9** para inserir um item de cada vez;
+**R** devolve um ingrediente selecionado e **C**
+fabrica o resultado. A grade pessoal 2×2 mantém
+seus controles anteriores. O menu continua pausando
+a demo e liberando o cursor.
+
+O arquivo de perfil `LUAENGINE PLAYER 1` ganha um
+campo **opcional** `craft_table`, contendo os nove
+ingredientes não consumidos. A versão existente do
+perfil é mantida: saves anteriores carregam uma grade
+de bancada vazia, enquanto saves novos preservam
+**as duas grades** e a mochila. Os dados são
+validados antes de alterar o inventário conectado.
+
+`tests/lua_engine_crafting_table_3x3.lua` verifica
+a receita de três colunas, consumo, bloqueio por
+mochila cheia, a separação entre as grades, células
+clicáveis, desenho mockado, saves antigos e integridade
+após carregamento em Lua 5.4 e LuaJIT.
+
+**Limites:** a bancada e suas receitas são da
+demonstração, ainda não há suporte completo a
+formspecs de mods, imagens de ícones, baús ou
+todas as receitas do VoxeLibre. A interface requer
+teste visual manual no Windows; sucesso em CI não
+comprova aparência ou jogabilidade integral 1:1.
