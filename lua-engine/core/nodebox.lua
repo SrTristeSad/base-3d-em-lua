@@ -134,10 +134,10 @@ local function wall_side(box,orient)
   return {-x2,y1,-z2,-x1,y2,-z1}
  elseif orient==4 then
   -- x- to z+
-  return {-z2,y1,x1,-z1,y2,x2}
+  return {z1,y1,-x2,z2,y2,-x1}
  elseif orient==5 then
   -- x- to z-
-  return {z1,y1,-x2,z2,y2,-x1}
+  return {-z2,y1,x1,-z1,y2,x2}
  end
  return box
 end
@@ -172,6 +172,19 @@ local function normalized_boxes(def,node,map,pos,registry)
   if not boxes then return nil end
   if property=='wall_side' then
    for i,box in ipairs(boxes) do boxes[i]=wall_side(box,orient) end
+  elseif orient==6 or orient==7 then
+   -- Special vertical wallmounted values rotate the pre-positioned
+   -- top/bottom nodebox by 90 degrees around the local Y axis.
+   local rotated={}
+   for _,box in ipairs(boxes) do
+    local x1,y1,z1,x2,y2,z2=table.unpack and table.unpack(box) or unpack(box)
+    if orient==6 then
+     rotated[#rotated+1]={z1,y1,-x2,z2,y2,-x1}
+    else
+     rotated[#rotated+1]={-z2,y1,x1,-z1,y2,x2}
+    end
+   end
+   boxes=rotated
   end
   return boxes
  end
