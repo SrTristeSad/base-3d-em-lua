@@ -1208,3 +1208,57 @@ abrange somente itens soltos e blocos em queda. Ainda não existem
 física detalhada de colisão/movimento para entidades genéricas,
 controle de animações, attachments, rede ou equivalência completa
 com `ObjectRef` de Luanti/VoxeLibre.
+
+
+### Fase 39 — persistência de LuaEntities e desativação
+
+O mesmo arquivo `lua-engine-world.objects` da Fase 34 agora inclui
+uma seção opcional `lua_entities` dentro do cabeçalho existente
+`LUAENGINE OBJECTS 1`. **Arquivos mais antigos sem a seção continuam
+válidos**; os drops e blocos em queda são restaurados como antes.
+Nenhum arquivo Lua é executado durante a leitura de dados.
+
+Cada LuaEntity registrada passa a salvar automaticamente seu **nome,
+posição, velocidade, aceleração, orientação yaw, HP e propriedades
+ativas**. O conteúdo específico de cada mod depende do callback do
+próprio registro:
+
+- `get_staticdata(self)` deve devolver uma string (até 64 KiB por
+  entidade); a string será salva sem perder caracteres ou metadados.
+- `on_activate(self,staticdata,elapsed_s)` recebe os dados anteriores
+  ao carregar, com `elapsed_s=0` nesta implementação inicial.
+  O motor reaplica o estado físico persistente depois do callback;
+  a entidade pode voltar a alterá-lo durante os passos seguintes.
+- `on_deactivate(self,removal)` recebe `true` quando a ObjectRef
+  é removida explicitamente, e `false` ao descarregar o mundo ou
+  substituir uma sessão restaurada. Para chamar o descarregamento
+  após salvar: `Runtime:deactivateLuaEntities()`.
+
+`EntityStorage.save/load` continua usando os mesmos métodos e o
+mesmo arquivo. A demonstração **F4** cria um golem experimental cujo
+`get_staticdata` salva a idade de movimento; **F6** grava e o
+próximo carregamento restaura a entidade com sua posição, movimento,
+vida e idade. Ao encerrar a demonstração, o host salva primeiro e
+depois despacha `on_deactivate(false)`.
+
+O carregamento valida o documento completo (tipo, IDs de registros,
+posições, velocidades, tamanho dos dados e propriedades) **antes de
+substituir os objetos ativos**. Uma falha na ativação de um registro
+restaura as coleções anteriores de objetos e invalidará as ObjectRefs
+criadas durante a tentativa. O limite geral é de 2000 objetos por
+arquivo, compartilhado com drops e blocos em queda; também são
+respeitados os limites configurados do motor.
+
+Regressões `tests/lua_engine_entity_persistence.lua` em Lua 5.4 e
+LuaJIT abrangem reconstrução de várias instâncias, callbacks,
+pilhas de itens coexistentes, dados estáticos próprios, propriedades,
+movimento, orientação, HP, falhas de ativação, formatos antigos,
+documentos alterados, limites e `on_deactivate`.
+
+**Limitações de compatibilidade:** os callbacks dos mods são código
+ativo e podem modificar o mundo fora do controle do snapshot; o
+rollback protege as coleções de objetos, não desfaz efeitos externos
+desses callbacks. `on_activate` não recebe ainda o tempo real de
+inatividade, e o arquivo lateral não é transacional com o mapa.
+Esta persistência **não** substitui o banco de dados de entidades
+nativo de Luanti nem garante compatibilidade 1:1 com VoxeLibre.

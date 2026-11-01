@@ -1,8 +1,9 @@
 -- Runtime object sidecar: data-only, versioned, limited, no load/eval.
--- Save beside LUAENGINE 1 map; preserves transient drops and falling nodes.
+-- Save beside LUAENGINE 1 map; includes registered LuaEntity state too.
 local Serialization=require('core.serialization')
 local Falling=require('core.falling')
 local Stack=require('core.itemstack')
+local LuaEntities=require('core.luaentities')
 local M={}
 local HEADER='LUAENGINE OBJECTS 1\n'
 local MAX_BYTES=1024*1024
@@ -71,7 +72,7 @@ end
 function M.encode(rt)
  assert(type(rt)=='table' and type(rt.registry)=='table',
   'runtime required for entity storage')
- local data={drops={},falling={}}
+ local data={drops={},falling={},lua_entities=LuaEntities.snapshot(rt)}
  for _,obj in ipairs(rt.droppedItems or {}) do
   if not obj.removed then
    data.drops[#data.drops+1]={
@@ -87,7 +88,8 @@ function M.encode(rt)
     param2=obj.node.param2},meta=obj.meta,timer=obj.timer
   }
  end
- assert(#data.drops+#data.falling<=MAX_OBJECTS,'too many saved entities')
+ assert(#data.drops+#data.falling+#data.lua_entities<=MAX_OBJECTS,
+  'too many saved entities')
  local result=HEADER..Serialization.serialize(data)
  assert(#result<=MAX_BYTES,'entity save too large')
  return result
@@ -98,9 +100,12 @@ local function parse(data,rt)
  local value=Serialization.deserialize(data:sub(#HEADER+1))
  assert(type(value)=='table' and type(value.drops)=='table' and
   type(value.falling)=='table','malformed entity save')
- assert(#value.drops+#value.falling<=MAX_OBJECTS,
+ local entity_list=value.lua_entities
+ if entity_list==nil then entity_list={} end -- Backward compatible v1 file
+ assert(type(entity_list)=='table','invalid LuaEntity list')
+ assert(#value.drops+#value.falling+#entity_list<=MAX_OBJECTS,
   'too many loaded entities')
- local drops,falling={},{}
+ local drops,falling,entities={},{},{}
  for _,entry in ipairs(value.drops) do
   assert(type(entry)=='table' and finite(entry.age) and entry.age>=0,
    'invalid drop age')
@@ -123,15 +128,36 @@ local function parse(data,rt)
    meta=metadata(entry.meta),timer=timer(entry.timer)
   }
  end
- return drops,falling
+ for _,entry in ipairs(entity_list) do
+  assert(type(entry)=='table' and type(entry.name)=='string' and
+   type(rt.registry.entities[entry.name])=='table',
+   'unknown persisted LuaEntity definition')
+  assert(type(entry.staticdata)=='string' and
+   #entry.staticdata<=65536,'invalid LuaEntity staticdata')
+  assert(finite(entry.yaw) and finite(entry.hp) and entry.hp>=0,
+   'invalid LuaEntity orientation or HP')
+  local properties=LuaEntities.validate_properties(entry.properties)
+  assert(entry.hp<=properties.hp_max,'invalid LuaEntity HP range')
+  entities[#entities+1]={
+   name=entry.name,staticdata=entry.staticdata,
+   pos=pos(entry.pos),velocity=velocity(entry.velocity),
+   acceleration=velocity(entry.acceleration),
+   yaw=entry.yaw,hp=entry.hp,properties=properties
+  }
+ end
+ local maxactive=rt.opts.max_lua_entities or 4096
+ assert(#entities<=maxactive,'LuaEntity limit exceeded')
+ return drops,falling,entities
 end
 -- Validate complete snapshot before mutating the live runtime; failed loads
 -- cannot partially overwrite the world's existing item entities.
 function M.restore(rt,data)
- local drops,falling=parse(data,rt)
+ local drops,falling,entities=parse(data,rt)
  local previous_drops,previous_falling=rt.droppedItems,rt.fallingNodes
+ local previous_entities,previous_next_id=rt.luaEntities,rt.nextLuaEntityId
  rt.droppedItems={}
  rt.fallingNodes={}
+ rt.luaEntities={}
  local ok,err=pcall(function()
   for _,entry in ipairs(drops) do
    local obj=Falling.add_item(rt,entry.pos,Stack.new(entry.stack,rt.registry.items))
@@ -142,12 +168,39 @@ function M.restore(rt,data)
   for _,entry in ipairs(falling) do
    rt.fallingNodes[#rt.fallingNodes+1]=entry
   end
+  for _,entry in ipairs(entities) do
+   -- on_activate may execute registered mod code. We keep all previously
+   -- loaded world objects untouched until every activation succeeds.
+   local obj=LuaEntities.add(rt,entry.pos,entry.name,entry.staticdata,entry)
+   assert(obj and not obj.removed,'LuaEntity activation did not succeed')
+  end
  end)
  if not ok then
+  -- A callback might have spawned more objects during activation. Invalidate
+  -- every staged ObjectRef, rather than leaving live refs in a discarded list.
+  for _,obj in ipairs(rt.luaEntities) do obj.removed=true end
   rt.droppedItems,rt.fallingNodes=previous_drops,previous_falling
+  rt.luaEntities,rt.nextLuaEntityId=previous_entities,previous_next_id
   error(err,0)
  end
- return #drops,#falling
+ -- Old live ObjectRefs are invalid after replacement; notify mods that the
+ -- objects were unloaded (removal=false), without firing removal callbacks.
+ -- Runtime callbacks are not sandboxed: any side effects to the world map
+ -- made in on_activate/on_deactivate cannot be rolled back by this sidecar.
+ for _,obj in ipairs(previous_entities or {}) do
+  if not obj.removed then
+   obj.removed=true
+   if type(obj.luaentity.on_deactivate)=='function' then
+    local activated,problem=pcall(obj.luaentity.on_deactivate,
+     obj.luaentity,false)
+    if not activated then
+     rt.logging[#rt.logging+1]={
+      level='error',message='LuaEntity on_deactivate: '..tostring(problem)}
+    end
+   end
+  end
+ end
+ return #drops,#falling,#entities
 end
 function M.save(rt,path,fs)
  assert(fs and type(fs.write)=='function','filesystem.write required')
@@ -157,8 +210,8 @@ function M.load(rt,path,fs)
  assert(fs and type(fs.read)=='function','filesystem.read required')
  local data=fs.read(path)
  if not data then return nil,'not found' end
- local ok,count,falling=pcall(M.restore,rt,data)
+ local ok,count,falling,entities=pcall(M.restore,rt,data)
  if not ok then return nil,count end
- return count,falling
+ return count,falling,entities
 end
 return M

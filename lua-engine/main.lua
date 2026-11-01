@@ -50,6 +50,12 @@ api.register_entity('lua:demo_golem',{
   self.age=tonumber(staticdata) or 0
   self.object:set_velocity({x=.3,y=0,z=0})
  end,
+ get_staticdata=function(self)
+  return tostring(self.age)
+ end,
+ on_deactivate=function(self,removal)
+  print('demo golem deactivated',removal and 'removed' or 'unloaded')
+ end,
  on_step=function(self,dt)
   self.age=self.age+dt
   if self.age>3 then
@@ -310,6 +316,8 @@ function lovr.quit()
   local saved,why=Storage.save(engine.map,savepath,lovr.filesystem)
   if not saved then print('map save failed',why) end
  end
+ local closed,close_err=pcall(engine.deactivateLuaEntities,engine)
+ if not closed then print('LuaEntity unload callback failed:',close_err) end
 end
 function lovr.draw(pass)
  pass:setClear(.52,.72,.91,1)

@@ -923,6 +923,11 @@ function Runtime:punchItemAsPlayer(player,item,reach)
 end
 -- LuaEntity ObjectRefs have their own on_punch/on_rightclick callbacks.
 -- They are not item stacks and must not be processed as dropped items.
+-- Unload active LuaEntity ObjectRefs after the host has saved the world.
+-- on_deactivate(false) differs from removal-triggered on_deactivate(true).
+function Runtime:deactivateLuaEntities()
+ return LuaEntities.deactivate_all(self)
+end
 function Runtime:punchLuaEntity(obj,puncher,interval,toolcaps,dir,damage)
  return LuaEntities.punch(self,obj,puncher,interval,toolcaps,dir,damage)
 end
