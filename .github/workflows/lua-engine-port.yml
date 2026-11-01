@@ -5,6 +5,7 @@ on:
     paths:
       - 'lua-engine/**'
       - 'tests/lua_engine_core.lua'
+      - 'tests/lua_engine_vector_extended.lua'
       - 'tests/lua_engine_inventory_modloader.lua'
       - 'tests/lua_engine_crafting.lua'
       - 'tests/lua_engine_real_voxelibre.lua'
@@ -24,6 +25,7 @@ on:
     paths:
       - 'lua-engine/**'
       - 'tests/lua_engine_core.lua'
+      - 'tests/lua_engine_vector_extended.lua'
       - 'tests/lua_engine_inventory_modloader.lua'
       - 'tests/lua_engine_crafting.lua'
       - 'tests/lua_engine_real_voxelibre.lua'
@@ -87,6 +89,10 @@ jobs:
         run: lua5.4 tests/lua_engine_pseudorandom.lua
       - name: Same legacy RNG tests on LuaJIT
         run: luajit tests/lua_engine_pseudorandom.lua
+      - name: Additional vector API checks (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_vector_extended.lua
+          luajit tests/lua_engine_vector_extended.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
       - uses: actions/upload-artifact@v4
