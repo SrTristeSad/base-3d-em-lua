@@ -10,23 +10,25 @@ local function elements(source)
  while at<=#source do
   local first,last,name=source:find('([%w_]+)%[',at)
   if not first then break end
-  local depth=1
+  -- Inside an element a literal '[' is legal in texture modifiers
+  -- (e.g. texture.png^[verticalframe:3:1). Only an unescaped ']' closes it.
   local start=last+1
   local i=start
-  while i<=#source and depth>0 do
+  while i<=#source do
    local char=source:sub(i,i)
    if char=='\\' then
     i=i+2
+   elseif char==']' then
+    break
    else
-    if char=='[' then depth=depth+1 end
-    if char==']' then depth=depth-1 end
     i=i+1
    end
   end
-  if depth~=0 then
+  if i>#source then
    return nil,'incomplete formspec element: '..name
   end
-  out[#out+1]={name=name,params=source:sub(start,i-2)}
+  out[#out+1]={name=name,params=source:sub(start,i-1)}
+  i=i+1
   at=i
  end
  return out
