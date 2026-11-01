@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'lua-engine/**'
+      - 'benchmarks/**'
+      - 'scripts/check_lua_engine_benchmarks.py'
       - 'tests/lua_engine_core.lua'
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
@@ -61,6 +63,8 @@ on:
   pull_request:
     paths:
       - 'lua-engine/**'
+      - 'benchmarks/**'
+      - 'scripts/check_lua_engine_benchmarks.py'
       - 'tests/lua_engine_core.lua'
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
@@ -419,5 +423,33 @@ jobs:
             dist/VoxeLibre-Real-Mod-Boot.md
             dist/VoxeLibre-Doc-Bootstrap.md
             dist/VoxeLibre-mcl_core-Dependencies.md
+          if-no-files-found: error
+          retention-days: 30
+
+
+  performance-baseline:
+    # Independent of correctness tests; compare times only between runs
+    # on equivalent hardware, never impose a flaky absolute timing limit.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.4 and LuaJIT
+        run: sudo apt-get update -qq && sudo apt-get install -y lua5.4 luajit
+      - name: Run deterministic quick CPU benchmarks under Lua 5.4
+        run: |
+          mkdir -p dist
+          lua5.4 benchmarks/lua_engine_perf.lua --quick --samples=2 --output=dist/LuaEngine-Perf-Lua54.json
+      - name: Run identical CPU benchmarks under LuaJIT
+        run: luajit benchmarks/lua_engine_perf.lua --quick --samples=2 --output=dist/LuaEngine-Perf-LuaJIT.json
+      - name: Check reports and indexed-versus-linear result equivalence
+        run: |
+          python3 scripts/check_lua_engine_benchmarks.py \
+            dist/LuaEngine-Perf-Lua54.json dist/LuaEngine-Perf-LuaJIT.json
+      - name: Upload benchmark baseline JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: Motor-Lua-Performance-Baseline
+          path: dist/LuaEngine-Perf-*.json
           if-no-files-found: error
           retention-days: 30
