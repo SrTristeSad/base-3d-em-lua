@@ -14,6 +14,7 @@ local function v(x,y,z)
 end
 V.new=v
 V.copy=v
+function V.zero() return v(0,0,0) end
 function V.add(a,b)
  if type(b)=='number' then return v(a.x+b,a.y+b,a.z+b) end
  return v(a.x+b.x,a.y+b.y,a.z+b.z)
