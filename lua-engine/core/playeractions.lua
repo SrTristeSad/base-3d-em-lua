@@ -5,6 +5,7 @@ local Inventory=require('core.inventory')
 local Stack=require('core.itemstack')
 local Digging=require('core.digging')
 local Placement=require('core.placement')
+local Attached=require('core.attached')
 local Actions={}
 local function position(pos)
  assert(type(pos)=='table' and
@@ -111,7 +112,7 @@ function Actions.dig(rt,player,where,default_only)
      assert(player:set_wielded_item(Stack.new(returned,rt.registry.items)),
       'failed to commit custom after_use stack')
     end
-   elseif params.wear>0 then
+   elseif params.wear>0 and not api.is_creative_enabled(name) then
     local updated=wield:copy()
     local wear=updated:get_wear()+params.wear
     if wear>=65536 then updated:clear()
@@ -173,8 +174,13 @@ function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_
   return stack,nil
  end
  local oriented=Placement.param2(def,stack,player,hit,param2)
- if not api.set_node(dest,{name=stack:get_name(),param1=0,
-   param2=oriented}) then return stack,nil end
+ local proposed={name=stack:get_name(),param1=0,param2=oriented}
+ local attachment=api.get_item_group(proposed.name,'attached_node')
+ if attachment~=0 and not Attached.check_attached(
+   api,rt.registry.nodes,dest,proposed,attachment) then
+  return stack,nil
+ end
+ if not api.set_node(dest,proposed) then return stack,nil end
  -- Replacing a buildable_to node must never leak its former metadata.
  -- Reset the old node's timer before callbacks can start a fresh one.
  api.get_node_timer(dest):stop()
