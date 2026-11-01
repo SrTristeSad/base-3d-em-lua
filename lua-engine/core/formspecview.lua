@@ -516,9 +516,15 @@ function View:click(width,height,x,y,mousebutton)
   local ctl=layout.controls[i]
   if (ctl.kind=='button' or ctl.kind=='slot' or
    ctl.kind=='field' or ctl.kind=='checkbox' or
-   ctl.kind=='dropdown') and within(x,y,ctl)
+   ctl.kind=='dropdown' or ctl.kind=='scrollbar')
+    and within(x,y,ctl)
     and (not ctl.clip or within(x,y,ctl.clip)) then
-   if ctl.kind=='field' then
+   if ctl.kind=='scrollbar' then
+    if mousebutton~=1 then return false,'unsupported_button' end
+    local position=Scrollbar.track(ctl,ctl.axis,
+     ctl.axis=='horizontal' and x or y,ctl.min,ctl.max)
+    return self:scrollbarChange(ctl.field,position)
+   elseif ctl.kind=='field' then
     if mousebutton~=1 then return false,'unsupported_button' end
     self.focus=ctl.field
     self.selected=nil
@@ -587,20 +593,53 @@ function View:close()
  self.selected=nil;self.focus=nil
  return self:submit({quit='true'})
 end
+function View:scrollbarChange(field,position)
+ if type(field)~='string' or type(position)~='number' then
+  return false,'invalid_scrollbar'
+ end
+ local layout=self:layout(self.width or 1100,self.height or 800)
+ if not layout then return false,'no_form' end
+ local bar=layout.scrollbars[field]
+ if not bar then return false,'unknown_scrollbar' end
+ local value=Scrollbar.clamp(position,bar.min,bar.max)
+ if value==self.scrollbar_values[field] then
+  return false,'unchanged'
+ end
+ self.scrollbar_values[field]=value
+ return self:submit({[field]=Scrollbar.event(value,true)})
+end
 function View:wheel(width,height,x,y,amount)
  if not number(amount) or amount==0 then return false end
  local layout=self:layout(width,height)
  if not layout then return false end
- -- The deepest visible scroll container receives the wheel event.
- -- If it has reached an edge, an enclosing scroll container may scroll.
+ self.width,self.height=width,height
+ for i=#layout.controls,1,-1 do
+  local ctl=layout.controls[i]
+  if ctl.kind=='scrollbar' and within(x,y,ctl) and
+   (not ctl.clip or within(x,y,ctl.clip)) then
+   return self:scrollbarChange(ctl.field,
+    (self.scrollbar_values[ctl.field] or ctl.min)-
+     amount*ctl.options.smallstep)
+  end
+ end
+ -- Wheel is offered to the deepest eligible scroll window first.
  for i=#layout.scroll_order,1,-1 do
   local scroll=layout.scroll_order[i]
   if within(x,y,scroll.clip) then
-   local old=self.scrolls[scroll.name] or 0
-   local new=clamp(old-amount*scroll.step,0,scroll.max)
-   if new~=old then
-    self.scrolls[scroll.name]=new
-    return true
+   if scroll.bar then
+    local bar=scroll.bar
+    local old=self.scrollbar_values[scroll.name] or bar.min
+    local new=Scrollbar.clamp(old-amount*bar.options.smallstep,
+     bar.min,bar.max)
+    if new~=old then return self:scrollbarChange(scroll.name,new) end
+   else
+    -- Compatibility with formspecs that have no physical scrollbar[].
+    local old=self.scrolls[scroll.name] or 0
+    local new=clamp(old-amount*scroll.step,0,scroll.max)
+    if new~=old then
+     self.scrolls[scroll.name]=new
+     return true
+    end
    end
   end
  end
@@ -710,6 +749,21 @@ function View:draw(pass,width,height)
    local chosen=ctl.items[self.values[ctl.field] or 1] or ''
    pass:text((chosen..'  v'):sub(1,50),x,y,.1,
     clamp(layout.unit*.18,10,14))
+  elseif ctl.kind=='scrollbar' then
+   pass:setColor(.22,.28,.36,1)
+   pass:plane(x,y,0,ctl.w,ctl.h)
+   local range=math.max(1,ctl.max-ctl.min)
+   local progress=clamp((ctl.value-ctl.min)/range,0,1)
+   pass:setColor(.72,.80,.90,1)
+   if ctl.axis=='vertical' then
+    local thumb=math.min(ctl.h,math.max(9,ctl.h*.18))
+    pass:plane(x,ctl.y+thumb/2+(ctl.h-thumb)*progress,.01,
+     math.max(5,ctl.w*.75),thumb)
+   else
+    local thumb=math.min(ctl.w,math.max(9,ctl.w*.18))
+    pass:plane(ctl.x+thumb/2+(ctl.w-thumb)*progress,y,.01,
+     thumb,math.max(5,ctl.h*.75))
+   end
   elseif ctl.kind=='slot' then
    local selected=self.selected and self.selected.list==ctl.list
     and self.selected.index==ctl.index
