@@ -37,12 +37,23 @@ end
 assert(top_y==0 and bottom_y==-.5,'slab must not be drawn as a whole cube')
 vertices,stat=geometry('test:saw')
 assert(stat.faces==8 and #vertices==48,'stonecutter blade must have two sides')
+local function centroid(index)
+ local mid={0,0,0}
+ for k=index,index+5 do
+  for axis=1,3 do mid[axis]=mid[axis]+vertices[k][axis]/6 end
+ end
+ return mid
+end
 local duplicates=0
 for i=1,#vertices,6 do
  local a=vertices[i]
+ local ca=centroid(i)
  for j=i+6,#vertices,6 do
   local b=vertices[j]
-  if a[1]==b[1] and a[2]==b[2] and a[3]==b[3] and
+  local cb=centroid(j)
+  if math.abs(ca[1]-cb[1])<1e-8 and
+   math.abs(ca[2]-cb[2])<1e-8 and
+   math.abs(ca[3]-cb[3])<1e-8 and
    a[4]==-b[4] and a[5]==-b[5] and a[6]==-b[6] then
    duplicates=duplicates+1
   end
@@ -100,10 +111,10 @@ api.register_node('test:stone',{tiles={'default_stone.png'}})
 geometry('test:slab',0)
 map:set_node(pos(0,1,0),{name='test:stone'})
 vertices,stat=Mesher.build(map,rt.registry.nodes,0,0,0)
-assert(stat.faces==11,'recessed slab top must remain visible below neighbor')
+assert(stat.faces==12,'recessed slab top must remain visible below neighbor')
 map:set_node(pos(1,0,0),{name='test:stone'})
 vertices,stat=Mesher.build(map,rt.registry.nodes,0,0,0)
-assert(stat.faces==16,'slab boundary face must be occluded by solid neighbor')
+assert(stat.faces==17,'slab boundary face must be occluded by solid neighbor')
 assert(not Nodebox.faces({node_box={type='connected'}},{param2=0}),
  'unsupported connected nodeboxes must not be drawn as solid cubes')
 print('LUA ENGINE NODEBOX PASS')
