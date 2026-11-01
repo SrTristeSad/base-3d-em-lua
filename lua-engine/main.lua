@@ -354,10 +354,19 @@ local function saveSession()
   if not saved then print('player save failed',reason) end
  end
 end
+function lovr.textinput(text)
+ if formspec_screen and formspec_screen:session() then
+  formspec_screen:textinput(text)
+ end
+end
 function lovr.keypressed(key)
  if formspec_screen and formspec_screen:session() then
   if key=='escape' then
    formspec_screen:close()
+  else
+   formspec_screen:keypressed(key)
+  end
+  if not formspec_screen:session() then
    lovr.system.setMouseMode('relative')
    form_was_open=false
   end
@@ -373,8 +382,11 @@ function lovr.keypressed(key)
   end
   api.show_formspec('singleplayer','lua:formspec_demo',
    'formspec_version[4]size[10,7]'..
-   'label[0.6,0.35;Formspec runtime - click source, then destination]'..
-   'list[current_player;main;0.7,1.1;8,4;]'..
+   'label[0.6,0.35;Formspec engine - inventory and native input]'..
+   'list[current_player;main;0.7,1.1;8,3;]'..
+   'field[0.7,4.65;4,0.6;search;Filter;]'..
+   'checkbox[0.7,5.65;show;Show selected;false]'..
+   'dropdown[5.4,4.65;3.0,0.6;sort;Name,Count;1;false]'..
    'button_exit[7.5,5.85;1.8,0.75;leave;Close]')
   lovr.system.setMouseMode('normal')
   form_was_open=true
