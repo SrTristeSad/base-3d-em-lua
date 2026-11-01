@@ -107,6 +107,12 @@ function lovr.update(dt)
  if down('s','down') then dx=dx-math.sin(camera.yaw);dz=dz+math.cos(camera.yaw) end
  if down('a','left') then dx=dx-math.cos(camera.yaw);dz=dz-math.sin(camera.yaw) end
  if down('d','right') then dx=dx+math.cos(camera.yaw);dz=dz+math.sin(camera.yaw) end
+ engine:updatePlayerControls('singleplayer',{
+  up=down('w','up'),down=down('s','down'),
+  left=down('a','left'),right=down('d','right'),
+  jump=down('space'),sneak=down('lctrl','rctrl'),
+  aux1=down('lshift','rshift')
+ })
  character:update(dt,{
   x=dx,z=dz,
   jump=down('space'),
