@@ -6,6 +6,7 @@ local EntityStorage=require('core.entitystorage')
 local PlayerStorage=require('core.playerstorage')
 local DemoHUD=require('core.demohud')
 local DemoInventory=require('core.demoinventory')
+local FormspecView=require('core.formspecview')
 local Worldgen=require('core.worldgen')
 local Renderer=require('core.renderer')
 local Physics=require('core.physics')
@@ -110,6 +111,8 @@ local playerpath='lua-engine-world.player'
 local renderer
 local character
 local inventory_screen
+local formspec_screen
+local form_was_open=false
 local digging_target
 -- The LÖVR demo is the session host. This object is NOT a complete Luanti
 -- ObjectRef; it only supplies a stable local identity for the physics bridge.
@@ -202,12 +205,22 @@ function lovr.load()
   print('player profile could not be loaded:',why)
  end
  inventory_screen=DemoInventory.new(demo_player,api)
+ formspec_screen=FormspecView.new(engine,'singleplayer')
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
  -- Inventory is a local pause screen: no movement or world actions
  -- while the player manipulates live ItemStacks and crafting recipes.
  if inventory_screen and inventory_screen.open then return end
+ if formspec_screen and formspec_screen:session() then
+  if not form_was_open then lovr.system.setMouseMode('normal') end
+  form_was_open=true
+  return
+ end
+ if form_was_open then
+  lovr.system.setMouseMode('relative')
+  form_was_open=false
+ end
  dt=math.min(math.max(dt,0),.05)
  engine:step(dt)
  local down=lovr.system.isKeyDown
@@ -247,10 +260,22 @@ function lovr.update(dt)
 end
 function lovr.mousemoved(x,y,dx,dy)
  if inventory_screen and inventory_screen.open then return end
+ if formspec_screen and formspec_screen:session() then return end
  camera.yaw=camera.y+dx*.002
  camera.pitch=math.max(-1.5,math.min(1.5,camera.pitch-dy*.002))
 end
 function lovr.mousepressed(x,y,button)
+ if formspec_screen and formspec_screen:session() then
+  if button==1 or button==2 then
+   local w,h=lovr.system.getWindowDimensions()
+   formspec_screen:click(w,h,x,y,button)
+   if not formspec_screen:session() then
+    lovr.system.setMouseMode('relative')
+    form_was_open=false
+   end
+  end
+  return
+ end
  if inventory_screen and inventory_screen.open then
   if button==1 or button==2 then
    local w,h=lovr.system.getWindowDimensions()
@@ -288,6 +313,7 @@ function lovr.mousepressed(x,y,button)
  end
 end
 function lovr.mousereleased(x,y,button)
+ if formspec_screen and formspec_screen:session() then return end
  if button==1 and digging_target then
   engine:cancelDigNodeAsPlayer(demo_player)
   digging_target=nil
@@ -295,6 +321,23 @@ function lovr.mousereleased(x,y,button)
 end
 -- Mousewheel cycles the active gameplay item, not an isolated UI slot.
 function lovr.wheelmoved(x,y)
+ if formspec_screen and formspec_screen:session() then
+  local w,h=lovr.system.getWindowDimensions()
+  local layout=formspec_screen:layout(w,h)
+  local mx,my
+  if lovr.system.getMousePosition then
+   mx,my=lovr.system.getMousePosition()
+  end
+  if (not mx or not my) and layout then
+   for _,area in pairs(layout.scrolls) do
+    mx=area.clip.x+area.clip.w/2
+    my=area.clip.y+area.clip.h/2
+    break
+   end
+  end
+  if mx and my then formspec_screen:wheel(w,h,mx,my,y) end
+  return
+ end
  if inventory_screen and inventory_screen.open then return end
  if y~=0 and demo_player.get_wielded_item then
   DemoHUD.scroll(demo_player,y)
@@ -312,6 +355,31 @@ local function saveSession()
  end
 end
 function lovr.keypressed(key)
+ if formspec_screen and formspec_screen:session() then
+  if key=='escape' then
+   formspec_screen:close()
+   lovr.system.setMouseMode('relative')
+   form_was_open=false
+  end
+  return
+ end
+ -- Manual QA in the standalone demo: real formspec parsing and player
+ -- inventory transactions, not an alternative hardcoded inventory UI.
+ -- VoxeLibre still needs its mods booted in the full game host.
+ if key=='f3' and not (inventory_screen and inventory_screen.open) then
+  if digging_target then
+   engine:cancelDigNodeAsPlayer(demo_player)
+   digging_target=nil
+  end
+  api.show_formspec('singleplayer','lua:formspec_demo',
+   'formspec_version[4]size[10,7]'..
+   'label[0.6,0.35;Formspec runtime - click source, then destination]'..
+   'list[current_player;main;0.7,1.1;8,4;]'..
+   'button_exit[7.5,5.85;1.8,0.75;leave;Close]')
+  lovr.system.setMouseMode('normal')
+  form_was_open=true
+  return
+ end
  if key=='e' or (key=='escape' and
   inventory_screen and inventory_screen.open) then
   if digging_target then
@@ -426,4 +494,5 @@ function lovr.draw(pass)
  local w,h=lovr.system.getWindowDimensions()
  DemoHUD.draw(pass,demo_player,engine.registry.items,w,h)
  if inventory_screen then inventory_screen:draw(pass,w,h) end
+ if formspec_screen then formspec_screen:draw(pass,w,h) end
 end

@@ -289,3 +289,12 @@ considerado um dos módulos integrados.**
   continua incompleta. O motor ainda não tem um cliente formspec visual
   plenamente funcional ou uma implementação de todos os casos especiais
   da lógica original do inventário, como estoques infinitos.
+
+### Fase 61 — primeira apresentação visual de formspecs no host LÖVR
+
+- Novo lua-engine/core/formspecview.lua: lê a sessão do core.show_formspec, sem criar outro esquema de formulário, e posiciona size, label, button, button_exit, image_button, item_image_button, list[current_player], scroll_container, image e box.
+- Botões enviam os nomes dos campos originais ao Runtime:receiveFormFields; fechar envia quit e dispara os callbacks do mod. Cliques de inventário selecionam origem e destino e usam Runtime:movePlayerInventoryStack, com clique direito para uma unidade.
+- O renderizador LÖVR apresenta layout ortográfico via Pass, preservando estado da GPU. Hit testing e células desenhadas compartilham as mesmas coordenadas. A rolagem da primeira scroll_container é limitada pela região visível e conteúdo real.
+- O executável lua-engine/main.lua passa a desenhar as sessões abertas e a entregar mouse/teclado ao visualizador. F3 abre somente um formspec de diagnóstico no demo com os slots reais do jogador. Esc envia quit e devolve o controle ao jogo.
+- Testes em tests/lua_engine_formspec_view.lua cobrem apresentação, callbacks, inventário e rolagem; tests/lua_engine_original_stonecutter_visual.lua usa o formspec original não modificado do VoxeLibre, com clicks de receita, saída e consumo.
+- LIMITES: imagens e ícones são representados por placeholders planos, não sprites fiéis. field, dropdown, checkbox, table, hypertext, tooltips, scrollbar arrastável, containers aninhados e inventários externos ainda não são implementados. O demo não inicializa todos os mods do VoxeLibre, e a equivalência 1:1 continua uma meta, não um estado alcançado.

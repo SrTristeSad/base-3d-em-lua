@@ -28,6 +28,8 @@ on:
       - 'tests/lua_engine_player_hp.lua'
       - 'tests/lua_engine_formspec_sessions.lua'
       - 'tests/lua_engine_original_stonecutter_formspec.lua'
+      - 'tests/lua_engine_original_stonecutter_visual.lua'
+      - 'tests/lua_engine_formspec_view.lua'
       - 'tests/lua_engine_player_inventory_actions.lua'
       - 'tests/lua_engine_inventory_swap_put_take.lua'
       - 'tests/lua_engine_player_objectref.lua'
@@ -101,6 +103,8 @@ on:
       - 'tests/lua_engine_player_hp.lua'
       - 'tests/lua_engine_formspec_sessions.lua'
       - 'tests/lua_engine_original_stonecutter_formspec.lua'
+      - 'tests/lua_engine_original_stonecutter_visual.lua'
+      - 'tests/lua_engine_formspec_view.lua'
       - 'tests/lua_engine_player_inventory_actions.lua'
       - 'tests/lua_engine_inventory_swap_put_take.lua'
       - 'tests/lua_engine_player_objectref.lua'
@@ -327,6 +331,14 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_player_inventory_actions.lua
           luajit tests/lua_engine_player_inventory_actions.lua
+      - name: Real client-side Luanti formspec view, input and LÖVR GPU bridge (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_formspec_view.lua
+          luajit tests/lua_engine_formspec_view.lua
+      - name: Unmodified VoxeLibre stonecutter operated through formspec mouse controls (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_original_stonecutter_visual.lua games/voxelibre
+          luajit tests/lua_engine_original_stonecutter_visual.lua games/voxelibre
       - name: Original VoxeLibre stonecutter player formspec interactions (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_original_stonecutter_formspec.lua games/voxelibre
