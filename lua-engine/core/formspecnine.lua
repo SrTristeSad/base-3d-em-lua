@@ -84,7 +84,11 @@ function Nine.vertices(source,x,y,w,h,spec)
  end
  local tw=source.width
  local th=source.height*(v1-v0)
- if th~=math.floor(th) then return nil,'fractional_frame_height' end
+ local nearest=math.floor(th+.5)
+ if math.abs(th-nearest)>1e-6 then
+  return nil,'fractional_frame_height'
+ end
+ th=nearest
  local middle,err=Nine.middle(spec,tw,th)
  if not middle then return nil,err end
  local left,right=middle.x0,tw-middle.x1
