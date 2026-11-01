@@ -82,7 +82,7 @@ local main1=locate('slot',function(c)
  return c.list=='main' and c.index==1 end)
 local input=locate('slot',function(c)
  return c.list=='stonecutter_input' and c.index==1 end)
-assert(click(main1)=='true' or view.selected~=nil)
+assert(click(main1))
 -- The second actual mouse click performs a real InvRef move.  The unmodified
 -- upstream mod sees on_player_inventory_action and re-sends the formspec.
 local moved,count=click(input)
