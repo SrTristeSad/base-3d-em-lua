@@ -75,6 +75,10 @@ api.get_node_timer(falling_pos):set(30,1.25)
 local ok=api.spawn_falling_node(falling_pos)
 assert(ok)
 rt:step(.15)
+-- Snapshot all moving objects at the exact moment the sidecar is saved.
+saved_age=rich.age
+saved_pos=rich:get_pos()
+saved_velocity=rich:get_velocity()
 local moving=api.get_falling_nodes()[1]
 local payload=Entities.encode(rt)
 assert(payload:sub(1,#'LUAENGINE OBJECTS 1\n')=='LUAENGINE OBJECTS 1\n')
