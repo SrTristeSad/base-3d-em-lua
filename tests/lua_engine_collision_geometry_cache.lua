@@ -111,7 +111,8 @@ compare(rt,swept,2,true,'public API mutation')
 -- Changing node param2 must invalidate rotations and leveled shapes.
 local old=Geometry.cache(rt)
 api.swap_node(p(2,0,0),{name='test:rotated',param2=13})
-assert(Geometry.cache(rt)~=old)
+assert(Geometry.cache(rt)==old,
+ 'map edits must keep unrelated cache entries warm')
 compare(rt,swept,2,true,'facedir update')
 api.swap_node(p(3,0,0),{name='test:leveled',param2=60})
 compare(rt,swept,2,true,'leveled update')
