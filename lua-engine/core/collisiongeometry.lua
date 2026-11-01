@@ -7,6 +7,9 @@ local Geometry={}
 local floor,min,max=math.floor,math.min,math.max
 local MAX_ENTRIES=8192
 local SPARSE_THRESHOLD=512
+-- A sparse index is beneficial only if few stored nodes are expected
+-- within the swept volume. Mapblock counts provide a cheap upper bound.
+local DENSE_OCCUPANCY=0.45
 local EMPTY={boxes={}}
 local function key(x,y,z)
  return x..','..y..','..z
@@ -15,7 +18,8 @@ local function fresh(rt)
  return {map=rt.map,nodes=rt.map.nodes,
   registry=rt.registry.nodes,revision=rt.map.geometry_revision or 0,
   data={},count=0,hits=0,misses=0,resets=0,
-  nodes_examined=0,sparse_queries=0,dense_queries=0}
+  nodes_examined=0,sparse_queries=0,dense_queries=0,
+  dense_fallbacks=0}
 end
 function Geometry.cache(rt)
  local cache=rt.collisionNodeCache
@@ -100,6 +104,15 @@ function Geometry.collect(rt,swept,pad,exclude_buildable)
  local volume=(x2-x1+1)*(y2-y1+1)*(z2-z1+1)
  local air=rt.registry.nodes.air
  local sparse=volume>SPARSE_THRESHOLD and air and air.walkable==false
+ local candidates
+ if sparse then
+  candidates=MapNodeIndex.query(rt.map,x1,x2,y1,y2,z1,z2,
+   max(1,floor(volume*DENSE_OCCUPANCY)))
+  if not candidates then
+   sparse=false
+   cache.dense_fallbacks=cache.dense_fallbacks+1
+  end
+ end
  local function visit(x,y,z)
   cache.nodes_examined=cache.nodes_examined+1
   local node=entry(rt,cache,x,y,z)
@@ -111,7 +124,6 @@ function Geometry.collect(rt,swept,pad,exclude_buildable)
  end
  if sparse then
   cache.sparse_queries=cache.sparse_queries+1
-  local candidates=MapNodeIndex.query(rt.map,x1,x2,y1,y2,z1,z2)
   for _,pos in ipairs(candidates) do
    visit(pos.x,pos.y,pos.z)
   end
