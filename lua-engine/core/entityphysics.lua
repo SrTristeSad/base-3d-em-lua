@@ -48,7 +48,105 @@ local function colliders(rt,swept,selfobj)
    end
   end
  end
+ -- Players are host-owned ObjectRefs. Only a player with an attached
+ -- controller has authoritative position and collisionbox geometry here.
+ -- Unbound native host players are not guessed at by the Lua engine.
+ if selfobj.properties.collide_with_objects~=false then
+  local names={}
+  for name in pairs(rt.playerPhysicsControllers or {}) do
+   if rt.players[name] then names[#names+1]=name end
+  end
+  table.sort(names)
+  for _,name in ipairs(names) do
+   local controller=rt.playerPhysicsControllers[name]
+   local player=rt.players[name]
+   local geometry=controller:get_properties().collisionbox
+   local candidate=aabb(controller:get_pos(),geometry)
+   if overlap(swept[1],swept[4],candidate[1],candidate[4]) and
+    overlap(swept[2],swept[5],candidate[2],candidate[5]) and
+    overlap(swept[3],swept[6],candidate[3],candidate[6]) then
+    boxes[#boxes+1]={type='object',box=candidate,object=player}
+   end
+  end
+ end
  return boxes
+end
+-- Available to the host player controller for symmetric obstacle tests.
+-- Always read live positions; disconnected players must not retain a provider.
+function P.entity_boxes(rt)
+ local boxes={}
+ for _,obj in ipairs(rt.luaEntities or {}) do
+  local prop=obj.properties
+  if not obj.removed and prop.physical==true and
+    prop.collide_with_objects~=false then
+   local b=aabb(obj.pos,prop.collisionbox)
+   boxes[#boxes+1]=b
+  end
+ end
+ return boxes
+end
+-- Recover a newly spawned/teleported physical entity already embedded in
+-- a block or another object. Each attempt chooses a shortest free exit.
+-- No candidate may overlap any collidable geometry; never force teleport
+-- into a different obstacle or beyond the supported world bounds.
+local function recover(rt,obj,result)
+ local box=obj.properties.collisionbox
+ for _=1,8 do
+  local current=aabb(obj.pos,box)
+  local colliding=nil
+  for _,entry in ipairs(colliders(rt,current,obj)) do
+   local b=entry.box
+   if overlap(current[1],current[4],b[1],b[4]) and
+      overlap(current[2],current[5],b[2],b[5]) and
+      overlap(current[3],current[6],b[3],b[6]) then
+    colliding=entry
+    break
+   end
+  end
+  if not colliding then return end
+  local choices={}
+  for _,axis in ipairs(axes) do
+   local index=indices[axis]
+   local other=colliding.box
+   local down=other[index]-current[index+3]-EPS*4
+   local up=other[index+3]-current[index]+EPS*4
+   choices[#choices+1]={axis=axis,d=down}
+   choices[#choices+1]={axis=axis,d=up}
+  end
+  table.sort(choices,function(a,b)return abs(a.d)<abs(b.d) end)
+  local chosen
+  for _,choice in ipairs(choices) do
+   local candidate=copy(obj.pos)
+   candidate[choice.axis]=candidate[choice.axis]+choice.d
+   if abs(candidate.x)<=31000 and abs(candidate.y)<=31000 and
+      abs(candidate.z)<=31000 then
+    local bounds=aabb(candidate,box)
+    local clear=true
+    for _,entry in ipairs(colliders(rt,bounds,obj)) do
+     local other=entry.box
+     if overlap(bounds[1],bounds[4],other[1],other[4]) and
+        overlap(bounds[2],bounds[5],other[2],other[5]) and
+        overlap(bounds[3],bounds[6],other[3],other[6]) then
+      clear=false;break
+     end
+    end
+    if clear then chosen=choice;break end
+   end
+  end
+  if not chosen then return end
+  local oldvelocity=copy(obj.velocity)
+  obj.pos[chosen.axis]=obj.pos[chosen.axis]+chosen.d
+  obj.velocity[chosen.axis]=0
+  local normal={x=0,y=0,z=0}
+  normal[chosen.axis]=chosen.d<0 and -1 or 1
+  local hit={type=colliding.type,axis=chosen.axis,normal=normal,
+   old_velocity=oldvelocity,new_velocity=copy(obj.velocity),
+   recovery=true}
+  if colliding.type=='node' then hit.node_pos=copy(colliding.node_pos)
+  else hit.object=colliding.object end
+  result.collides=true
+  result.collisions[#result.collisions+1]=hit
+ end
 end
 local function sweep(rt,obj,pos,box,axis,wanted)
  if abs(wanted)<EPS then return 0,nil end
@@ -108,8 +206,12 @@ local function record(result,contact,axis,wanted,before,final_v)
 end
 function P.move(rt,obj,dt)
  local v,a=obj.velocity,obj.acceleration
- local before=copy(v)
+ local before
  local result={touching_ground=false,collides=false,collisions={}}
+ if obj.properties.physical==true then recover(rt,obj,result) end
+ -- Recovery changes the entity's live velocity before integration.
+ v=obj.velocity
+ before=copy(v)
  local displacement={x=v.x*dt+.5*a.x*dt*dt,
   y=v.y*dt+.5*a.y*dt*dt,z=v.z*dt+.5*a.z*dt*dt}
  local final_v={x=v.x+a.x*dt,y=v.y+a.y*dt,z=v.z+a.z*dt}
