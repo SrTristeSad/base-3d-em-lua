@@ -86,7 +86,8 @@ function P.move(rt,obj,dt)
    local wanted=requested[axis]
    local actual,node=sweep(rt,obj.pos,box,axis,wanted)
    -- Preserve the existing world boundary behavior from phase 38.
-   local bound=max(-31000,min(31000,obj.pos[axis]+actual))
+   local proposed=obj.pos[axis]+actual
+   local bound=max(-31000,min(31000,proposed))
    obj.pos[axis]=bound
    if node then
     result.collides=true
@@ -100,7 +101,7 @@ function P.move(rt,obj,dt)
      new_velocity={x=final_v.x,y=final_v.y,z=final_v.z}}
     result.collisions[#result.collisions].new_velocity[axis]=0
     final_v[axis]=0
-   elseif bound~=obj.pos[axis]+actual then
+   elseif bound~=proposed then
     final_v[axis]=0
    end
   end
