@@ -103,7 +103,7 @@ eq(#api.get_all_craft_recipes('game:charcoal'),2)
 eq(api.get_craft_recipe('unknown').width,0)
 eq(api.get_craft_recipe('game:workbench').width,2)
 eq(api.get_craft_recipe('game:soup').width,0)
-assert(not pcall(api.register_craft,{type='toolrepair',output='game:tool'}))
+assert(not pcall(api.register_craft,{type='unsupported_repair',output='game:tool'}))
 assert(not pcall(api.register_craft,{output='game:plank',recipe={}}))
 -- Output full: no ingredient consumed and no partial modifications.
 local inv=Inventory.new(api.registered_items)
