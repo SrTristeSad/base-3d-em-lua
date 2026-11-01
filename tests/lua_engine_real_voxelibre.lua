@@ -46,6 +46,9 @@ for name,path in pairs(paths) do
  targets[#targets+1]=def
 end
 local ordered=ModLoader.plan(targets)
+local mod_names={}
+for name in pairs(paths) do mod_names[#mod_names+1]=name end
+table.sort(mod_names)
 local rt=Engine.new({settings={
  mcl_keepInventory='false',mcl_node_particles='medium'},
  mapgen={seed=42,mg_name='v7',chunksize=5,mapgen_limit=31000},
@@ -222,9 +225,7 @@ local report={
  ('- Real modules loaded: **%d**'):format(#results),
  ('- Real source files executed: **%d**'):format(runner.read_count),
  ('- Registered chat commands: **%d**'):format(count),
- '- Modules: mcl_init, mcl_util, vl_unittests, mcl_colors,',
- '  mcl_sounds, mcl_autogroup, tga_encoder, vl_tuning,',
- '  flowlib, vl_legacy, controls, mcl_particles, mcl_worlds, mcl_stonecutter.',
+ '- Modules: '..table.concat(mod_names,', '),
  '- Luanti binary engine: not used in this module integration test.',
  '- VoxeLibre gameplay: **NOT RUNNING** (only selected Lua modules loaded).',
  '',
