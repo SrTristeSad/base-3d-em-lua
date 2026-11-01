@@ -5,6 +5,9 @@ local Physics={}
 Physics.__index=Physics
 local floor,sqrt,max,min,abs=math.floor,math.sqrt,math.max,math.min,math.abs
 local EPS=1e-7
+local function finite(n)
+ return type(n)=='number' and n==n and n~=math.huge and n~=-math.huge
+end
 local function approach(current,target,rate,dt)
  if rate==0 then return target end  -- compatibility for old instant-move configs
  if current<target then return min(target,current+rate*dt) end
@@ -16,9 +19,6 @@ end
 local function group(def,name)
  local groups=def and def.groups
  return type(groups)=='table' and tonumber(groups[name]) or 0
-end
-local function finite(n)
- return type(n)=='number' and n==n and n~=math.huge and n~=-math.huge
 end
 local function copy(p) return {x=p.x,y=p.y,z=p.z} end
 local function bounds(p,r,h)
