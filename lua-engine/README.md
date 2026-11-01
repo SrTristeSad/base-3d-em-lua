@@ -1351,3 +1351,46 @@ jogadores ou dropped items como obstáculos), não inclui empurrões ou
 massa física, resposta simétrica completa de colisão, recuperação
 de sobreposição inicial, stepheight nativo exato ou rede. O objetivo
 Luanti/VoxeLibre 1:1 ainda não foi alcançado.
+
+
+### Fase 42 — colisão jogador–entidade e recuperação de sobreposição
+
+As colisões de `LuaEntity` físicas foram estendidas aos
+**jogadores conectados ao runtime com um controlador físico Lua**.
+Quando `physical=true` e `collide_with_objects=true`, a entidade
+considera a `collisionbox` real do personagem na varredura física:
+`moveresult.collisions` reporta `type='object'`, a **mesma
+ObjectRef do jogador conectada ao host**, normal e velocidades.
+O controlador do jogador, por sua vez, recebe obstáculos
+de entidades físicas registradas e impede atravessá-las.
+
+A conexão `Runtime:bindPlayerPhysics` instala o provedor de colisões
+do mundo no controlador enquanto o jogador está conectado. Ao sair
+ou falhar a conexão, o vínculo é retirado. Jogadores gerenciados
+inteiramente por outro host, **sem controlador Lua associado**,
+não recebem geometria ou movimento inventados pelo runtime.
+`collide_with_objects=false` ou `physical=false` continuam
+desativando o bloqueio entre o jogador e a entidade correspondente.
+
+Objetos físicos que **nascem, são restaurados ou são teleportados**
+sobrepostos a outros objetos ou nós sólidos tentam escapar usando
+a menor translação para uma caixa que esteja completamente livre.
+O algoritmo realiza até oito tentativas por frame e **não move**
+a entidade se nenhuma saída segura estiver disponível; não exclui
+objetos por estarem presos. Uma recuperação efetuada é comunicada
+em `moveresult.collisions` com `recovery=true`, tipo de obstáculo,
+normal e referência de contato. Esta recuperação não é um mecanismo
+de teleporte arbitrário entre ambientes.
+
+A suíte `tests/lua_engine_entity_player_overlap.lua` testa em
+Lua 5.4 e LuaJIT as duas direções de colisão, registro e saída de
+jogadores, colisão contra jogador de identidade real, propriedades
+dinâmicas, entidades não físicas, recuperação de entidades em nós
+e jogadores, confinamento por blocos, preservação de instâncias
+presas e persistência de posição corrigida.
+
+**Limitações:** a resposta de colisão continua cinemática e
+sequencial; não implementa restituição, transferência de impulso,
+colisões entre dois jogadores, resposta de penetração simétrica
+nem integração de um controlador nativo externo ao Lua. A
+compatibilidade 1:1 com a física C++ do Luanti ainda não existe.
