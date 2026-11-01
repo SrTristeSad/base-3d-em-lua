@@ -3,6 +3,7 @@
 -- produce a second layout or invents a server-side field event.
 -- This is a supported-element renderer, not Luanti's full GUI renderer.
 local Sprites=require('core.formspecsprites')
+local Background=require('core.formspecbackground')
 local View={}
 View.__index=View
 -- Items use their registered inventory_image (or the node's first tile),
@@ -141,6 +142,7 @@ function View:layout(width,height)
  local active_scroll=nil
  local all_scrolls={}
  local named_styles,type_styles={},{}
+ local real_coordinates=form_version>=2
  local function register_style(store,selector,params)
   for name in selector:gmatch('[^,]+') do
    local style=store[name] or {}
@@ -176,7 +178,9 @@ function View:layout(width,height)
  for _,e in ipairs(elements) do
   local t=e.name
   local p=parts(e.params)
-  if t=='style' or t=='style_type' then
+  if t=='real_coordinates' then
+   real_coordinates=(p[1]=='true')
+  elseif t=='style' or t=='style_type' then
    if p[1] and p[1]~='' then
     register_style(t=='style' and named_styles or type_styles,
      p[1],p)
@@ -269,15 +273,27 @@ function View:layout(width,height)
   elseif t=='image' or t=='box' or
    t=='background' or t=='background9' then
    local x,y=pair(p[1]);local w,h=pair(p[2])
-   if (t=='background' or t=='background9') and p[4]=='true' then
-    w,h=fw,fh
-   end
+   local is_background=t=='background' or t=='background9'
    local nine
    if t=='background9' then nine=p[5]
    elseif t=='image' and form_version>=6 then nine=p[4] end
-   add('decoration',x,y,w,h,{
-    texture=t~='box' and p[3] or nil,
-    middle=nine,label=p[3] or ''})
+   if is_background and p[4]=='true' and x and y then
+    -- Luanti GUIBackgroundImage draws a rectangle derived from the
+    -- parent clipping bounds: positive real-coordinate offset shrinks
+    -- BOTH edges. W/H are ignored when auto_clip=true.
+    local rect=Background.auto_rect({x=left,y=top,w=fw*unit,
+     h=fh*unit,unit=unit},x,y,real_coordinates)
+    if rect and #controls<900 then
+     controls[#controls+1]={kind='decoration',background=true,
+      x=rect.x,y=rect.y,w=rect.w,h=rect.h,
+      texture=p[3],middle=nine,label=p[3] or ''}
+    end
+   else
+    add('decoration',x,y,w,h,{
+     background=is_background,
+     texture=t~='box' and p[3] or nil,
+     middle=nine,label=p[3] or ''})
+   end
   end
  end
  for name,s in pairs(all_scrolls) do
@@ -501,7 +517,7 @@ function View:draw(pass,width,height)
  pass:setColor(.10,.14,.19,.97)
  pass:plane(layout.x+layout.w/2,layout.y+layout.h/2,0,
   layout.w+22,layout.h+22)
- for _,ctl in ipairs(layout.controls) do
+ local function paint(ctl)
   local x,y=ctl.x+ctl.w/2,ctl.y+ctl.h/2
   if ctl.kind=='decoration' then
    if not draw_sprite(ctl.texture,x,y,ctl.w,ctl.h,ctl.middle) then
@@ -589,6 +605,14 @@ function View:draw(pass,width,height)
     end
    end
   end
+ end
+ -- Luanti attaches background[] to a separate background parent, so even
+ -- a background tag following a button in formspec source draws BEHIND it.
+ for _,ctl in ipairs(layout.controls) do
+  if ctl.background then paint(ctl) end
+ end
+ for _,ctl in ipairs(layout.controls) do
+  if not ctl.background then paint(ctl) end
  end
  if sprites then sprites:endFrame() end
  pass:setColor(1,1,1,1)
