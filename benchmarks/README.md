@@ -48,6 +48,8 @@ compare **median CPU time** on the same hardware and Lua runtime.
 | `node_dense_linear` | Identical solid terrain through the original full voxel/nodebox scan | geometry queries |
 | `node_mixed_cached` | Alternating dense and sparse mapblocks, with cached geometry | geometry queries |
 | `node_mixed_linear` | Same mixed terrain through the original full voxel/nodebox scan | geometry queries |
+| `node_edit_selective` | Repeated nearby block edits with distant geometry cache preserved | edit cycles |
+| `node_edit_full_reset` | Same edits, forcing a complete collision-cache reset for comparison | edit cycles |
 
 All cases use explicit, reproducible positions, velocities and a
 fixed query order; counts are **32, 128** in CI, plus **256** in
@@ -102,3 +104,14 @@ radius queries, per-frame entity stepping, collision-event planning
 or spatial-index updates. For future improvements, compare
 identical workloads on the **same machine** before and after a
 change, while preserving the Lua 5.4 / LuaJIT correctness suite.
+
+
+## Live editing (Phase 52)
+
+The node-edit pair measures the cost of repeatedly changing a nearby
+stone/slab while querying its collision geometry and a remote unchanged
+node. The edit sequence and both result counts are identical in the
+selective and full-reset variants; the validator compares checksums.
+The full-reset variant deliberately reproduces the previous cache
+invalidation policy. These timings measure CPU-only collision geometry
+queries, not frame rates or rendering. No absolute CI speed thresholds.
