@@ -136,6 +136,10 @@ local connected=require('core.nodebox').faces(
  oak_fence,rt.api.get_node(npos),rt.map,npos,rt.registry.nodes)
 assert(connected and #connected==18,
  'original oak fence must grow its two right-side horizontal rails')
+local visual_boxes=rt.api.get_node_boxes('node_box',npos)
+local collision_boxes=rt.api.get_node_boxes('collision_box',npos)
+assert(#visual_boxes==3 and #collision_boxes==2,
+ 'original fence must provide separate visible and collision geometry')
 rt.api.remove_node({x=9,y=5,z=7})
 local disconnected=require('core.nodebox').faces(
  oak_fence,rt.api.get_node(npos),rt.map,npos,rt.registry.nodes)
