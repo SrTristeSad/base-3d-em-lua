@@ -20,7 +20,8 @@ REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/playeractions.lua", "core/digging.lua",
             "core/playerstorage.lua", "core/demohud.lua",
             "core/demoinventory.lua", "core/renderer.lua",
-            "core/formspecview.lua", "core/formspecsprites.lua")
+            "core/formspecview.lua", "core/formspecsprites.lua",
+            "core/formspecnine.lua")
 
 
 def build(source: Path, output: Path, game: Path | None = None,

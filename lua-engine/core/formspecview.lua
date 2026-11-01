@@ -125,7 +125,11 @@ function View:layout(width,height)
   end
  end
  local fw,fh=8,6
+ local form_version=1
  for _,e in ipairs(elements) do
+  if e.name=='formspec_version' then
+   form_version=number(e.params) or 1
+  end
   if e.name=='size' then
    local x,y=pair(e.params)
    if x and y and x>0 and y>0 then fw,fh=x,y end
@@ -136,6 +140,19 @@ function View:layout(width,height)
  local controls={}
  local active_scroll=nil
  local all_scrolls={}
+ local named_styles,type_styles={},{}
+ local function register_style(store,selector,params)
+  for name in selector:gmatch('[^,]+') do
+   local style=store[name] or {}
+   for i=2,#params do
+    local k,v=params[i]:match('^([^=]+)=(.*)$')
+    if k=='bgimg' or k=='bgimg_middle' or k=='border' then
+     style[k]=v
+    end
+   end
+   store[name]=style
+  end
+ end
  local function add(kind,x,y,w,h,attrs)
   if not x or not y or not w or not h or w<=0 or h<=0 then return end
   if #controls>=900 then return end
@@ -159,7 +176,12 @@ function View:layout(width,height)
  for _,e in ipairs(elements) do
   local t=e.name
   local p=parts(e.params)
-  if t=='scroll_container' then
+  if t=='style' or t=='style_type' then
+   if p[1] and p[1]~='' then
+    register_style(t=='style' and named_styles or type_styles,
+     p[1],p)
+   end
+  elseif t=='scroll_container' then
    local x,y=pair(p[1])
    local w,h=pair(p[2])
    if x and y and w and h and not active_scroll then
@@ -197,10 +219,16 @@ function View:layout(width,height)
    local field=isimage and p[4] or p[3]
    local label=isimage and p[5] or p[4]
    if x and y and w and h and type(field)=='string' and field~='' then
+    local base=t:gsub('_exit$','')
+    local styles=type_styles[t] or type_styles[base] or {}
+    local named=named_styles[field] or {}
+    local function setting(key)return named[key] or styles[key] end
     add('button',x,y,w,h,{field=field,label=label or '',
      item=t:find('item_image_button',1,true) and p[3] or nil,
      texture=(t=='image_button' or t=='image_button_exit')
       and p[3] or nil,
+     bgimg=setting('bgimg'),bgimg_middle=setting('bgimg_middle'),
+     border=setting('border'),
      close=t:find('_exit',1,true)~=nil})
    end
   elseif t=='field' or t=='textarea' or t=='pwdfield' then
@@ -238,10 +266,18 @@ function View:layout(width,height)
   elseif t=='item_image' then
    local x,y=pair(p[1]);local w,h=pair(p[2])
    add('item',x,y,w,h,{item=p[3]})
-  elseif t=='image' or t=='box' then
+  elseif t=='image' or t=='box' or
+   t=='background' or t=='background9' then
    local x,y=pair(p[1]);local w,h=pair(p[2])
-   add('decoration',x,y,w,h,{texture=t=='image' and p[3] or nil,
-    label=p[3] or ''})
+   if (t=='background' or t=='background9') and p[4]=='true' then
+    w,h=fw,fh
+   end
+   local nine
+   if t=='background9' then nine=p[5]
+   elseif t=='image' and form_version>=6 then nine=p[4] end
+   add('decoration',x,y,w,h,{
+    texture=t~='box' and p[3] or nil,
+    middle=nine,label=p[3] or ''})
   end
  end
  for name,s in pairs(all_scrolls) do
@@ -453,9 +489,9 @@ function View:draw(pass,width,height)
  local registered=self.runtime.registry.items
  local sprites=sprite_engine(self)
  if sprites then sprites:beginFrame() end
- local function draw_sprite(tile,x,y,w,h)
+ local function draw_sprite(tile,x,y,w,h,middle)
   if not sprites or not tile then return false end
-  return sprites:draw(pass,tile,x,y,w,h)
+  return sprites:draw(pass,tile,x,y,w,h,middle)
  end
  pass:push('state')
  pass:setViewPose(1,lovr.math.newMat4())
@@ -468,7 +504,7 @@ function View:draw(pass,width,height)
  for _,ctl in ipairs(layout.controls) do
   local x,y=ctl.x+ctl.w/2,ctl.y+ctl.h/2
   if ctl.kind=='decoration' then
-   if not draw_sprite(ctl.texture,x,y,ctl.w,ctl.h) then
+   if not draw_sprite(ctl.texture,x,y,ctl.w,ctl.h,ctl.middle) then
     pass:setColor(.19,.22,.28,.95)
     pass:plane(x,y,0,ctl.w,ctl.h)
    end
@@ -484,8 +520,12 @@ function View:draw(pass,width,height)
    local clean=ctl.label:gsub('[%c]',''):sub(1,96)
    pass:text(clean,x,y,.1,math.max(11,layout.unit*.25))
   elseif ctl.kind=='button' then
-   pass:setColor(.30,.39,.51,.97)
-   pass:plane(x,y,0,ctl.w*.96,ctl.h*.94)
+   local drawn_bg=draw_sprite(ctl.bgimg,x,y,
+    ctl.w*.96,ctl.h*.94,ctl.bgimg_middle)
+   if not drawn_bg and ctl.border~='false' then
+    pass:setColor(.30,.39,.51,.97)
+    pass:plane(x,y,0,ctl.w*.96,ctl.h*.94)
+   end
    local textured=draw_sprite(ctl.texture or
     (ctl.item and icon_for(self.runtime,ctl.item)),
     x,y,ctl.w*.89,ctl.h*.85)

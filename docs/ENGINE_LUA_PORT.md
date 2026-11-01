@@ -385,3 +385,29 @@ considerado um dos módulos integrados.**
   limitado de recursos gráficos de interface. O restante usa o atlas
   16×16 ou placeholders, portanto a equivalência visual 1:1 permanece
   uma meta aberta.
+
+### Fase 65 — nove fatias (9-slice) nativas de formas Luanti
+
+- Novo `lua-engine/core/formspecnine.lua`: geometria Lua independente de
+  GPU para preservar quatro cantos, quatro bordas e centro de um PNG
+  original sem esticar desproporcionalmente os cantos. Aceita os três
+  formatos de `middle` definidos pelo Luanti: um inteiro simétrico,
+  `x,y`, ou `x,y,x2,y2`, inclusive coordenadas finais negativas.
+  A geometria de cada região usa seu recorte UV real, inclusive dentro
+  de `^[verticalframe` quando a textura original tem vários quadros.
+- O renderer `core.formspecsprites` faz nove fatias quando recebe
+  `middle`, reutiliza buffers de geometria com chave distinta de
+  desenhos simples, e preserva o fallback textual quando não possui
+  dimensões originais para um recurso.
+- `core.formspecview` passa a interpretar `background9` e
+  `image` com middle (a partir da versão 6), além de `style` e
+  `style_type` com `bgimg`, `bgimg_middle` e `border`
+  em botões subsequentes. Assim, o estilo selecionado original do
+  `mcl_stonecutter` pode usar o PNG original 9-slice.
+- Adicionados testes de cantos, UV, quadros de animação, validação de
+  middle, superfícies menores que a borda, buffers GPU, imagens, botões,
+  estilos e callbacks, em Lua 5.4 e LuaJIT. O empacotador exige o novo
+  módulo da versão portátil.
+- Limitações: `background9` com auto_clip ainda não aplica scissor real;
+  opções mais complexas de estilos e modificadores de textura permanecem
+  pendentes, e a apresentação completa 1:1 não foi atingida.

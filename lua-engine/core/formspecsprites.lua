@@ -2,6 +2,7 @@
 -- Prefer untouched upstream GUI PNGs from the package; otherwise reuse the
 -- world atlas. Parsing, geometry, UVs and cache policy remain pure Lua.
 local Atlas=require('core.atlas')
+local Nine=require('core.formspecnine')
 local Sprites={}
 Sprites.__index=Sprites
 local format={
@@ -82,15 +83,20 @@ end
 function Sprites:beginFrame()
  self.frame=self.frame+1
 end
-function Sprites:draw(pass,tile,x,y,w,h)
+function Sprites:draw(pass,tile,x,y,w,h,middle)
  assert(pass and type(pass.mesh)=='function' and
   type(pass.setMaterial)=='function','LÖVR Pass mesh required')
  local src,source_err=Sprites.source(tile)
  if not src then return false,source_err end
- local vertices,err=Sprites.quad(tile,x,y,w,h)
+ local vertices,err
+ if middle and middle~='' then
+  vertices,err=Nine.vertices(src,x,y,w,h,middle)
+ else
+  vertices,err=Sprites.quad(tile,x,y,w,h)
+ end
  if not vertices then return false,err end
  local key=table.concat({tile,tostring(x),tostring(y),
-  tostring(w),tostring(h)},':')
+  tostring(w),tostring(h),middle or ''},':')
  local entry=self.cache[key]
  if not entry then
   local buffer=self.graphics.newBuffer(format,vertices)
