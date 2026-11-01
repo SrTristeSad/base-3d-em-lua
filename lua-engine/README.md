@@ -1153,3 +1153,58 @@ interação física com entidades móveis, filtros avançados de
 `pointabilities`, raycasts do motor nativo em regiões descarregadas,
 animações e validação gráfica manual no Windows. O sistema é
 experimental, não uma cópia funcional completa do Luanti.
+
+
+### Fase 38 — ciclo de vida de entidades Lua registradas (subconjunto)
+
+O módulo `core.luaentities` conecta os registros
+`core.register_entity(name,definition)` com objetos reais no mundo.
+`core.add_entity(pos,name[,staticdata])` cria uma instância isolada
+com `self.object` e `self.name` e chama
+`on_activate(self,staticdata,0)`. `on_step(self,dt,moveresult)`
+recebe uma estrutura inicial de colisão vazia para evitar afirmar
+contatos ainda não simulados. Posições avançam por velocidade e
+aceleração em cada passo de simulação, **sem colisão física nativa**.
+
+ObjectRefs registrados possuem `get_id`, `get_luaentity`,
+`is_player`, `get_pos/set_pos`, `get_velocity/set_velocity`,
+`get_acceleration/set_acceleration`, `get_yaw/set_yaw`,
+`get_rotation/set_rotation` (somente yaw),
+`get_properties/set_properties`, `get_hp/set_hp` e `remove`.
+Consultas retornam cópias de propriedades e vetores; callbacks e
+tabelas mutáveis de entidades diferentes não compartilham estado.
+Instâncias removidas não são atualizadas novamente. Entidades
+criadas durante `on_step` começam a atualizar na próxima execução.
+Se `on_activate` falha, a instância é retirada do runtime.
+
+O runtime expõe `core.get_active_lua_entities()` (consulta do
+protótipo), `core.get_objects_inside_radius(pos,radius)`
+(entidades e itens soltos), `Runtime:punchLuaEntity`,
+`Runtime:rightclickLuaEntity` e a interação validada
+`Runtime:interactObjectAlongRay(player,origin,dir,reach,action)`
+com `action='punch'` ou `'rightclick'`.
+As entidades agora podem ser selecionadas pelo raycast usando
+sua `selectionbox` e respeitando `pointable=false`; blocos na
+frente continuam ocultando as entidades. A referência da entidade
+é a própria ObjectRef, não uma cópia de visualização.
+
+Na demonstração LÖVR, **F4** cria um golem experimental visível
+como cubo texturizado, com deslocamento e callbacks `on_step`,
+`on_punch` e `on_rightclick`. Os botões esquerdo e direito
+interagem com a entidade apontada. A renderização de entidades
+usa atualmente um cubo de depuração para os visuais
+`cube`/`wielditem`; **não** equivale à renderização nativa
+de sprites, meshes, animações ou ossos do Luanti.
+
+Regressões em `tests/lua_engine_registered_entities.lua` (Lua 5.4
+e LuaJIT): criação, callback de ativação, isolamento de instâncias,
+atualização, controles de propriedades, rollback de ativação,
+remoção, spawn durante atualização, área de proximidade, seleção
+por raycast e ações do jogador.
+
+**Limitações importantes:** a Fase 38 não salva nem restaura
+LuaEntities genéricas; a persistência lateral anterior ainda
+abrange somente itens soltos e blocos em queda. Ainda não existem
+física detalhada de colisão/movimento para entidades genéricas,
+controle de animações, attachments, rede ou equivalência completa
+com `ObjectRef` de Luanti/VoxeLibre.
