@@ -11,6 +11,7 @@ local Particles=require('core.particles')
 local NodeDrops=require('core.nodedrops')
 local Digging=require('core.digging')
 local Placement=require('core.placement')
+local Falling=require('core.falling')
 local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
@@ -37,6 +38,7 @@ function Runtime.new(options)
   registry={nodes={},items={},tools={},craftitems={},
     entities={},aliases={},crafts={},abms={},lbms={},
     biomes={},ores={},decorations={}},
+  fallingNodes={},droppedItems={},
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
     on_placenode={},on_dignode={},on_punchnode={},on_punchplayer={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
@@ -590,6 +592,7 @@ function Runtime.new(options)
   for _,cb in ipairs(self.callbacks.on_placenode) do
    cb(clone(pos),new,nil,old,nil,nil)
   end
+  api.check_for_falling(pos)
   return true
  end
  function api.dig_node(pos)
@@ -598,10 +601,13 @@ function Runtime.new(options)
   local def=self.registry.nodes[old.name]
   if def and def.on_destruct then def.on_destruct(clone(pos)) end
   api.remove_node(pos)
+  api.get_meta(pos):from_table({fields={},inventory={}})
+  api.get_node_timer(pos):stop()
   if def and def.after_destruct then def.after_destruct(clone(pos),old) end
   for _,cb in ipairs(self.callbacks.on_dignode) do
    cb(clone(pos),old,nil)
   end
+  api.check_for_falling(pos)
   return true
  end
  -- Minimal builtin callback helpers for custom mods using
@@ -623,6 +629,18 @@ function Runtime.new(options)
  api.dir_to_wallmounted=Placement.dir_to_wallmounted
  api.dir_to_facedir=Placement.dir_to_facedir
  api.dir_to_fourdir=Placement.dir_to_fourdir
+ -- Luanti builtin falling.lua subset: explicit checks are mod-accessible,
+ -- while placement/dig/punch callbacks trigger neighbor propagation.
+ function api.spawn_falling_node(pos) return Falling.spawn(self,pos) end
+ function api.check_single_for_falling(pos)
+  return Falling.check_single(self,pos)
+ end
+ function api.check_for_falling(pos) return Falling.check(self,pos) end
+ function api.add_item(pos,itemstack)
+  return Falling.add_item(self,pos,itemstack)
+ end
+ function api.get_falling_nodes() return Falling.get_falling_nodes(self) end
+ function api.get_dropped_items() return Falling.get_dropped_items(self) end
  api.wallmounted_to_dir=Attached.wallmounted_to_dir
  api.facedir_to_dir=Attached.facedir_to_dir
  api.fourdir_to_dir=Attached.fourdir_to_dir
@@ -697,6 +715,9 @@ function Runtime:step(dt)
    end
   end
  end
+ -- Falling object state advances before ABMs, with swept vertical collision
+ -- to avoid tunneling through ground when the host supplies a large delta.
+ Falling.step(self,dt)
  -- ABMs operate only on edited/resident sparse nodes in this first phase.
  for i,def in ipairs(self.registry.abms) do
   self.abmClock[i]=(self.abmClock[i] or 0)+dt
@@ -857,6 +878,7 @@ function Runtime:punchNode(pos,puncher,pointed_thing)
  assert(ispos(pos),'punch requires a node position')
  local node=self.api.get_node(pos)
  self:emit('on_punchnode',clone(pos),node,puncher,pointed_thing)
+ self.api.check_for_falling(pos)
  return node
 end
 -- Explicit event dispatch for tests and future player integration.
