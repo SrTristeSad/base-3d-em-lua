@@ -113,6 +113,24 @@ end
 -- at the event and notify both LuaEntities once (not once per substep).
 function M.resolve(objects,results)
  if #objects>128 then return end
+ -- Reflect observed object impacts to both participants. The sequential
+ -- solver reports the mover's contact, but stationary creatures must also
+ -- be told which neighbor actually struck them.
+ for _,a in ipairs(objects) do
+  if eligible(a) and results[a] then
+   -- Snapshot to avoid iterating over newly appended reciprocal contacts.
+   local hits={}
+   for _,c in ipairs(results[a].collisions) do hits[#hits+1]=c end
+   for _,c in ipairs(hits) do
+    if c.type=='object' and c.object and results[c.object] and
+       eligible(c.object) then
+     local other=c.object
+     append(results[other],a,c.axis,-c.normal[c.axis],
+      other.velocity,other.velocity)
+    end
+   end
+  end
+ end
  for i=1,#objects-1 do
   local a=objects[i]
   if eligible(a) then
