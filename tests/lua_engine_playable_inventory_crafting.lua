@@ -121,13 +121,15 @@ eq(PlayerStorage.encode(restored_player,restored_ctrl,1.25,.125),old)
 -- No ingredients consumed from an incompatible old profile.
 local old_rt,old_api,old_player,old_ctrl=new()
 old_player:get_inventory():set_stack('main',1,'test:wood 5')
+-- Simulate a Phase 53 player whose inventory has no crafting list.
+old_player:get_inventory():set_size('craft',0)
 local emptyprofile=PlayerStorage.encode(old_player,old_ctrl,0,0)
 local decoded=PlayerStorage.decode(emptyprofile)
 assert(decoded.craft==nil,'old saved profiles without a craft grid must load')
 local load_old=PlayerStorage.restore(restored_player,restored_ctrl,emptyprofile)
 assert(load_old.craft==nil)
-assert(restored_player:get_inventory():get_stack('craft',1):is_empty()==false,
- 'older optional profile must not silently destroy a pending ingredient')
+assert(restored_player:get_inventory():get_stack('craft',1):is_empty(),
+ 'old profile must start with an empty grid, not stale ingredients')
 -- A malformed crafting slot must not overwrite anything.
 local current=PlayerStorage.encode(restored_player,restored_ctrl,0,0)
 local corrupt='LUAENGINE PLAYER 1\nreturn {pos={x=0,y=1,z=0},yaw=0,'..
