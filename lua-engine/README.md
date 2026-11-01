@@ -1784,3 +1784,56 @@ O índice é reconstruído quando o armazenamento do mapa é
 substituído; edições diretas na tabela `map.nodes` sem passar
 pela API de mapa não são suportadas. Esses benchmarks medem
 consultas de geometria em CPU, não a taxa gráfica de quadros.
+
+
+### Fase 52 — alterações de terreno durante a física
+
+Edições realizadas por `core.set_node`, `swap_node`,
+`remove_node`, `Map:set_node` e `VoxelManip:write_to_map`
+agora notificam o cache de geometria de colisão no instante
+da alteração efetiva. O runtime invalida **somente a caixa de
+colisão do nó alterado e de seus seis vizinhos cardinais**
+que podem depender dele através de `connected nodebox`.
+Essa invalidação local não altera o índice esparso de
+mapblocks, que continua acompanhando inserções e remoções
+incrementalmente.
+
+O comportamento anterior descartava todas as geometrias
+armazenadas quando `Map.geometry_revision` mudava. Agora
+o objeto do cache e suas entradas de regiões distantes são
+preservados, inclusive quando o terreno muda a cada frame.
+Mudanças de orientação por `param2` e substituição por outro
+tipo de nó atualizam as caixas atingidas. Operações repetidas
+sem alteração real do nó não invalidam nada.
+
+A observação é instalada em `Runtime.new` sobre o mapa
+pertencente ao runtime, e ocorre **sincronamente** dentro de
+`Map:set_node`. Portanto, um `globalstep` que coloca uma
+parede modifica a colisão antes da física das entidades no
+mesmo frame; um `on_step` de entidade anterior pode alterar
+o terreno que a entidade seguinte encontrará no mesmo
+frame, respeitando a ordem legada de callbacks.
+
+Os caminhos globais permanecem: registro ou
+`override_item` de definições de blocos continua invalidando
+todo o cache; substituir `map.nodes` também provoca
+reconstrução segura na próxima consulta. Um `Map` independente
+sem observador de runtime continua protegido pela revisão
+global. Alterar diretamente campos internos dos nós sem
+passar pelas APIs não é suportado.
+
+O teste `tests/lua_engine_live_terrain_collision_updates.lua`
+cobre mudanças de blocos, orientação, conexões que cruzam
+mapblocks, VoxelManip, persistência da geometria remota,
+consultas de jogadores e criaturas e modificações feitas
+dentro de callbacks. O benchmark ganhou
+`node_edit_selective` e `node_edit_full_reset` com
+checagem de resultados equivalentes em Lua 5.4 e LuaJIT.
+Os contadores `selective_updates` e `evicted_entries`
+registram a quantidade de edições locais e entradas
+invalidadas, não são medidas de FPS.
+
+**Limites:** as colisões seguem o solucionador cinemático
+do projeto; esta fase otimiza a atualização de geometria
+em mundo ativo, mas não implementa toda a física nativa
+em C++ do Luanti nem demonstra equivalência 1:1.
