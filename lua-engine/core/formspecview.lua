@@ -2,8 +2,28 @@
 -- Reads the ORIGINAL text emitted by core.show_formspec; never asks mods to
 -- produce a second layout or invents a server-side field event.
 -- This is a supported-element renderer, not Luanti's full GUI renderer.
+local Sprites=require('core.formspecsprites')
 local View={}
 View.__index=View
+-- Items use their registered inventory_image (or the node's first tile),
+-- never an invented icon catalog separate from Luanti's item definitions.
+local function icon_for(runtime,name)
+ local items=runtime.registry.items or {}
+ local nodes=runtime.registry.nodes or {}
+ local def=items[name] or nodes[name]
+ if type(def)~='table' then return nil end
+ local icon=def.inventory_image
+ if type(icon)=='string' and icon~='' then return icon end
+ icon=def.wield_image
+ if type(icon)=='string' and icon~='' then return icon end
+ local tiles=def.tiles
+ if type(tiles)=='table' then
+  local tile=tiles[1]
+  if type(tile)=='table' then tile=tile.name end
+  if type(tile)=='string' and tile~='' then return tile end
+ end
+ return nil
+end
 local floor=math.floor
 local function number(v)
  local n=tonumber(v)
@@ -179,6 +199,8 @@ function View:layout(width,height)
    if x and y and w and h and type(field)=='string' and field~='' then
     add('button',x,y,w,h,{field=field,label=label or '',
      item=t:find('item_image_button',1,true) and p[3] or nil,
+     texture=(t=='image_button' or t=='image_button_exit')
+      and p[3] or nil,
      close=t:find('_exit',1,true)~=nil})
    end
   elseif t=='field' or t=='textarea' or t=='pwdfield' then
@@ -213,9 +235,13 @@ function View:layout(width,height)
     add('dropdown',x,y,w,h,{field=field,items=entries,
      index_event=p[6]=='true'})
    end
+  elseif t=='item_image' then
+   local x,y=pair(p[1]);local w,h=pair(p[2])
+   add('item',x,y,w,h,{item=p[3]})
   elseif t=='image' or t=='box' then
    local x,y=pair(p[1]);local w,h=pair(p[2])
-   add('decoration',x,y,w,h,{label=p[3] or ''})
+   add('decoration',x,y,w,h,{texture=t=='image' and p[3] or nil,
+    label=p[3] or ''})
   end
  end
  for name,s in pairs(all_scrolls) do
@@ -402,6 +428,13 @@ function View:wheel(width,height,x,y,amount)
  end
  return false
 end
+local function sprite_engine(view)
+ local graphics=lovr and lovr.graphics
+ if not graphics or type(graphics.newBuffer)~='function' or
+  type(graphics.newTexture)~='function' then return nil end
+ if not view.sprites then view.sprites=Sprites.new(graphics) end
+ return view.sprites
+end
 local function label_for(stack,registered)
  local name=stack:get_name()
  local def=registered and registered[name]
@@ -418,6 +451,12 @@ function View:draw(pass,width,height)
  if not player or not player.get_inventory then return false end
  local inv=player:get_inventory()
  local registered=self.runtime.registry.items
+ local sprites=sprite_engine(self)
+ if sprites then sprites:beginFrame() end
+ local function draw_sprite(tile,x,y,w,h)
+  if not sprites or not tile then return false end
+  return sprites:draw(pass,tile,x,y,w,h)
+ end
  pass:push('state')
  pass:setViewPose(1,lovr.math.newMat4())
  pass:setProjection('orthographic')
@@ -429,8 +468,17 @@ function View:draw(pass,width,height)
  for _,ctl in ipairs(layout.controls) do
   local x,y=ctl.x+ctl.w/2,ctl.y+ctl.h/2
   if ctl.kind=='decoration' then
-   pass:setColor(.19,.22,.28,.95)
-   pass:plane(x,y,0,ctl.w,ctl.h)
+   if not draw_sprite(ctl.texture,x,y,ctl.w,ctl.h) then
+    pass:setColor(.19,.22,.28,.95)
+    pass:plane(x,y,0,ctl.w,ctl.h)
+   end
+  elseif ctl.kind=='item' then
+   if not draw_sprite(icon_for(self.runtime,ctl.item),x,y,
+     ctl.w*.9,ctl.h*.9) then
+    pass:setColor(.97,.97,.98,1)
+    pass:text((ctl.item or ''):sub(1,16),x,y,.1,
+     clamp(layout.unit*.16,9,12))
+   end
   elseif ctl.kind=='label' then
    pass:setColor(.96,.97,.99,1)
    local clean=ctl.label:gsub('[%c]',''):sub(1,96)
@@ -438,13 +486,18 @@ function View:draw(pass,width,height)
   elseif ctl.kind=='button' then
    pass:setColor(.30,.39,.51,.97)
    pass:plane(x,y,0,ctl.w*.96,ctl.h*.94)
+   local textured=draw_sprite(ctl.texture or
+    (ctl.item and icon_for(self.runtime,ctl.item)),
+    x,y,ctl.w*.89,ctl.h*.85)
    local caption=ctl.label
-   if ctl.item and ctl.item~='' then
+   if ctl.item and ctl.item~='' and not textured then
     caption=label_for(self.runtime.api.ItemStack(ctl.item),registered)
-   elseif caption=='' then caption=ctl.field end
-   pass:setColor(.99,.99,1,1)
-   pass:text(caption:sub(1,22),x,y,.1,
-    clamp(layout.unit*.19,9,14))
+   elseif caption=='' and not textured then caption=ctl.field end
+   if caption~='' then
+    pass:setColor(.99,.99,1,1)
+    pass:text(caption:sub(1,22),x,y,.1,
+     clamp(layout.unit*.19,9,14))
+   end
    elseif ctl.kind=='field' then
    pass:setColor(self.focus==ctl.field and .33 or .22,
     self.focus==ctl.field and .40 or .28,.38,1)
@@ -484,17 +537,28 @@ function View:draw(pass,width,height)
    if ctl.index<=inv:get_size(ctl.list) then
     local stack=inv:get_stack(ctl.list,ctl.index)
     if not stack:is_empty() then
+     local textured=draw_sprite(icon_for(self.runtime,stack:get_name()),
+      x,y,ctl.w*.79,ctl.h*.79)
      pass:setColor(.98,.98,.99,1)
-     pass:text(label_for(stack,registered):sub(1,12),
-      x,y-ctl.h*.12,.1,clamp(layout.unit*.15,9,12))
+     if not textured then
+      pass:text(label_for(stack,registered):sub(1,12),
+       x,y-ctl.h*.12,.1,clamp(layout.unit*.15,9,12))
+     end
      pass:text(tostring(stack:get_count()),
       x+ctl.w*.23,y+ctl.h*.27,.1,clamp(layout.unit*.19,10,13))
     end
    end
   end
  end
+ if sprites then sprites:endFrame() end
  pass:setColor(1,1,1,1)
  pass:pop('state')
  return true
+end
+function View:release()
+ if self.sprites then
+  self.sprites:release()
+  self.sprites=nil
+ end
 end
 return View

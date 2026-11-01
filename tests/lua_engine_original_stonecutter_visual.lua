@@ -78,6 +78,15 @@ end
 local current=assert(view:session())
 assert(current.formname=='mcl_stonecutter:stonecutter')
 assert(current.formspec:find('list[current_player;stonecutter_input;',1,true))
+-- Keep the precise upstream image tokens available for the texture-atlas
+-- renderer (including the saw animation modifier). No UI source rewrite.
+local image=locate('decoration',function(c)
+ return c.texture=='mcl_inventory_stonecutter.png'
+end)
+assert(image.w>0 and image.h>0)
+local saw=locate('button',function(c)
+ return c.field=='__switch_stack' end)
+assert(saw.texture:find('mcl_stonecutter_saw.png',1,true)==1)
 local main1=locate('slot',function(c)
  return c.list=='main' and c.index==1 end)
 local input=locate('slot',function(c)

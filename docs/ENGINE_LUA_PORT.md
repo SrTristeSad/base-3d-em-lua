@@ -326,3 +326,33 @@ considerado um dos módulos integrados.**
   em dropdown; o clique percorre as opções. Imagens de formulários
   continuam representadas por placeholders. Outras partes do protocolo
   formspec e o motor inteiro ainda não atingiram fidelidade funcional 1:1.
+
+### Fase 63 — renderização de sprites do atlas VoxeLibre nos formspecs
+
+- Novo módulo `lua-engine/core/formspecsprites.lua`: o host gera quads de
+  seis vértices com os UVs fornecidos por `core.atlas`, usando exatamente
+  o mesmo `visual/atlas.png` empregado pelo mesher 3D. O pacote LÖVR com
+  o submódulo original inclui os pixels das texturas do VoxeLibre fixado.
+  A ponte gráfica apenas usa `lovr.graphics`; toda a geometria, posição,
+  indexação, seleção e lógica continuam em Lua.
+- `formspecview.lua` agora representa `image`, `image_button`,
+  `item_image`, `item_image_button` e slots reais do inventário com
+  sprites do atlas quando existem. `inventory_image`, `wield_image`
+  ou o primeiro `tiles[]` do item/nó registrado determinam a imagem.
+  Texturas desconhecidas continuam usando placeholder/texto em vez de
+  representar arbitrariamente outro item. As legendas de contagem e o
+  hit testing continuam no mesmo lugar.
+- O cache reutiliza buffers GPU para sprites de tamanho e posição iguais,
+  descarta os que não apareceram nos últimos frames e tem teto de
+  retenção; fechamento do executável libera os buffers e atlas.
+- O empacotador declara a nova ponte visual como dependência obrigatória.
+  Os testes `tests/lua_engine_formspec_atlas_sprites.lua` verificam
+  vértices/UV, reutilização de buffer, rejeição de imagens ausentes,
+  preservação das ações do mouse, ciclo de vida gráfico, e o
+  `mcl_stonecutter` original continua passando por cliques com
+  identificadores originais das imagens.
+- **Limitações:** o atlas atual reduz PNGs a 16x16 e o renderer utiliza
+  a imagem-base para texturas com modificadores (ex.: `^[verticalframe`).
+  Sem composição de modificadores, nove fatias, animação e tamanhos
+  originais, a interface ainda não é 1:1 em aparência. O subconjunto
+  de elementos formspec e o boot completo do VoxeLibre continuam parciais.

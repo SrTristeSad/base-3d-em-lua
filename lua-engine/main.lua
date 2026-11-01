@@ -478,6 +478,7 @@ function lovr.keypressed(key)
  end
 end
 function lovr.quit()
+ if formspec_screen then formspec_screen:release() end
  -- Save profile BEFORE disconnect: disconnect detaches Player ObjectRef
  -- inventory and wield methods, so saving afterwards loses those data.
  if lovr.filesystem and demo_player.get_inventory then
