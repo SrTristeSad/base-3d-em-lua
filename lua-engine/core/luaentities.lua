@@ -178,6 +178,7 @@ function Entities.step(rt,dt)
    if math.abs(nextpos.x)<=31000 and
     math.abs(nextpos.y)<=31000 and math.abs(nextpos.z)<=31000 then
     obj.pos=nextpos
+    obj.velocity={x=v.x+a.x*dt,y=v.y+a.y*dt,z=v.z+a.z*dt}
    else
     -- Halt at the edge instead of letting an overflow silently corrupt
     -- the entity's position or serialization.
