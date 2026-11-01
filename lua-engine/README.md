@@ -64,10 +64,11 @@ a partir da raiz do repositório.
   básicos exigidos por mods originais;
 - executor de arquivos reais de mods em `core/modenvironment.lua`,
   com globais separadas e restrição aos caminhos registrados;
-- smoke test de 16 módulos reais: `mcl_init`, `mcl_util`,
+- smoke test de 20 módulos reais: `mcl_init`, `mcl_util`,
   `vl_unittests`, `mcl_colors`, `mcl_sounds`, `mcl_autogroup`,
   `tga_encoder`, `vl_tuning`, `flowlib`, `vl_legacy`, `controls`,
-  `mcl_worlds`, `mcl_particles`, `mcl_stonecutter`, `doc` e `doc_items`;
+  `mcl_worlds`, `mcl_particles`, `mcl_stonecutter`, `doc`, `doc_items`,
+  `tt`, `walkover`, `mcl_luck` e `mcl_gamemode`;
 - `get_craft_result`, `get_craft_recipe` e `get_all_craft_recipes`;
 - receitas com formato, sem formato, grupos, forno, combustível e
   recipientes retornáveis (subconjunto da API original);
@@ -90,7 +91,7 @@ a partir da raiz do repositório.
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
 A CI também gera um **relatório estático de APIs do VoxeLibre**
-que ainda faltam. A CI executa **apenas dezesseis módulos selecionados**,
+que ainda faltam. A CI executa **apenas vinte módulos selecionados**,
 sem iniciar o jogo. O arquivo `VoxeLibre-Real-Mod-Boot.md`
 registra quais módulos e arquivos Lua foram carregados. A presença de uma API
 no relatório não significa compatibilidade semântica completa.
@@ -142,3 +143,20 @@ eventos de `on_punchnode`, `on_craft`, `on_item_eat` e
 **Essas verificações não equivalem a executar o jogo.** A renderização
 das texturas originais, física completa, entidades, jogadores e a
 compatibilidade 1:1 do motor continuam em desenvolvimento.
+
+### Dependências originais adicionais (Fase 12)
+
+Quatro módulos upstream adicionais inicializam junto aos dezesseis já
+verificados: `tt` (tooltips), `walkover` (eventos de caminhar sobre blocos),
+`mcl_luck` (modificadores de sorte) e `mcl_gamemode` (modos de jogo).
+A integração executou **20 módulos e 32 arquivos Lua originais** nos
+testes Lua 5.4 e LuaJIT. O módulo real `tt` também atualizou a
+descrição de um ItemStack via callback de previsão de crafting.
+
+O motor implementou `register_craft_predict`, execução dos respectivos
+callbacks, `ItemStack:get_definition`,
+`ItemStack:get_tool_capabilities` e `override_item`.
+Essas APIs continuam parciais em relação ao Luanti completo.
+
+`mcl_core` continua interrompido na dependência de `mcl_enchanting`.
+Ainda não existe experiência 1:1 do VoxeLibre no executável LÖVR.
