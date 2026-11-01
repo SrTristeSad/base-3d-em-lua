@@ -25,6 +25,10 @@ local paths={
  mcl_core='mods/ITEMS/mcl_core',
  mcl_nether='mods/ITEMS/mcl_nether',
  mcl_fences='mods/ITEMS/mcl_fences',
+ mcl_wool='mods/ITEMS/mcl_wool',
+ mcl_raw_ores='mods/ITEMS/mcl_raw_ores',
+ mcl_loot='mods/CORE/mcl_loot',
+ mcl_damage='mods/CORE/mcl_damage',
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
  mcl_util='mods/CORE/mcl_util',
@@ -82,6 +86,37 @@ assert(type(g.controls.register_on_press)=='function')
 assert(type(g.mcl_particles.add_node_particlespawner)=='function')
 assert(type(g.mcl_worlds.y_to_layer)=='function')
 assert(type(g.mcl_stonecutter.register_recipe)=='function')
+-- This is original source code from the pinned VoxeLibre submodule:
+-- no replacement mod definitions or test-only copies are used.
+assert(type(g.mcl_damage.run_modifiers)=='function')
+assert(type(g.mcl_damage.types.fall)=='table')
+assert(#rt.api.registered_on_player_hpchanges.modifiers>=1,
+ 'original mcl_damage must register its Luanti HP modifier')
+assert(#rt.api.registered_on_player_hpchanges.loggers>=1,
+ 'original mcl_damage must register its Luanti damage logger')
+local fall=g.mcl_damage.from_mt({type='fall'})
+assert(fall.type=='fall' and fall.flags.bypasses_armor,
+ 'original VoxeLibre fall damage reason must be recognized')
+assert(type(g.mcl_loot.get_loot)=='function')
+local loot=g.mcl_loot.get_loot({
+ stacks_min=1,stacks_max=1,
+ items={{itemstring='mcl_raw_ores:raw_iron',amount_min=2,amount_max=2}}
+},g.PseudoRandom(19))
+assert(#loot==1 and loot[1]:get_name()=='mcl_raw_ores:raw_iron'
+ and loot[1]:get_count()==2,
+ 'original mcl_loot must return real registered ore ItemStacks')
+local wool=rt.api.registered_nodes['mcl_wool:white']
+local carpet=rt.api.registered_nodes['mcl_wool:white_carpet']
+assert(wool and carpet and carpet.drawtype=='nodebox',
+ 'original mcl_wool colors and carpets must register')
+local wool_craft=rt.api.get_craft_result({method='normal',width=2,
+ items={'mcl_wool:white','mcl_wool:white'}})
+assert(wool_craft.item:get_name()=='mcl_wool:white_carpet'
+ and wool_craft.item:get_count()==3,
+ 'two original wool nodes must craft into three carpets')
+assert(rt.api.registered_nodes['mcl_raw_ores:raw_gold_block']
+ and rt.api.registered_craftitems['mcl_raw_ores:raw_iron'],
+ 'VoxeLibre raw ore ingots and blocks must be registered')
 assert(type(g.walkover.register_global)=='function',
  'original walkover runtime did not load')
 assert(type(g.tt.register_snippet)=='function',
