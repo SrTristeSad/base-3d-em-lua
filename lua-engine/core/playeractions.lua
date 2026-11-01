@@ -4,6 +4,7 @@
 local Inventory=require('core.inventory')
 local Stack=require('core.itemstack')
 local Digging=require('core.digging')
+local Placement=require('core.placement')
 local Actions={}
 local function position(pos)
  assert(type(pos)=='table' and
@@ -63,10 +64,22 @@ function Actions.dig(rt,player,where,default_only)
  end
  local wield=player:get_wielded_item()
  local drops=api.get_node_drops(old.name,wield:get_name())
+ -- The original Luanti builtin sends mutable ItemStacks to
+ -- preserve_metadata, allowing mods to keep enchantments, palette, etc.
+ local oldmetadata=api.get_meta(pos):to_table()
+ if def.preserve_metadata then
+  local fields={}
+  for key,value in pairs(oldmetadata.fields or {}) do
+   fields[key]=value
+  end
+  for i,drop in ipairs(drops) do
+   drops[i]=Stack.new(drop,rt.registry.items)
+  end
+  def.preserve_metadata(pos,old,fields,drops)
+ end
  if not drops_fit(inventory,drops,rt.registry.items) then
   return false,'inventory_full'
  end
- local oldmetadata=api.get_meta(pos):to_table()
  if def.on_destruct then def.on_destruct(pos) end
  if not api.remove_node(pos) then return false,'remove_failed' end
  -- Player mining clears old node inventory/fields to avoid leaking a
@@ -159,20 +172,48 @@ function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_
  if old.name~='air' and not (olddef and olddef.buildable_to) then
   return stack,false
  end
+ local oriented=Placement.param2(def,stack,player,hit,param2)
  if not api.set_node(dest,{name=stack:get_name(),param1=0,
-   param2=param2 or 0}) then return stack,false end
+   param2=oriented}) then return stack,nil end
  if def.on_construct then def.on_construct(dest) end
  local dont_take=false
  if not prevent_after_place and def.after_place_node then
-  dont_take=def.after_place_node(dest,player,stack:copy(),hit)==true
+  dont_take=def.after_place_node(position(dest),player,stack,{
+   type='node',under=position(hit.under),above=position(hit.above)
+  })==true
  end
  for _,callback in ipairs(rt.callbacks.on_placenode) do
-  if callback(dest,api.get_node(dest),player,old,stack:copy(),hit) then
-   dont_take=true
-  end
+  if callback(position(dest),api.get_node(dest),player,old,stack,{
+   type='node',under=position(hit.under),above=position(hit.above)
+  }) then dont_take=true end
  end
  if not dont_take then stack:take_item(1) end
- return stack,true
+ return stack,position(dest)
+end
+-- Mod-facing core.item_place: on_rightclick first, then default node
+-- placement.  This is not an implicit call to a craftitem's on_place.
+function Actions.item_place(rt,itemstack,placer,pointed,param2)
+ local stack=Stack.new(itemstack,rt.registry.items)
+ if not placer or not pointed or pointed.type~='node' then
+  return stack,nil
+ end
+ local _,name=player_inventory(rt,placer)
+ local dest=position(pointed.above)
+ local hit=pointed_for(dest,pointed)
+ local api=rt.api
+ local under=api.get_node(hit.under)
+ local underdef=rt.registry.nodes[under.name]
+ local controls=type(placer.get_player_control)=='function'
+  and placer:get_player_control() or {}
+ if underdef and underdef.on_rightclick and not controls.sneak then
+  if api.is_protected(hit.under,name) then return stack,nil end
+  local outcome=underdef.on_rightclick(hit.under,under,placer,stack,hit)
+  return outcome and Stack.new(outcome,rt.registry.items) or stack,nil
+ end
+ if stack:is_empty() then return stack,nil end
+ local def=rt.registry.nodes[stack:get_name()]
+ if not def then return stack,nil end
+ return Actions.default_place(rt,stack,placer,hit,param2)
 end
 function Actions.place(rt,player,where,pointed)
  local pos=position(where)
@@ -206,7 +247,8 @@ function Actions.place(rt,player,where,pointed)
   return true,'custom_handled'
  end
  if def.type~='node' then return false,'not_placeable_node' end
- if old.name~='air' and not (olddef and olddef.buildable_to) then
+ if old.name~='air' and not (olddef and olddef.buildable_to) and
+   not (underdef and underdef.buildable_to) then
   return false,'occupied'
  end
  local remaining,placed=Actions.default_place(rt,wield,player,hit)
