@@ -1742,3 +1742,45 @@ custo e não uma previsão perfeita do tempo real. O ganho
 depende da distribuição do terreno e do interpretador;
 os benchmarks medem CPU, não FPS. A física C++ do Luanti
 ainda não foi reproduzida integralmente em Lua.
+
+
+### Fase 51 — ordenação incremental das colisões em terreno misto
+
+As consultas a nós de colisão atravessam áreas de ocupação variável,
+como corredores vazios entre construções e cavernas. O índice
+`core.mapnodeindex` agora **memoriza a ordem x/y/z dos nós por
+mapblock**. Múltiplas consultas não precisam ordenar novamente
+todos os nós de um bloco inalterado. Uma inserção/remoção invalida
+apenas a ordenação do respectivo mapblock; mudar a geometria ou
+a orientação sem alterar a posição preserva a ordem.
+
+Para produzir a mesma precedência global das fases anteriores,
+`Index.query` combina os grupos locais ordenados usando um
+**merge de múltiplos fluxos com heap binária**. Em vez de aplicar
+`table.sort` a todos os candidatos a cada consulta, o resultado
+é emitido em ordem x/y/z, independentemente da ordem de iteração
+dos buckets Lua, incluindo mapblocks negativos e blocos densos
+ou esparsos. A lógica de fallback para terreno muito denso
+da Fase 50 permanece ativa e a API da consulta não muda.
+
+Os contadores internos `sorted_blocks` e `merge_items`
+permitem observar, respectivamente, os mapblocks ordenados
+pela primeira vez (ou após edição) e os nós emitidos pelo
+merge; eles não são medidas de FPS.
+
+A suíte `tests/lua_engine_mixed_terrain_mapblock_merge.lua`
+exercita um mapa determinístico com milhares de nós, orientação
+`facedir`, lajes e nós conectados; compara a sequência inteira
+de posições e geometrias AABB com a varredura original; confirma
+reuso e invalidação seletiva da ordenação; e valida as colisões
+de jogadores e criaturas ao cruzar fronteiras de mapblocks.
+O benchmark CPU inclui `node_mixed_cached` versus
+`node_mixed_linear`, com igualdade de checksum no CI para
+Lua 5.4 e LuaJIT.
+
+**Limitações:** a ordenação por mapblock ocupa memória proporcional
+ao número de posições armazenadas em mapblocks consultados.
+O índice é reconstruído quando o armazenamento do mapa é
+substituído; edições diretas na tabela `map.nodes` sem passar
+pela API de mapa não são suportadas. Esses benchmarks medem
+consultas de geometria em CPU, não a taxa gráfica de quadros.
