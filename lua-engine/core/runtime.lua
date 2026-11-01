@@ -1134,6 +1134,14 @@ end
 function Runtime:movePlayerInventoryStack(playername,info)
  return PlayerInventoryActions.move(self,playername,info)
 end
+-- Host-side cursor/external-inventory bridge; "take" produces a real
+-- ItemStack and "put" consumes the host's held stack without copying items.
+function Runtime:takePlayerInventoryStack(playername,info)
+ return PlayerInventoryActions.take(self,playername,info)
+end
+function Runtime:putPlayerInventoryStack(playername,info)
+ return PlayerInventoryActions.put(self,playername,info)
+end
 -- Count-restrictions from upstream callbacks are combined conservatively.
 -- This function is the permission preflight for supported transactions.
 function Runtime:allowedInventoryAction(player,action,inventory,info)
