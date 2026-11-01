@@ -97,7 +97,9 @@ assert(Geometry.cache(dense).dense_fallbacks==2)
 -- only occupied buckets, not loop over every empty mapblock.
 local old=Index.ensure(dense.map).blocks_examined
 local far=Index.query(dense.map,-16000,16000,0,0,0,0)
-assert(#far==1 and far[1].x==0 and far[1].y==0 and far[1].z==0)
+assert(#far==16 and far[1].x==0 and far[1].y==0 and
+ far[1].z==0 and far[#far].x==15,
+ 'long sweep must retain every stored node along the chosen line')
 assert(dense_index.blocks_examined-old==1,
  'mapblock traversal cost must be measured in blocks, not stored nodes')
 -- Incremental growth/shrinkage updates block_count precisely.
