@@ -37,9 +37,6 @@ local function default_overrides()
  value.sneak=true;value.sneak_glitch=false;value.new_move=true
  return value
 end
-local function value_for(base,key,amount)
- return base*(amount[key] or 1)
-end
 
 local function bounds(p,r,h)
  return {p.x-r,p.y,p.z-r,p.x+r,p.y+h,p.z+r}
@@ -65,15 +62,6 @@ function Physics.new(api,position,opts)
  local height=opts.height or 1.8
  local stepheight=opts.stepheight or .6
  local eyeheight=opts.eyeheight or 1.62
- local acceleration=opts.acceleration==nil and base_accel or opts.acceleration
- local braking=opts.braking==nil and 20 or opts.braking
- local air_acceleration=opts.air_acceleration==nil and base_air or opts.air_acceleration
- local water_acceleration=opts.water_acceleration==nil and 8 or opts.water_acceleration
- local water_braking=opts.water_braking==nil and 7 or opts.water_braking
- local water_gravity=opts.water_gravity==nil and 3 or opts.water_gravity
- local water_drag=opts.water_drag==nil and 3 or opts.water_drag
- local swim_speed=opts.swim_speed==nil and 3 or opts.swim_speed
- local climb_speed=opts.climb_speed==nil and 3 or opts.climb_speed
  local default_profile=opts.profile=='luanti'
  assert(opts.profile==nil or opts.profile=='luanti',
   'unknown physics profile')
@@ -85,6 +73,15 @@ function Physics.new(api,position,opts)
  local base_gravity=default_profile and 9.81 or 20
  local base_accel=default_profile and 3 or 26
  local base_air=default_profile and 2 or 9
+ local acceleration=opts.acceleration==nil and base_accel or opts.acceleration
+ local braking=opts.braking==nil and 20 or opts.braking
+ local air_acceleration=opts.air_acceleration==nil and base_air or opts.air_acceleration
+ local water_acceleration=opts.water_acceleration==nil and 8 or opts.water_acceleration
+ local water_braking=opts.water_braking==nil and 7 or opts.water_braking
+ local water_gravity=opts.water_gravity==nil and 3 or opts.water_gravity
+ local water_drag=opts.water_drag==nil and 3 or opts.water_drag
+ local swim_speed=opts.swim_speed==nil and 3 or opts.swim_speed
+ local climb_speed=opts.climb_speed==nil and 3 or opts.climb_speed
  local sneak_speed=opts.sneak_speed==nil and
   (default_profile and 1.35 or 1.5) or opts.sneak_speed
  local sneak_eye_offset=opts.sneak_eye_offset==nil and .28 or opts.sneak_eye_offset
@@ -310,7 +307,8 @@ function Physics:tick(dt,input)
  if self.in_liquid then speed=speed*.48 end
  local rate
  if self.in_liquid then
-  rate=(length>EPS and self.water_acceleration or self.water_braking)
+  rate=(length>EPS and self.water_acceleration or self.water_braking)*
+   ov.liquid_fluidity
  elseif self.grounded then
   rate=(length>EPS and self.acceleration or self.braking)*traction
  else
@@ -367,7 +365,7 @@ function Physics:tick(dt,input)
   if input.jump or input.sneak then
    local target=input.jump and self.swim_speed or -self.swim_speed
    self.velocity.y=approach(self.velocity.y,target,
-    self.water_acceleration,dt)
+    self.water_acceleration*ov.liquid_fluidity,dt)
   else
    self.velocity.y=self.velocity.y-self.water_gravity*ov.gravity*dt
    self.velocity.y=self.velocity.y*max(0,1-self.water_drag*ov.liquid_fluidity_smooth*dt)
