@@ -131,6 +131,18 @@ function ModEnvironment.new(runtime)
   for i,v in ipairs(tbl) do if v==item then return i end end
   return -1
  end
+ -- Luanti's table.pairs_by_keys is used directly by VoxeLibre formspecs.
+ env.table.pairs_by_keys=function(tbl,comparison)
+  local keys={}
+  for key in pairs(tbl) do keys[#keys+1]=key end
+  table.sort(keys,comparison)
+  local i=0
+  return function()
+   i=i+1
+   local key=keys[i]
+   if key~=nil then return key,tbl[key] end
+  end
+ end
  -- Restrict legacy documentation reads to its world-local doc.mt file.
  -- This is compatibility plumbing, not a general-purpose io sandbox.
  env.io={

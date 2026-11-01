@@ -21,6 +21,7 @@ local paths={
  mcl_gamemode='mods/PLAYER/mcl_gamemode',
  mcl_death_drop='mods/PLAYER/mcl_death_drop',
  mcl_experience='mods/HUD/mcl_experience',
+ mcl_formspec='mods/HUD/mcl_formspec',
  mcl_enchanting='mods/ITEMS/mcl_enchanting',
  mcl_core='mods/ITEMS/mcl_core',
  mcl_nether='mods/ITEMS/mcl_nether',
@@ -86,6 +87,12 @@ assert(type(g.controls.register_on_press)=='function')
 assert(type(g.mcl_particles.add_node_particlespawner)=='function')
 assert(type(g.mcl_worlds.y_to_layer)=='function')
 assert(type(g.mcl_stonecutter.register_recipe)=='function')
+assert(type(g.mcl_formspec.get_itemslot_bg_v4)=='function',
+ 'original VoxeLibre formspec layout helpers must load')
+local slot_bg=g.mcl_formspec.get_itemslot_bg_v4(1,2,2,1)
+assert(type(slot_bg)=='string' and
+ select(2,slot_bg:gsub('image%[',''))==2,
+ 'original formspec helper must produce two image[] elements')
 -- This is original source code from the pinned VoxeLibre submodule:
 -- no replacement mod definitions or test-only copies are used.
 assert(type(g.mcl_damage.run_modifiers)=='function')
@@ -266,8 +273,8 @@ assert(blocked==0,'stonecutter output is write-protected by actual mod callback'
 local permitted=rt:allowedInventoryAction(nil,'move',permission_inv,{
  from_list='main',to_list='stonecutter_input',count=3})
 assert(permitted==3)
-assert(not pcall(rt.api.show_formspec,'player','stonecutter','size[4,3]'),
- 'unimplemented GUI must explicitly reject display')
+assert(rt.api.show_formspec('player','stonecutter','size[4,3]')==false,
+ 'formspec must not invent a session for an offline player')
 rt.api.register_node('test:block_for_cutting',{})
 rt.api.register_node('test:cut_block',{})
 g.mcl_stonecutter.register_recipe('test:block_for_cutting','test:cut_block',2)
@@ -448,7 +455,8 @@ local report={
  '- Actual stonecutter inventory permission callbacks rejected invalid moves.',
  '- Original mcl_particles particle registration and deletion verified in CPU-side bookkeeping.',
  '- Original mcl_worlds dimension coordinate conversion verified.',
- '- The actual player GUI and visual particle renderer are not implemented.',
+ '- Formspec session state and callback dispatch exist; no visual formspec renderer yet.',
+ '- The actual visual particle renderer is not implemented.',
  '',
  '## mcl_core dependency-ordered original source boot', '',
  ('- Init source execution: **%s**'):format(core_ok and

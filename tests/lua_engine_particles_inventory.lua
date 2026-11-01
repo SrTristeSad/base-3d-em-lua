@@ -55,7 +55,8 @@ eq(r:allowedInventoryAction(nil,'put',nil,{
 r:emit('on_player_inventory_action',nil,'move',nil,{count=1})
 eq(events[#events],'move')
 assert(not pcall(r.allowedInventoryAction,r,nil,'move',nil,{count=-4}))
-assert(not pcall(a.show_formspec,'player','test','size[2,2]'))
+assert(a.show_formspec('player','test','size[2,2]')==false,
+ 'offline formspec calls must not create a fake player session')
 local c=a.colorize('#ff0088','Hello')
 assert(c:find('Hello',1,true))
 assert(c:find('#ff0088',1,true))

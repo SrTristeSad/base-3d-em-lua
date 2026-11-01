@@ -22,7 +22,7 @@ apenas por existir uma API com os mesmos nomes.
 | Serialização segura, determinística, sem execução de código | Implementada (formato próprio) |
 | Câmera livre, renderização voxel básica, mineração/colocação | Demo LÖVR independente |
 | Loader `mod.conf`, dependências obrigatórias e opcionais | **Parcial, testado; não inicia VoxeLibre** |
-| Catorze módulos Lua originais do VoxeLibre | **Inicialização e funções específicas testadas em Lua 5.4/LuaJIT, sem gameplay completo** |
+| Módulos Lua originais do VoxeLibre | **Até 31 módulos selecionados no teste de inicialização Lua 5.4/LuaJIT (incluindo mcl_formspec); sem gameplay completo** |
 | Jogo VoxeLibre completo no motor Lua | **Não funcional ainda** |
 | VoxelArea, VoxelManip e IDs de conteúdo | **Parcial: buffers, mapblocks, param2 e escrita testados** |
 | Registro de biomas, minérios e decorações | **Definições armazenadas; sem geração real** |
@@ -32,7 +32,7 @@ apenas por existir uma API com os mesmos nomes.
 | Receitas shaped/shapeless, grupos, forno/combustível, devoluções | **Parcial, testado** |
 | Craft completo, toolrepair, callbacks e transações player | Pendentes |
 | Entidades em mundo, mobs e física completa | Ausentes |
-| Formspec, HUD, chat, multimídia, áudio | Ausentes |
+| Formspec, HUD, chat, multimídia, áudio | **Formspec parcialmente implementado (sessões e callbacks, sem renderizador);** HUD, multimídia e áudio completos ausentes |
 | Rede, persistência SQLite/LevelDB, servidor multiplayer | Ausentes |
 | Compatibilidade real de versão LuaJIT/Lua 5.1 | Pendente |
 | Testes de equivalência com Luanti original | Pendente |
@@ -225,3 +225,34 @@ no arquivo `nodes_base.lua:235` porque usa
 `doc.sub.items.temp.build` do módulo upstream `doc_items`, ainda não
 carregado neste ambiente. **mcl_core segue incompleto e não deve ser
 considerado um dos módulos integrados.**
+
+
+### Fase 58 — sessões de formspec e bancada de corte original
+
+- Implementado `core.show_formspec(playername, formname, formspec)` e
+  `core.close_formspec(playername, formname)`, com substituição de formulário,
+  isolamento por jogador, fechamento por nome exato ou coringa vazio e limpeza
+  ao desconectar. Jogadores ausentes não recebem sessões fictícias.
+- O host pode obter uma cópia de `Runtime:getPlayerFormspec(playername)`
+  e entregar eventos reais de seu próprio cliente por
+  `Runtime:receiveFormFields(playername, formname, fields)`.
+  Estes callbacks são despachados em ordem inversa de registro, conforme
+  o Luanti 5.18.0, e uma callback que retorna `true` impede as anteriores.
+  `quit="true"` fecha antes da notificação; `try_quit` não fecha.
+- O analisador de elementos preserva o texto original e aceita a sintaxe de
+  texturas `^[...` comum em formspecs; fornece uma representação auxiliar,
+  **não** um layout, interpretador visual ou filtro de segurança.
+- `PlayerMetaRef` com campos `string/int/float` já atende seleções da bancada,
+  reutilizando o mesmo armazenamento por nome durante reconexões no runtime.
+  A persistência em disco desse metadado de jogador ainda não está conectada.
+- Foi adicionado ao teste geral o `mcl_formspec` original. Um teste
+  independente carrega **seis módulos originais** do VoxeLibre, inclusive
+  `mcl_stonecutter` e `mcl_formspec`, e executa a interface real da bancada:
+  abre o formulário, seleciona receita, atualiza a saída, alterna tamanho da
+  pilha e fecha, devolvendo os insumos ao inventário.
+- Testes: `tests/lua_engine_formspec_sessions.lua` e
+  `tests/lua_engine_original_stonecutter_formspec.lua`, ambos em Lua 5.4 e
+  LuaJIT na CI, além das regressões anteriores.
+- **Não está pronto:** o LÖVR ainda não desenha os elementos formspec, a
+  integração completa de inventário de nós e as transações de UI não estão
+  implementadas, nem existe multiplayer/rede ou gameplay completo do VoxeLibre.

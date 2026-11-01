@@ -26,6 +26,8 @@ on:
       - 'tests/lua_engine_physics_overrides.lua'
       - 'tests/lua_engine_player_physics_bridge.lua'
       - 'tests/lua_engine_player_hp.lua'
+      - 'tests/lua_engine_formspec_sessions.lua'
+      - 'tests/lua_engine_original_stonecutter_formspec.lua'
       - 'tests/lua_engine_player_objectref.lua'
       - 'tests/lua_engine_player_gameplay.lua'
       - 'tests/lua_engine_timed_digging.lua'
@@ -95,6 +97,8 @@ on:
       - 'tests/lua_engine_physics_overrides.lua'
       - 'tests/lua_engine_player_physics_bridge.lua'
       - 'tests/lua_engine_player_hp.lua'
+      - 'tests/lua_engine_formspec_sessions.lua'
+      - 'tests/lua_engine_original_stonecutter_formspec.lua'
       - 'tests/lua_engine_player_objectref.lua'
       - 'tests/lua_engine_player_gameplay.lua'
       - 'tests/lua_engine_timed_digging.lua'
@@ -307,6 +311,14 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_player_objectref.lua
           luajit tests/lua_engine_player_objectref.lua
+      - name: Formspec sessions, field event routing and player metadata (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_formspec_sessions.lua
+          luajit tests/lua_engine_formspec_sessions.lua
+      - name: Original VoxeLibre stonecutter player formspec interactions (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_original_stonecutter_formspec.lua games/voxelibre
+          luajit tests/lua_engine_original_stonecutter_formspec.lua games/voxelibre
       - name: Luanti player health, damage callback order and death (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_player_hp.lua
