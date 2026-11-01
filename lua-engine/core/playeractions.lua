@@ -252,7 +252,7 @@ function Actions.place(rt,player,where,pointed)
  end
  if def.type~='node' then return false,'not_placeable_node' end
  if old.name~='air' and not (olddef and olddef.buildable_to) and
-   not (underdef and underdef.buildable_to) then
+   not (undernode.name~='air' and underdef and underdef.buildable_to) then
   return false,'occupied'
  end
  local remaining,placed=Actions.default_place(rt,wield,player,hit)
