@@ -64,6 +64,18 @@ function M.encode(player,controller,yaw,pitch)
    state.craft[i]=item and stack(item) or false
   end
  end
+ -- Optional separate 3x3 workbench grid; the original 2x2 craft
+ -- inventory remains unchanged and valid in legacy player profiles.
+ local table_size=inv:get_size('craft_table')
+ if table_size~=0 then
+  assert(table_size==9 and inv:get_width('craft_table')==3,
+   'invalid saved workbench inventory')
+  state.craft_table={}
+  for i=1,9 do
+   local item=inv:get_stack('craft_table',i):to_table()
+   state.craft_table[i]=item and stack(item) or false
+  end
+ end
  local data=HEADER..Serialization.serialize(state)
  assert(#data<=MAX_BYTES,'player profile save too large')
  return data
@@ -92,6 +104,19 @@ function M.decode(data)
   for i=1,4 do
    assert(state.craft[i]~=nil,'missing craft grid item slot')
    clean.craft[i]=stack(state.craft[i])
+  end
+ end
+ if state.craft_table~=nil then
+  assert(type(state.craft_table)=='table',
+   'invalid saved 3x3 crafting grid')
+  clean.craft_table={}
+  for k in pairs(state.craft_table) do
+   assert(integer(k,1,9),'invalid workbench grid index')
+  end
+  for i=1,9 do
+   assert(state.craft_table[i]~=nil,
+    'missing saved workbench ingredient')
+   clean.craft_table[i]=stack(state.craft_table[i])
   end
  end
  for k in pairs(state.items) do
@@ -125,6 +150,13 @@ function M.restore(player,controller,data)
     controller.api.registered_items)
   end
  end
+ local bench_items={}
+ if state.craft_table then
+  for i=1,9 do
+   bench_items[i]=Stack.new(state.craft_table[i],
+    controller.api.registered_items)
+  end
+ end
  inv:set_size('main',state.size)
  for i=1,state.size do
   assert(inv:set_stack('main',i,candidates[i]),'failed to restore slot')
@@ -137,6 +169,14 @@ function M.restore(player,controller,data)
   for i=1,4 do
    assert(inv:set_stack('craft',i,craft_items[i]),
     'failed to restore crafting ingredient')
+  end
+ end
+ if state.craft_table or inv:get_size('craft_table')>0 then
+  inv:set_size('craft_table',9)
+  inv:set_width('craft_table',3)
+  for i=1,9 do
+   assert(inv:set_stack('craft_table',i,bench_items[i]),
+    'failed to restore 3x3 crafting ingredient')
   end
  end
  player:set_wield_index(state.wield)
