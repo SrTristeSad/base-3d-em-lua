@@ -35,6 +35,7 @@ function Runtime.new(options)
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
     on_placenode={},on_dignode={},on_punchnode={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
+    on_craft={},on_item_eat={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
   chatcommands={},privileges={},particles=Particles.new()
@@ -335,6 +336,16 @@ function Runtime.new(options)
  function api.register_on_placenode(callback)
   assert(type(callback)=='function')
   self.callbacks.on_placenode[#self.callbacks.on_placenode+1]=callback
+ end
+ function api.register_on_craft(callback)
+  assert(type(callback)=='function','craft callback must be callable')
+  local callbacks=self.callbacks.on_craft
+  callbacks[#callbacks+1]=callback
+ end
+ function api.register_on_item_eat(callback)
+  assert(type(callback)=='function','eat callback must be callable')
+  local callbacks=self.callbacks.on_item_eat
+  callbacks[#callbacks+1]=callback
  end
  function api.register_on_punchnode(callback)
   assert(type(callback)=='function','punch callback must be callable')
