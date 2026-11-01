@@ -904,3 +904,60 @@ complexa, coleta automática, persistência, colisão com entidades,
 integração completa dos mods originais VoxeLibre e validação visual
 no Windows permanecem pendentes. O objetivo 1:1 continua em
 desenvolvimento, não foi alcançado nesta fase.
+
+
+### Fase 33 — coleta automática de itens soltos com inventário real
+
+Quando o host conecta jogadores com `get_pos()` e `get_inventory()`,
+`Runtime:step(dt)` pode coletar os drops próximos com o inventário
+`main` do jogador. O mecanismo usa exclusivamente o InvRef real e as
+mesmas regras de pilhas (`stack_max`, desgaste e metadados) do motor.
+
+- `core.register_on_item_pickup(callback)` e
+  `core.registered_on_item_pickups`: callbacks globais que podem
+  interceptar a coleta retornando um `ItemStack` restante; `nil`
+  permite que o próximo callback ou inventário processe o item.
+- `core.item_pickup(itemstack,picker,pointed_thing)`: aplica os
+  callbacks e, na ausência de interceptação, transfere para
+  `picker:get_inventory():add_item("main",itemstack)`.
+- `itemdef.on_pickup`: se definido para um item, controla a coleta
+  desse item, recebendo `pointed_thing={type="object",ref=obj}`;
+  retorno `nil` mantém o drop sem alteração.
+- `Runtime:pickupItemsAsPlayer(player[,radius])`: coleta explicitamente
+  objetos próximos e retorna a quantidade de unidades removidas.
+  A função exige jogador conectado ao runtime, nunca transfere
+  itens entre sessões e respeita a idade mínima dos objetos.
+- `core.add_item` agora disponibiliza também `obj:set_item(stack)`
+  para atualizar a pilha existente (ou removê-la ao esvaziar).
+  `core.get_dropped_items()` inclui a idade e continua retornando
+  cópias de `ItemStack` para não expor referências internas.
+
+Uma coleta parcial **mantém o objeto no mundo** e troca apenas sua
+pilha pelo saldo restante; inventários sem espaço não alteram o
+objeto. Modificações de metadados não são perdidas nem fundidas
+em pilhas diferentes. Itens só ficam elegíveis para coleta após
+0,35 segundo, evitando recolhimento na mesma operação de drop.
+A busca padrão considera uma distância de 1,5 bloco do centro do
+jogador e processa jogadores conectados em ordem determinística
+de nome, impedindo duplicação entre jogadores que disputam um drop.
+
+Opções de `Runtime.new`: `auto_pickup=false` desabilita a coleta
+automática, `pickup_delay=0` permite coleta imediata, e
+`pickup_radius=2` ajusta a proximidade. O callback manual
+`pickupItemsAsPlayer` permite coletar quando o host deseja, sem
+ativar a lógica em cada frame.
+
+Na demonstração LÖVR, pressione **F9** mirando um bloco para criar
+um item solto; aproxime-se para recolhê-lo. Quando o item for
+recolhido, o renderizador deixa de desenhá-lo automaticamente.
+Os demais controles da Fase 32 continuam funcionando.
+
+Regressões: `tests/lua_engine_item_pickup.lua` em Lua 5.4 e LuaJIT,
+cobrindo coleta automática, atraso, inventário cheio, saldos parciais,
+distância, metadados distintos, callbacks, rejeição, remoção,
+controle manual e disputa entre dois jogadores.
+
+**Limitações:** não há ainda física de objetos soltos completos,
+efeitos de magnetismo/animações, áudio de coleta, redes/multiplayer
+real, persistência de entidades nem equivalência exata ao ciclo
+de `__builtin:item` do Luanti. A demo permanece experimental.

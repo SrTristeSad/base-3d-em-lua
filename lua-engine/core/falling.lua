@@ -47,9 +47,16 @@ function Falling.add_item(rt,pos,item)
  local stack=Stack.new(item,rt.registry.items)
  if stack:is_empty() then return nil end
  rt.droppedItems=rt.droppedItems or {}
- local obj={pos=copy(pos),stack=stack,removed=false}
+ local obj={pos=copy(pos),stack=stack,removed=false,age=0}
  function obj:get_pos() return copy(self.pos) end
  function obj:get_item() return self.stack:copy() end
+ function obj:set_item(itemstack)
+  if self.removed then return false end
+  local value=Stack.new(itemstack,rt.registry.items)
+  if value:is_empty() then self:remove()
+  else self.stack=value end
+  return true
+ end
  function obj:remove()
   if self.removed then return end
   self.removed=true
@@ -63,9 +70,83 @@ end
 function Falling.get_dropped_items(rt)
  local out={}
  for _,obj in ipairs(rt.droppedItems or {}) do
-  out[#out+1]={pos=obj:get_pos(),stack=obj:get_item()}
+  out[#out+1]={pos=obj:get_pos(),stack=obj:get_item(),age=obj.age}
  end
  return out
+end
+-- Core item_pickup follows the original registered callback ordering.
+-- Callbacks may return the leftovers directly; nil delegates to the next
+-- callback or inventory. A custom item on_pickup owns that decision.
+function Falling.item_pickup(rt,itemstack,picker,pointed)
+ local item=Stack.new(itemstack,rt.registry.items)
+ for _,callback in ipairs(rt.callbacks.on_item_pickup or {}) do
+  local remainder=callback(item,picker,pointed)
+  if remainder then return Stack.new(remainder,rt.registry.items) end
+ end
+ local inventory=picker and type(picker.get_inventory)=='function'
+  and picker:get_inventory() or nil
+ if inventory and type(inventory.add_item)=='function' then
+  return inventory:add_item('main',item)
+ end
+ return item
+end
+local function valid_distance(distance)
+ return type(distance)=='number' and distance>=0 and
+  distance==distance and distance~=math.huge
+end
+-- Host-side pickup: remaining items stay in the same world object when
+-- only part of the stack fits. The returned number counts units removed
+-- from objects, not callbacks (callbacks may alter a returned stack).
+function Falling.pickup_player(rt,player,radius)
+ assert(type(player)=='table' and
+  type(player.get_player_name)=='function','connected player required')
+ local name=player:get_player_name()
+ assert(rt.players[name]==player,'player not connected to runtime')
+ radius=radius or rt.opts.pickup_radius or 1.5
+ assert(valid_distance(radius),'pickup radius must be finite and nonnegative')
+ if type(player.get_pos)~='function' then return 0 end
+ local at=player:get_pos()
+ if not at or type(at.x)~='number' or
+  type(at.y)~='number' or type(at.z)~='number' then return 0 end
+ local r2=radius*radius
+ local collected=0
+ local delay=rt.opts.pickup_delay
+ if delay==nil then delay=.35 end
+ assert(valid_distance(delay),'pickup delay must be finite and nonnegative')
+ local pending=rt.droppedItems or {}
+ -- Iterate backwards so removing a collected object cannot skip another.
+ for i=#pending,1,-1 do
+  local obj=pending[i]
+  if not obj.removed and obj.age>=delay then
+   local dx,dy,dz=obj.pos.x-at.x,
+    obj.pos.y-(at.y+.6),obj.pos.z-at.z
+   if dx*dx+dy*dy+dz*dz<=r2 then
+    local old=obj:get_item()
+    local def=rt.registry.items[old:get_name()]
+    local pointed={type='object',ref=obj}
+    local remainder
+    if def and type(def.on_pickup)=='function' then
+     local result=def.on_pickup(old:copy(),player,pointed)
+     if result then remainder=Stack.new(result,rt.registry.items) end
+    else
+     remainder=Falling.item_pickup(rt,old:copy(),player,pointed)
+    end
+    -- nil on custom on_pickup leaves the original entity unchanged.
+    if remainder and not obj.removed then
+     if remainder:is_empty() then
+      collected=collected+old:get_count()
+      obj:remove()
+     else
+      if old:stackable(remainder) then
+       collected=collected+math.max(0,old:get_count()-remainder:get_count())
+      end
+      obj:set_item(remainder)
+     end
+    end
+   end
+  end
+ end
+ return collected
 end
 function Falling.get_falling_nodes(rt)
  local out={}
@@ -198,6 +279,11 @@ end
 function Falling.step(rt,dt)
  assert(type(dt)=='number' and dt>=0 and dt==dt and dt~=math.huge,
   'invalid falling timestep')
+ -- Dropped item age advances even when no players are online. A dropped
+ -- item cannot be picked up in the exact frame it was created.
+ for _,obj in ipairs(rt.droppedItems or {}) do
+  obj.age=obj.age+dt
+ end
  local pending=rt.fallingNodes or {}
  for i=#pending,1,-1 do
   local obj=pending[i]
