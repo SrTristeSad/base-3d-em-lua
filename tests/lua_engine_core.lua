@@ -1,5 +1,7 @@
 -- API slice regression: run from project root with Lua 5.4.
 package.path='./lua-engine/?.lua;./lua-engine/?/init.lua;'..package.path
+local zero=require('core.vector').zero()
+assert(zero.x==0 and zero.y==0 and zero.z==0,'vector.zero defaults')
 local Engine=require('core.runtime')
 local Vec=require('core.vector')
 local Storage=require('core.storage')

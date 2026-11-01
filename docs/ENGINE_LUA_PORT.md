@@ -40,6 +40,7 @@ apenas por existir uma API com os mesmos nomes.
 ## Como é organizado
 
 - `lua-engine/core/map.lua`: armazenamento esparso, metadados e timers.
+- `lua-engine/core/nodedrops.lua`: leitura parcial de `drop` nos nós, inclusive distribuição por raridade e máximo de itens; sem geração de item-drop físico.
 - `lua-engine/core/voxel.lua`: VoxelArea, IDs de conteúdo e VoxelManip experimental com regiões alinhadas a mapblocks.
 - `lua-engine/core/worldgen.lua`: mapa original por semente, chunks 16×16 e construção via VoxelManip.
 - `scripts/mcl_core_dependencies.py`: gera árvore real de dependências obrigatórias de mcl_core a partir do mod.conf upstream.
@@ -192,3 +193,35 @@ compatível sem executar seu código original e validar o resultado.
 - **Ainda não existe GUI de bancada de corte, sessão de jogador nem backend de renderização de partículas**; chamadas GUI falham explicitamente em vez de simular sucesso.
 - O teste de integração também tenta executar `mcl_core/init.lua` como diagnóstico depois dos módulos compatíveis e registra o erro observado. Esse probe não conta como módulo carregado nem satisfaz as dependências ainda ausentes.
 - O motor continua **longe da paridade 1:1**. O número de módulos que inicializam não representa quantidade de jogabilidade portada.
+
+### Fase 9 — drops e inspeção de blocos originais
+
+Foi implementado um avaliador específico das regras `drop` de nós.
+Oferece `get_node_drops` para drops diretos, item lists, `rarity`,
+`max_items` e restrições simples de ferramenta, com RNG injetável
+para testes determinísticos. **Não implementa encantamentos,
+Fortune, Silk Touch ou criação de entidades de itens**.
+
+A integração executa o arquivo `mcl_core/init.lua` original de
+forma diagnóstica e registra quantos nós originais foram declarados
+até a primeira dependência ainda não suportada. O teste verifica
+os drops da pedra original somente quando ela já estiver registrada.
+Não simula dependências, não edita o VoxeLibre original e não declara
+`mcl_core` carregado. A meta é aumentar o carregamento real.
+
+O diagnóstico de `mcl_core/functions.lua` apontou o primeiro bloqueio na
+linha 528: `PseudoRandom`. Foi portada a implementação legado do
+Luanti (LCG 32-bit, com divisão assinada), com vetores determinísticos
+para várias sementes e testes em Lua 5.4/LuaJIT. O número de nós
+originais registrados após o porte é relatado pela CI, **sem contar
+carregamento parcial como sucesso integral do módulo**.
+
+**Resultado confirmado na CI da Fase 9:** o `mcl_core/init.lua` real
+executa `functions.lua` até o final e inicia `nodes_base.lua`.
+Registra pelo menos **9 nós originais**, inclusive `mcl_core:stone` e
+`mcl_core:stone_with_iron`. Foram testados os drops originais e o
+registro de IDs e colocação no mapa do protótipo. O carregamento para
+no arquivo `nodes_base.lua:235` porque usa
+`doc.sub.items.temp.build` do módulo upstream `doc_items`, ainda não
+carregado neste ambiente. **mcl_core segue incompleto e não deve ser
+considerado um dos módulos integrados.**

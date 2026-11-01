@@ -38,6 +38,9 @@ a partir da raiz do repositório.
   `register_craft`;
 - `registered_nodes`, `registered_items`,
   `registered_entities`, grupos;
+- `core/pseudorandom.lua`: algoritmo `PseudoRandom` legado do Luanti,
+  testado contra sequências determinísticas com estados assinados.
+- `core/nodedrops.lua`: leitura dos drops originais dos nós (subconjunto: strings, listas, `rarity`, `max_items` e ferramentas); sem silk touch ou fortune.
 - `core/particles.lua`: hash espacial reversível de posições, registro e retirada de emissores de partículas (sem renderizador visual).
 - callbacks de permissão e notificação de operações de inventário,
   registro da bancada de corte original e receita (sem interface de jogador).
@@ -96,9 +99,20 @@ Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
 `tests/lua_engine_core.lua` e
 `tests/lua_engine_inventory_modloader.lua` e
 `tests/lua_engine_crafting.lua`, `tests/lua_engine_rng.lua`,
-`tests/lua_engine_voxel.lua` e `tests/lua_engine_worldgen.lua`.
+`tests/lua_engine_voxel.lua`, `tests/lua_engine_worldgen.lua` e
+`tests/lua_engine_nodedrops.lua`.
 A demonstração gráfica precisa de hardware Vulkan e teste manual.
 
 O VoxeLibre integral continua disponível em `games/voxelibre/`
 através de submódulo Git. **Não removemos o pacote funcional
 Luanti + VoxeLibre** enquanto o novo motor não executar esse jogo.
+
+### Primeiro conjunto real de blocos VoxeLibre (Fase 9)
+
+O teste de integração carrega parcialmente `mcl_core/init.lua`
+original e exige pelo menos nove definições reais, incluindo
+`mcl_core:stone` e o minério de ferro. Valida os drops da pedra
+(`mcl_core:cobble`) e do minério (`mcl_raw_ores:raw_iron`), seus
+IDs e colocação no mapa. A execução ainda é interrompida por uma
+referência ao módulo de documentação `doc_items`, que requer sua
+própria cadeia de carregamento. **Não inicia o jogo completo.**
