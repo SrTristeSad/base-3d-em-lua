@@ -1,6 +1,7 @@
 -- Luanti LuaEntity/ObjectRef subset. The host owns the world and physics
 -- remain deliberately limited: callbacks run, velocity/acceleration integrate,
--- but collisions, attachments and native serialization are not implemented.
+-- but entity-to-entity collisions, attachments and native serialization are not implemented.
+local EntityPhysics=require('core.entityphysics')
 local Entities={}
 local MAX_STATICDATA=65536
 local floor,sqrt=math.floor,math.sqrt
@@ -34,6 +35,8 @@ local function props(def)
  end
  if value.pointable==nil then value.pointable=true end
  if value.hp_max==nil then value.hp_max=10 end
+ if value.physical==nil then value.physical=false end
+ assert(type(value.physical)=='boolean','entity physical flag must be boolean')
  assert(type(value.collisionbox)=='table' and
   type(value.selectionbox)=='table',
   'entity collision/selection boxes required')
@@ -221,29 +224,15 @@ function Entities.deactivate_all(rt)
 end
 function Entities.step(rt,dt)
  assert(finite(dt) and dt>=0,'invalid Lua entity timestep')
- -- Snapshot ensures entities created inside on_step are NOT stepped in
- -- the same frame, and removal does not skip adjacent entities.
+ -- Snapshot prevents spawning/removal callbacks from double-stepping or
+ -- skipping entities during the same frame.
  local snapshot={}
  for i,obj in ipairs(rt.luaEntities or {}) do snapshot[i]=obj end
  for _,obj in ipairs(snapshot) do
   if active(rt,obj) then
-   local v,a=obj.velocity,obj.acceleration
-   local nextpos={x=obj.pos.x+v.x*dt+.5*a.x*dt*dt,
-    y=obj.pos.y+v.y*dt+.5*a.y*dt*dt,
-    z=obj.pos.z+v.z*dt+.5*a.z*dt*dt}
-   if math.abs(nextpos.x)<=31000 and
-    math.abs(nextpos.y)<=31000 and math.abs(nextpos.z)<=31000 then
-    obj.pos=nextpos
-    obj.velocity={x=v.x+a.x*dt,y=v.y+a.y*dt,z=v.z+a.z*dt}
-   else
-    -- Halt at the edge instead of letting an overflow silently corrupt
-    -- the entity's position or serialization.
-    obj.velocity={x=0,y=0,z=0}
-    obj.acceleration={x=0,y=0,z=0}
-   end
+   local moveresult=EntityPhysics.move(rt,obj,dt)
    if active(rt,obj) and type(obj.luaentity.on_step)=='function' then
-    obj.luaentity:on_step(dt,{
-     touching_ground=false,collides=false,collisions={}})
+    obj.luaentity:on_step(dt,moveresult)
    end
   end
  end
