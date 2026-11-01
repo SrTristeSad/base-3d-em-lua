@@ -4,7 +4,8 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import argparse
 import subprocess
-from build_lua_engine_atlas import create as build_atlas
+from build_lua_engine_atlas import (create as build_atlas, tile_names,
+    upstream_tile_names, atlas_columns, atlas_manifest)
 
 REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/vector.lua", "core/runtime.lua", "core/storage.lua",
@@ -38,12 +39,18 @@ def build(source: Path, output: Path, game: Path | None = None,
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
         output.unlink()
+    names = (upstream_tile_names(source / "core/atlas.lua", game)
+             if original else tile_names(source / "core/atlas.lua"))
+    columns = atlas_columns(game if original else None)
     with ZipFile(output, "w", compression=ZIP_DEFLATED) as z:
         for file in sorted(source.rglob("*")):
             if file.is_file() and file.suffix == ".lua":
                 z.write(file, file.relative_to(source).as_posix())
         z.writestr("visual/atlas.png",
                    build_atlas(source / "core/atlas.lua", game, require_upstream))
+        # Both GPU pixels and Lua lookup are derived from the SAME ordered names.
+        z.writestr("core/atlas_manifest.lua", atlas_manifest(names, columns))
+        z.writestr("visual/ATLAS-INDEX.txt", "\n".join(names) + "\n")
         if original:
             # The image pixels are from the pinned submodule, not generated
             # lookalikes. Preserve upstream licensing and credit references.
@@ -62,12 +69,15 @@ def build(source: Path, output: Path, game: Path | None = None,
             "Atlas source: " + ("pinned VoxeLibre submodule textures/" if original
                                  else "generated placeholders (no upstream assets)") +
             ("\\nUpstream commit: " + revision if original else "") +
+            "\\nAtlas tile count: " + str(len(names)) +
+            "\\nAtlas columns: " + str(columns) +
             "\nWater: first animation frame only; no animation in Lua renderer.\\n" +
             "Grass side: upstream dirt + grass shadow composite.\\n" +
             "See visual/licenses/ for upstream credits and licensing if present.\\n")
     with ZipFile(output) as z:
         assert all(name in z.namelist() for name in REQUIRED)
         assert "visual/atlas.png" in z.namelist()
+        assert "core/atlas_manifest.lua" in z.namelist()
 
 
 if __name__ == "__main__":

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Generate a tiny deterministic 4x4 placeholder atlas (stdlib only).
+"""Build a generated VoxeLibre texture atlas, retaining 20 local fallback slots.
 
-Texture identifiers match real VoxeLibre tile names, but these pixels are
-generated for the standalone demo. They are NOT upstream VoxeLibre textures.
+Release mode indexes every flat upstream textures/*.png at its pinned commit.
+Animated strips are represented by their FIRST frame; texture modifiers and
+custom source sizes still need dedicated Luanti-compatible handling.
 """
 from __future__ import annotations
 
 from pathlib import Path
 from io import BytesIO
+from functools import lru_cache
 import re
 import struct
 import zlib
@@ -27,6 +29,42 @@ def tile_names(source: Path) -> list[str]:
     if len(result) < 16 or len(set(result)) != len(result):
         raise ValueError("expected unique Lua atlas texture names")
     return result
+
+
+def upstream_tile_names(source: Path, game: Path) -> list[str]:
+    """Preserve original 20 indices, then index all upstream texture PNGs."""
+    names = tile_names(source)
+    directory = game / "textures"
+    if not directory.is_dir():
+        raise FileNotFoundError("VoxeLibre textures missing: " + str(directory))
+    extras = sorted(path.name for path in directory.glob("*.png")
+                    if path.name not in names)
+    for name in extras:
+        if not re.fullmatch(r"[A-Za-z0-9_. -]+\.png", name):
+            raise ValueError("unsafe upstream texture name: " + name)
+    combined = names + extras
+    if len(combined) > 4096:
+        raise ValueError("atlas too large for one 64-column sheet")
+    return combined
+
+
+def atlas_columns(game: Path | None) -> int:
+    return 64 if game is not None else 4
+
+
+def atlas_manifest(names: list[str], columns: int) -> str:
+    """Lua file written alongside the PNG so its tile indices never drift."""
+    if not 0 < columns <= 64 or len(names) > 4096:
+        raise ValueError("invalid atlas size")
+    lines = ["-- Generated from the pinned VoxeLibre texture directory.",
+             "-- Do not edit: the corresponding atlas PNG shares this order.",
+             "return {", f" columns={columns},", " tiles={"]
+    for name in names:
+        if not re.fullmatch(r"[A-Za-z0-9_. -]+\.png", name):
+            raise ValueError("unsafe atlas tile identifier: " + name)
+        lines.append(f'  "{name}",')
+    lines.extend([" }", "}", ""])
+    return "\n".join(lines)
 
 
 def png(width: int, height: int, rgba: bytes) -> bytes:
@@ -61,11 +99,15 @@ def _open_tile(game: Path, name: str):
     return rgba.resize((16, 16), Image.Resampling.NEAREST)
 
 
+@lru_cache(maxsize=4)
 def create_upstream(source: Path, game: Path) -> bytes:
     """Make the first real-texture atlas; no silent fallback if assets are missing."""
     from PIL import Image
-    names = tile_names(source)
-    atlas = Image.new("RGBA", (64, 16 * ((len(names) + 3) // 4)), (0, 0, 0, 0))
+    names = upstream_tile_names(source, game)
+    columns = atlas_columns(game)
+    atlas = Image.new("RGBA", (columns * 16,
+                               16 * ((len(names) + columns - 1) // columns)),
+                      (0, 0, 0, 0))
     # The only non-upstream tile is our explicit magenta missing-texture slot.
     fallback = Image.open(BytesIO(create_placeholder(source))).convert("RGBA")
     for i, name in enumerate(names):
@@ -77,7 +119,7 @@ def create_upstream(source: Path, game: Path) -> bytes:
             piece = Image.alpha_composite(piece, shadow)
         else:
             piece = _open_tile(game, name)
-        atlas.paste(piece, ((i % 4) * 16, (i // 4) * 16))
+        atlas.paste(piece, ((i % columns) * 16, (i // columns) * 16))
     output = BytesIO()
     atlas.save(output, format="PNG", optimize=True)
     return output.getvalue()
@@ -134,3 +176,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(create(args.atlas, args.game, args.require_upstream))
+    names = (upstream_tile_names(args.atlas, args.game)
+             if args.game and (args.game / "textures").is_dir()
+             else tile_names(args.atlas))
+    args.output.with_suffix(".lua").write_text(
+        atlas_manifest(names, atlas_columns(args.game if args.game and
+                            (args.game / "textures").is_dir() else None)),
+        encoding="utf-8")
