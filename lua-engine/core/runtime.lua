@@ -489,7 +489,7 @@ function Runtime.new(options)
  function api.create_detached_inventory(name,callbacks)
   assert(type(name)=='string' and name~='' and
    not self.detached[name],'detached inventory name already exists')
-  local inv=Inventory.new(self.registry.items)
+  local inv=Inventory.new(self.registry.items,{type='detached',name=name})
   self.detached[name]={inv=inv,callbacks=callbacks or {}}
   return inv
  end
