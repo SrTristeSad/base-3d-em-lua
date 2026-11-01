@@ -224,8 +224,11 @@ function N.faces(def,node,map,pos,registry)
  local out={}
  -- Luanti: connected nodeboxes never rotate with facedir.
  -- Wallmounted box shapes already encode their mounting orientation.
- local paramtype=def.node_box.type=='connected' and nil or
-  def.node_box.type=='wallmounted' and nil or def.paramtype2
+ local paramtype=def.paramtype2
+ if def.node_box.type=='connected' or def.node_box.type=='wallmounted' or
+  def.node_box.type=='leveled' then
+  paramtype=nil
+ end
  local param2=node and node.param2 or 0
  for _,b in ipairs(boxes) do
   local v={b[1],b[4],b[3],b[5],b[2],b[6]}
