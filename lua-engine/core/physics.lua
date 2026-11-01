@@ -68,7 +68,7 @@ function Physics.new(api,position,opts)
   swim_speed,climb_speed}) do
   assert(valid_rate(rate),'invalid movement parameter')
  end
- assert(valid_rate(opts.sneak_camera_rate==nil and 8 or opts.sneak_camera_rate),
+ assert(valid_rate(opts.sneak_camera_rate==nil and 2.8 or opts.sneak_camera_rate),
   'invalid sneak camera rate')
  return setmetatable({
   api=api,pos=copy(position),velocity={x=0,y=0,z=0},
@@ -84,7 +84,8 @@ function Physics.new(api,position,opts)
   swim_speed=swim_speed,climb_speed=climb_speed,
   fluid_physics=opts.fluid_physics~=false,
   sneak_speed=sneak_speed,sneak_eye_offset=sneak_eye_offset,
-  sneak_camera_rate=opts.sneak_camera_rate==nil and 8 or opts.sneak_camera_rate,
+  sneak_camera_rate=opts.sneak_camera_rate==nil and 2.8 or opts.sneak_camera_rate,
+  sneak_edge_guard=opts.sneak_edge_guard~=false,
   sneaking=false,view_offset=0,
   grounded=false,in_liquid=false,on_ladder=false
  },Physics)
@@ -299,7 +300,7 @@ function Physics:tick(dt,input)
  end
  -- Apply edge clamping only while supported. Falling, jumping and
  -- swimming must never snap onto an unsupported platform.
- if self.sneaking and self:supportAt(old) then
+ if self.sneaking and self.sneak_edge_guard and self:supportAt(old) then
   chosen=self:sneakClamp(old,chosen)
  end
  self.pos=chosen
