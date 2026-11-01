@@ -1517,3 +1517,54 @@ e não utiliza o hash; jogadores e eventos multi-corpo de TOI
 continuam parcialmente lineares. A criação do índice consome
 memória proporcional às células ocupadas e a solução segue
 cinemática, não a implementação física C++ do Luanti.
+
+
+### Fase 46 — proximidade indexada e eventos entre grupos grandes
+
+A API `core.get_objects_inside_radius(pos,radius)` passou a
+usar um **segundo conjunto de células** no `core.spatialindex`.
+Ao contrário do índice de colisão (que inclui apenas objetos
+físicos), o índice de proximidade acompanha o **centro de todas
+as LuaEntities ativas**, inclusive `physical=false` e
+`collide_with_objects=false`. A consulta ainda considera
+a distância euclidiana precisa entre **centros**, devolve as
+ObjectRefs originais **em ordem de registro** e mantém o
+comportamento anterior de acrescentar itens soltos ao resultado.
+Teleporte, criação, remoção, alterações físicas, física por frame
+e restauração de mundo mantêm ambos os índices atualizados.
+
+O segundo conjunto é esparso e usa as mesmas células de 4 nós.
+Consultas acima de 4096 células usam varredura linear completa
+para não perder resultados nem reservar uma grade gigantesca.
+O índice expõe os contadores internos `proximity_queries`,
+`proximity_candidates_examined` e
+`proximity_fallback_queries` para testes de custo de candidatos.
+Esses contadores não representam medições de FPS.
+
+O planejador de colisões `core.collisionevents` agora aceita um
+**argumento opcional `rt`** em `schedule(objects,dt,base,rt)` e
+`resolve(objects,results,rt)`. Quando recebe o runtime, utiliza
+a busca espacial para encontrar corpos cujo volume deslocado
+pode alcançar outro objeto durante o frame. A expansão por
+deslocamento máximo dos outros participantes é conservadora:
+corpos rápidos vindos de regiões diferentes ainda são candidatos.
+Isso remove o antigo corte de **128 entidades** para os eventos
+de primeiro contato (TOI) no fluxo do motor. A execução direta
+sem `rt` conserva o contrato e o fallback antigos para mods
+e testes existentes.
+
+Os registros recíprocos e a deduplicação de contatos da Fase 44
+continuam ativos em mundos populosos; o total de eventos extras
+continua limitado a 24 por frame. A suíte
+`tests/lua_engine_spatial_proximity_events.lua` compara raios,
+incluindo raio zero, objetos não físicos e ordem estável;
+confere teleportes, propriedades, restauração, fallback e o
+impacto frontal de dois NPCs dentro de um mundo com mais de
+128 entidades.
+
+**Limitações:** os objetos soltos ainda são anexados pela busca
+linear existente; o planejamento TOI continua baseado em AABB
+e movimento relativo aproximado, não implementa impulsos nem
+massa nativos do Luanti. A busca de candidatos em consultas
+muito extensas pode recair na varredura linear. Não se afirma
+compatibilidade 1:1 com a física C++ ou ganho medido de FPS.
