@@ -1615,7 +1615,9 @@ Para outros blocos a geometria continua sendo produzida pelo
 `wallmounted`, `leveled`, `nodebox` e conexões entre blocos
 não são substituídas por cubos aproximados.
 
-O cache é **limitado a 8.192 células** e possui invalidação por
+O cache é **limitado a 8.192 células** de nós presentes, sem
+armazenar células de ar ausentes do mapa esparso (para evitar
+expulsões e realocações de cache desnecessárias), e possui invalidação por
 `Map.geometry_revision`. Qualquer mudança real via
 `set_node`, `swap_node` ou `remove_node` atualiza esse contador
 e descarta as formas obsoletas, inclusive as formas de blocos
