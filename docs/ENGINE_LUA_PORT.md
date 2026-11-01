@@ -356,3 +356,32 @@ considerado um dos módulos integrados.**
   Sem composição de modificadores, nove fatias, animação e tamanhos
   originais, a interface ainda não é 1:1 em aparência. O subconjunto
   de elementos formspec e o boot completo do VoxeLibre continuam parciais.
+
+### Fase 64 — imagens originais da interface e verticalframe
+
+- O arquivo de demonstração LÖVR inclui agora um pequeno conjunto explícito
+  de PNGs originais do VoxeLibre relativos aos inventários, formspecs
+  e à bancada de corte. Eles ficam em `visual/formspec/`, preservando
+  **integralmente os bytes, a resolução, o canal alfa e todos os quadros**
+  dos PNGs do submódulo fixado, sem substituir o atlas 3D existente.
+- O empacotador gera `core/formspec_original_manifest.lua` diretamente
+  da lista de recursos e das dimensões PNG conferidas por Pillow.
+  Só arquivos com nomes seguros e prefixos definidos podem ser empacotados.
+  Quando não há submódulo original disponível, a lista é vazia,
+  sem alegar a existência de texturas que não foram fornecidas.
+- `core.formspecsprites` prefere a imagem nativa quando presente no
+  manifesto e utiliza o atlas comum para texturas restantes. A expressão
+  `^[verticalframe:t:n` (opcionalmente com colchete final) é recortada
+  em GPU via coordenadas UV em Lua, com índice de quadro 0-based e
+  validação de contagem, posição e altura divisível.
+- Testes Lua 5.4/LuaJIT cobrem leitura do manifesto, seleção real de
+  `visual/formspec`, UVs, índices inválidos, cache e callbacks com
+  imagens animadas. Os testes Python verificam equivalência binária
+  dos PNGs usados, dimensões originais e conteúdo do arquivo LÖVR.
+- **Limites:** ainda não existe compositor geral de modificadores
+  (sobreposição, transformações, colorize, crop arbitrário etc.),
+  renderizador de imagem 9-slice nem animação temporal automática.
+  Os PNGs originais no momento cobrem um conjunto intencionalmente
+  limitado de recursos gráficos de interface. O restante usa o atlas
+  16×16 ou placeholders, portanto a equivalência visual 1:1 permanece
+  uma meta aberta.
