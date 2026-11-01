@@ -13,6 +13,8 @@ local function read(path)
  local result=f:read('*a'); f:close();return result
 end
 local paths={
+ doc='mods/HELP/doc/doc',
+ doc_items='mods/HELP/doc/doc_items',
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
  mcl_util='mods/CORE/mcl_util',
@@ -67,6 +69,8 @@ assert(type(g.controls.register_on_press)=='function')
 assert(type(g.mcl_particles.add_node_particlespawner)=='function')
 assert(type(g.mcl_worlds.y_to_layer)=='function')
 assert(type(g.mcl_stonecutter.register_recipe)=='function')
+assert(type(g.doc)=='table' and type(g.doc.sub.items.temp.build)=='string',
+ 'original doc_items must load before mcl_core')
 assert(rt.api.registered_nodes['mcl_stonecutter:stonecutter'],
  'stonecutter original upstream node not registered')
 assert(rt.api.registered_items['mcl_stonecutter:stonecutter'].groups.pickaxey==1)
@@ -167,7 +171,7 @@ end
 print(('MCL_CORE PROBE: %d original nodes registered; stone=%s; error=%s')
  :format(#core_nodes,tostring(stone~=nil),tostring(core_error):sub(1,180)))
 local report={
- '# VoxeLibre real Lua mod boot — Fase 9','',
+ '# VoxeLibre real Lua mod boot — Fase 11','',
  'Original VoxeLibre code from the pinned Git checkout was executed.',
  'Lua 5.4 and LuaJIT tests must both pass for this report to be published.','',
  ('- Real modules loaded: **%d**'):format(#results),
@@ -200,6 +204,7 @@ local report={
  ('- Real mcl_core nodes registered before failure: **%d**'):format(#core_nodes),
  ('- Original stone registered and its drops evaluated: **%s**')
   :format(tostring(stone~=nil)),
+ '- The original doc and doc_items source is included in the loaded module count.',
  '- This is a diagnostic; mcl_core is not counted as a loaded module.',
  '- The original files remain unchanged.',
  '',
