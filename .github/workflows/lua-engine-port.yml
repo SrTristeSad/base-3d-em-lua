@@ -48,6 +48,7 @@ on:
       - 'tests/lua_engine_spatial_collision_index.lua'
       - 'tests/lua_engine_spatial_proximity_events.lua'
       - 'tests/lua_engine_collision_geometry_cache.lua'
+      - 'tests/lua_engine_sparse_node_collisions.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -108,6 +109,7 @@ on:
       - 'tests/lua_engine_spatial_collision_index.lua'
       - 'tests/lua_engine_spatial_proximity_events.lua'
       - 'tests/lua_engine_collision_geometry_cache.lua'
+      - 'tests/lua_engine_sparse_node_collisions.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -249,6 +251,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_collision_geometry_cache.lua
           luajit tests/lua_engine_collision_geometry_cache.lua
+      - name: Sparse mapblock node collisions and exact wide swept AABB equivalence (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_sparse_node_collisions.lua
+          luajit tests/lua_engine_sparse_node_collisions.lua
       - name: Player inventory, wield and node interactions (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_player_gameplay.lua
