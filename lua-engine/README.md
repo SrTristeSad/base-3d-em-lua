@@ -64,10 +64,10 @@ a partir da raiz do repositório.
   básicos exigidos por mods originais;
 - executor de arquivos reais de mods em `core/modenvironment.lua`,
   com globais separadas e restrição aos caminhos registrados;
-- smoke test de 14 módulos reais: `mcl_init`, `mcl_util`,
+- smoke test de 16 módulos reais: `mcl_init`, `mcl_util`,
   `vl_unittests`, `mcl_colors`, `mcl_sounds`, `mcl_autogroup`,
   `tga_encoder`, `vl_tuning`, `flowlib`, `vl_legacy`, `controls`,
-  `mcl_worlds`, `mcl_particles` e `mcl_stonecutter`;
+  `mcl_worlds`, `mcl_particles`, `mcl_stonecutter`, `doc` e `doc_items`;
 - `get_craft_result`, `get_craft_recipe` e `get_all_craft_recipes`;
 - receitas com formato, sem formato, grupos, forno, combustível e
   recipientes retornáveis (subconjunto da API original);
@@ -90,7 +90,7 @@ a partir da raiz do repositório.
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
 A CI também gera um **relatório estático de APIs do VoxeLibre**
-que ainda faltam. A CI executa **apenas catorze módulos selecionados**,
+que ainda faltam. A CI executa **apenas dezesseis módulos selecionados**,
 sem iniciar o jogo. O arquivo `VoxeLibre-Real-Mod-Boot.md`
 registra quais módulos e arquivos Lua foram carregados. A presença de uma API
 no relatório não significa compatibilidade semântica completa.
@@ -116,3 +116,29 @@ original e exige pelo menos nove definições reais, incluindo
 IDs e colocação no mapa. A execução ainda é interrompida por uma
 referência ao módulo de documentação `doc_items`, que requer sua
 própria cadeia de carregamento. **Não inicia o jogo completo.**
+
+### Inicialização real de documentação e blocos (Fase 11)
+
+O motor carrega os módulos originais `doc` e `doc_items` antes do
+diagnóstico de `mcl_core`. O carregamento conjunto de **16 módulos**
+foi observado nos testes Lua 5.4 e LuaJIT. `doc_items` registra seus
+callbacks de mineração, interação, crafting e consumo; o motor já
+mantém os registradores correspondentes, mas ainda não reproduz todos
+os caminhos de gameplay que geram esses eventos.
+
+A tentativa de iniciar `mcl_core` após carregar a documentação
+registrou **75 nós originais** antes de encontrar a dependência da API
+`register_on_liquid_transformed`. O registro e despacho do evento de
+transformação de líquidos foi acrescentado, mas **não há simulação
+1:1 do fluxo de líquidos** nesta versão. A contagem de 75 é o último
+resultado confirmado antes dessa implementação, não uma previsão da
+próxima auditoria.
+
+Foram adicionadas as definições nativas de `air`, `ignore` e da mão;
+registro de privilégios, sessões de jogadores fornecidos pelo host,
+eventos de `on_punchnode`, `on_craft`, `on_item_eat` e
+`register_on_shutdown` com encerramento único da demo LÖVR.
+
+**Essas verificações não equivalem a executar o jogo.** A renderização
+das texturas originais, física completa, entidades, jogadores e a
+compatibilidade 1:1 do motor continuam em desenvolvimento.
