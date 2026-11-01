@@ -15,7 +15,7 @@ REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/worldgen.lua", "core/particles.lua",
             "core/nodedrops.lua", "core/pseudorandom.lua",
             "core/atlas.lua", "core/mesher.lua", "core/nodebox.lua",
-            "core/physics.lua",
+            "core/physics.lua", "core/playerphysics.lua",
             "core/renderer.lua")
 
 
