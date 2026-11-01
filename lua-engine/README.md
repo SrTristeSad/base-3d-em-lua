@@ -247,3 +247,35 @@ as transparências, e `nodebox`, `mesh`, `facedir`, cores de bioma,
 iluminação e muitos nós continuam ausentes. Os testes checam a
 correspondência de pixels do atlas e a geometria em CPU; uma inspeção
 visual em Windows com GPU permanece necessária.
+
+### Catálogo de texturas completo do submódulo (Fase 16)
+
+O atlas deixou de ficar limitado aos 20 identificadores cadastrados
+manualmente. A geração de release agora percorre
+`games/voxelibre/textures/*.png` na revisão do Git já fixada no
+submódulo, ordena todos os nomes de arquivos e acrescenta cada PNG
+que não estava nas posições reservadas. Na revisão verificada há
+**2.898 arquivos PNG upstream**, resultando em **2.900 slots**
+(incluindo a textura de erro e a composição de grama da demo).
+
+O atlas usa 64 colunas de 16 pixels (largura 1.024 pixels) e linhas
+calculadas conforme a contagem. O empacotador inclui no arquivo
+`.lovr` três saídas criadas a partir da mesma lista:
+
+- `visual/atlas.png`: pixels reais, em ordem estável;
+- `core/atlas_manifest.lua`: índice carregado por `core.atlas` para
+  localizar automaticamente uma textura pelo nome;
+- `visual/ATLAS-INDEX.txt`: relação legível de nomes por posição.
+
+Os primeiros 20 índices permanecem inalterados. Sem manifesto,
+execuções dos testes Lua diretamente na árvore de fontes continuam
+usando o atlas anterior. O build de release exige as texturas e
+nunca mascara arquivos ausentes com arte inventada.
+
+**Limites importantes:** disponibilidade de um nome de PNG no atlas
+não significa que todos os nós já são renderizados corretamente.
+A maioria dos modifiers de textura Luanti, animações além do primeiro
+quadro, paletas de bioma, dimensões de sprite distintas, transparência
+e geometrias de `nodebox`/`mesh` ainda precisam ser implementados.
+Todas as imagens são reduzidas a células de 16×16 nesta fase;
+isso é um passo de cobertura de assets, **não paridade 1:1**.
