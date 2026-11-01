@@ -33,7 +33,7 @@ function Runtime.new(options)
     entities={},aliases={},crafts={},abms={},lbms={},
     biomes={},ores={},decorations={}},
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
-    on_placenode={},on_dignode={},on_joinplayer={},
+    on_placenode={},on_dignode={},on_punchnode={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
@@ -336,6 +336,11 @@ function Runtime.new(options)
   assert(type(callback)=='function')
   self.callbacks.on_placenode[#self.callbacks.on_placenode+1]=callback
  end
+ function api.register_on_punchnode(callback)
+  assert(type(callback)=='function','punch callback must be callable')
+  local callbacks=self.callbacks.on_punchnode
+  callbacks[#callbacks+1]=callback
+ end
  function api.register_on_dignode(callback)
   assert(type(callback)=='function')
   self.callbacks.on_dignode[#self.callbacks.on_dignode+1]=callback
@@ -561,6 +566,14 @@ function Runtime:loadMod(name,path)
 end
 function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
+end
+-- A punch is distinct from digging a node: do not remove the node or
+-- simulate a player.  The host passes the actual puncher when available.
+function Runtime:punchNode(pos,puncher,pointed_thing)
+ assert(ispos(pos),'punch requires a node position')
+ local node=self.api.get_node(pos)
+ self:emit('on_punchnode',clone(pos),node,puncher,pointed_thing)
+ return node
 end
 -- Explicit event dispatch for tests and future player integration.
 -- Count-restrictions from upstream callbacks are combined conservatively.
