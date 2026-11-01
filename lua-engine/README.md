@@ -517,3 +517,42 @@ reconexão e limpeza após falha de entrada em Lua 5.4 e LuaJIT.
 **Limites:** o contrato ObjectRef ainda é parcial, a física
 continua aproximada e a demo não executa o VoxeLibre completo.
 A compatibilidade 1:1 com Luanti permanece como objetivo.
+
+### Estado do jogador: posição, velocidade, controles e propriedades (Fase 24)
+
+A ponte `core/playerphysics.lua` agora disponibiliza, nos **objetos
+de jogador já fornecidos pelo host**, o subconjunto de métodos
+`get_pos`, `set_pos`, `get_velocity`, `set_velocity`,
+`add_velocity`, `get_player_control`, `get_properties` e
+`set_properties`, além dos métodos de física da Fase 23.
+
+As posições e velocidades pertencem ao **mesmo controlador Lua**
+usado pelo movimento e são devolvidas por cópia. `set_pos` efetua
+um teleporte simples, sem resolver colisões. Os controles não são
+inventados a partir de vetores de movimento: o host envia
+as teclas/botões reais usando `Runtime:updatePlayerControls(nome,
+tabela)`, de onde `get_player_control()` retorna uma cópia
+com os campos booleanos de direção, pulo, agachamento,
+auxiliar, zoom, escavar e colocar.
+
+As propriedades físicas hoje reconhecidas são `physical=true`,
+`collisionbox` (AABB simétrica com os pés na origem),
+`eye_height` e `stepheight`. Alterações são validadas
+**antes** de modificar o controlador. Formas assimétricas,
+modo não físico e propriedades de animação/visuais ainda não
+são implementados; nesses casos o motor lança um erro
+explícito em vez de prometer paridade com Luanti.
+
+Quando o host já fornece um método específico, a ponte
+preserva esse método. Ao sair, os métodos instalados pela
+ponte são desfeitos sem apagar novos métodos do host.
+A demo LÖVR agora associa as teclas WASD, Espaço, Ctrl e
+Shift às flags reais do objeto local. A bateria
+`tests/lua_engine_player_objectref.lua` testa os métodos,
+cópias defensivas, falhas atômicas, controladores e
+callbacks de entrada/saída com Lua 5.4 e LuaJIT.
+
+**Ainda não é um ObjectRef 1:1:** falta a API completa de
+jogadores, aparência, HUD, inventário de jogador integrado
+à sessão visual, interações com entidades, sincronização
+cliente-servidor e a execução integral do VoxeLibre.
