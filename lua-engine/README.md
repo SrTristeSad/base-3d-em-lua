@@ -215,3 +215,35 @@ inspeção visual num PC Windows com LÖVR 0.19.
 corretas, colorização de `param2`, iluminação Luanti e shaders de
 materiais continuam por implementar. O objetivo de compatibilidade
 1:1 permanece; esta etapa não o conclui.
+
+### Texturas upstream e novos drawtypes (Fase 15)
+
+A compilação oficial agora lê os PNGs **originais** do submódulo
+`games/voxelibre/textures/`, fixado pelo Git, e monta um atlas de 20
+texturas. O modo de release exige `--require-upstream-textures` e falha
+quando a origem não está disponível. Os arquivos `LICENSE.txt`,
+`CREDITS.md` e `mods/ITEMS/mcl_core/README.txt` são incluídos no
+pacote, em `visual/licenses/`. Não há substituição silenciosa por
+texturas inventadas nos builds oficiais.
+
+A lateral de grama é composta a partir do original `default_dirt.png`
+e de `mcl_dirt_grass_shadow.png`. A água e a lava utilizam o primeiro
+quadro de suas faixas PNG animadas; **a animação ainda não funciona**.
+Um slot continua reservado à textura de erro. Empacotamentos locais sem
+o submódulo podem solicitar placeholders, mas não se confundem com os
+artefatos oficiais.
+
+O mesher suporta aproximativamente `glasslike`,
+`glasslike_framed`, `glasslike_framed_optional`, `liquid`,
+`flowingliquid` e `plantlike`, além de `normal` e `allfaces`.
+Vidros e líquidos idênticos adjacentes não geram faces internas.
+Plantas usam dois planos cruzados de dupla face. A demo independente
+exibe amostras de água, lava, vidro e flor com os pixels do VoxeLibre.
+
+**Ainda não é compatibilidade gráfica 1:1**: vidros emoldurados usam
+cubos simples sem os detalhes de moldura, líquidos não têm superfícies
+de altura variável nem movimentação, não há ordenação correta de todas
+as transparências, e `nodebox`, `mesh`, `facedir`, cores de bioma,
+iluminação e muitos nós continuam ausentes. Os testes checam a
+correspondência de pixels do atlas e a geometria em CPU; uma inspeção
+visual em Windows com GPU permanece necessária.
