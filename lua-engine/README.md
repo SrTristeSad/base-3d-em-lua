@@ -309,3 +309,36 @@ ocultação parcial entre superfícies complexas, modelos OBJ
 e tratamento exato de texturas/iluminação continuarão em fases
 posteriores. Esta fase não transforma a demo LÖVR no jogo
 VoxeLibre completo.
+
+### Nodeboxes dinâmicos e geometria de conexão (Fase 18)
+
+`core/nodebox.lua` agora resolve as caixas `type=connected`
+diretamente a partir do mapa e das definições dos blocos vizinhos.
+`connects_to` aceita identificadores exatos e grupos `group:*`,
+com `connect_sides`, braços `connect_top/bottom/front/left/back/right`,
+formas `disconnected_*`, `disconnected` e
+`disconnected_sides`. A geometria reage à colocação e à remoção
+de nós vizinhos; `facedir` não rotaciona nodeboxes conectados.
+
+`type=leveled` lê os níveis do `param2` em unidades de 1/64
+da altura do bloco, com o valor inicial configurado em `leveled`.
+`type=wallmounted` escolhe `wall_top`, `wall_bottom` ou
+`wall_side` e orienta a caixa pelas posições 0–7 do `param2`.
+
+Os testes de geometria testam cercas conectadas, filtros de
+conexão, giro sem alteração das formas, altura, posições de parede
+e atualização de malhas. A integração já executa **26 módulos originais e 56 arquivos Lua**,
+incluindo `mcl_nether` e `mcl_fences`, sem modificar o upstream.
+O teste verifica as barras de uma cerca real após colocar ou
+remover sua vizinha.
+
+A API `core.get_node_boxes(box_type, pos, node)` também retorna
+as caixas resolvidas (`node_box`, `collision_box` e `selection_box`),
+com a orientação e as conexões atuais. A consulta é utilizada nos
+testes de seleção e colisão, mas ainda não aciona um motor de física.
+
+**Limites atuais:** ainda falta o tratamento exato de oclusão parcial
+entre caixas complexas, a equivalência entre `node_box` visível e
+`collision_box`/`selection_box`, os modelos `mesh`, as cores
+de `param2` e a execução completa do VoxeLibre pelo LÖVR.
+A compatibilidade 1:1 permanece a meta, não uma condição alcançada.

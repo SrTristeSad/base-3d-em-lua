@@ -104,7 +104,7 @@ function M.build(map,registry,cx,cy,cz)
      end
     end
    elseif def and def.drawtype=='nodebox' then
-    local parts=Nodebox.faces(def,node)
+    local parts=Nodebox.faces(def,node,map,{x=x,y=y,z=z},registry)
     if parts then
      metrics.nodeboxes=metrics.nodeboxes+1
      for _,face in ipairs(parts) do
