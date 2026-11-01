@@ -36,7 +36,7 @@ end
 -- This is used only by host-controlled player ObjectRefs with Lua-owned HP.
 -- Native hosts retain their own set_hp implementation and must forward
 -- native HP events if they want to use the Lua callback registry.
-function PlayerHP.set(runtime,player,current,requested,hp_max,provided_reason)
+function PlayerHP.set(runtime,player,current,requested,hp_max,provided_reason,apply)
  assert(finite(current) and finite(requested) and
   requested==floor(requested),'player HP must be a finite integer')
  assert(finite(hp_max) and hp_max==floor(hp_max) and
@@ -53,6 +53,8 @@ function PlayerHP.set(runtime,player,current,requested,hp_max,provided_reason)
  if current==0 and delta<0 then return 0 end
  local final_delta=runtime.api.registered_on_player_hpchange(player,delta,reason)
  local resulting_hp=min(hp_max,max(0,floor(current+final_delta)))
+ -- Commit HP before dispatching death so callbacks observe get_hp() == 0.
+ if apply then apply(resulting_hp) end
  if current>0 and resulting_hp==0 then
   runtime:emit('on_dieplayer',player,reason)
  end
