@@ -16,6 +16,8 @@ for seed,expected in pairs(vectors) do
    :format(seed,i,v,got))
  end
 end
+assert(PseudoRandom('42'):next()==PseudoRandom(42):next(),
+ 'Luanti accepts decimal seed strings from get_mapgen_setting')
 local r=PseudoRandom(42)
 local snapshot=r:get_state()
 local a=r:next()

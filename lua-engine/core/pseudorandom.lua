@@ -10,6 +10,7 @@ local function signed(n)
  return n>=2147483648 and n-U or n
 end
 local function integer(n)
+ if type(n)=='string' then n=tonumber(n) end
  assert(type(n)=='number' and n==floor(n) and n>=-2147483648
   and n<=2147483647,'PseudoRandom state must be a signed 32-bit integer')
  return n
