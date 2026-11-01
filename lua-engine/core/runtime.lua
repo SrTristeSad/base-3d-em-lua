@@ -56,6 +56,11 @@ function Runtime.new(options)
  api.serialize=Serialization.serialize
  api.deserialize=Serialization.deserialize
  self.map.registry=self.registry.items
+ -- Direct map edits, VoxelManip writes and API node operations all flow
+ -- through Map:set_node and notify the same collision geometry observer.
+ self.map.on_geometry_changed=function(map,x,y,z)
+  CollisionGeometry.node_changed(self,map,x,y,z)
+ end
  self.crafting=Crafting.new(self.registry.items,self.registry.aliases)
  self.content=Voxel.ContentIDs.new()
  api.registered_nodes=self.registry.nodes

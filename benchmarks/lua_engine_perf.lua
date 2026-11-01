@@ -237,6 +237,39 @@ local function work_mixed_geometry(ctx,iterations,cached)
  end
  return total
 end
+-- Repeated mining/build edits near one region should not evict distant
+-- cached collision geometry. The reference intentionally forces the old
+-- global-invalidation behavior after identical node changes.
+local function dynamic_geometry_setup(n)
+ local rt,api=fresh()
+ api.register_node('bench:stone',{})
+ api.register_node('bench:slab',{drawtype='nodebox',
+  node_box={type='fixed',fixed={-.5,-.5,-.5,.5,0,.5}}})
+ local positions={}
+ for i=1,n do
+  local pos=p((i-1)*8,0,0)
+  api.set_node(pos,{name='bench:stone'})
+  positions[i]=pos
+  Geometry.collect(rt,{pos.x-.25,-.25,-.25,
+   pos.x+.25,.25,.25},0,true)
+ end
+ return {rt=rt,api=api,positions=positions}
+end
+local function work_dynamic_geometry(ctx,iterations,global_reset)
+ local total=0
+ local far=ctx.positions[#ctx.positions]
+ local center=ctx.positions[1]
+ for i=1,iterations do
+  ctx.api.set_node(center,{name=i%2==0 and
+   'bench:stone' or 'bench:slab'})
+  if global_reset then Geometry.invalidate(ctx.rt) end
+  total=total+#Geometry.collect(ctx.rt,{
+   center.x-.25,-.25,-.25,center.x+.25,.25,.25},0,true)
+  total=total+#Geometry.collect(ctx.rt,{
+   far.x-.25,-.25,-.25,far.x+.25,.25,.25},0,true)
+ end
+ return total
+end
 local function median(data)
  table.sort(data)
  if #data%2==1 then return data[(#data+1)/2] end
@@ -289,6 +322,7 @@ local geometry_iterations=quick and 80 or 240
 local wide_iterations=quick and 40 or 120
 local dense_iterations=quick and 4 or 10
 local mixed_iterations=quick and 16 or 60
+local dynamic_iterations=quick and 40 or 120
 print('Lua engine performance baseline | '.._VERSION..
  (jit and (' / '..jit.version) or '')..
  ' | samples='..samples..' | quick='..tostring(quick))
@@ -364,6 +398,12 @@ for _,n in ipairs(sizes) do
  measure('node_mixed_linear',n,mixed_iterations,'geometry_queries',
   function()return mixed_geometry_setup(n) end,
   function(c,it)return work_mixed_geometry(c,it,false) end)
+ measure('node_edit_selective',n,dynamic_iterations,'edit_cycles',
+  function()return dynamic_geometry_setup(n) end,
+  function(c,it)return work_dynamic_geometry(c,it,false) end)
+ measure('node_edit_full_reset',n,dynamic_iterations,'edit_cycles',
+  function()return dynamic_geometry_setup(n) end,
+  function(c,it)return work_dynamic_geometry(c,it,true) end)
 end
 
 local function escaped(str)
