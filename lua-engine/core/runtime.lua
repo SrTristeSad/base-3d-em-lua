@@ -307,6 +307,15 @@ function Runtime.new(options)
   end
   self.registry.items[name]=def
  end
+ function api.override_item(name,overrides)
+  assert(type(name)=='string' and type(overrides)=='table',
+   'override_item requires an item name and override table')
+  local def=self.registry.items[name]
+  assert(def,'cannot override unknown item: '..name)
+  for key,value in pairs(overrides) do
+   if key~='name' then def[key]=value end
+  end
+ end
  function api.register_node(name,def) register('node',name,def) end
  function api.register_tool(name,def) register('tool',name,def) end
  function api.register_craftitem(name,def) register('craftitem',name,def) end
