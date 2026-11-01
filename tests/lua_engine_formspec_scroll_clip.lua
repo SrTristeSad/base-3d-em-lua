@@ -139,7 +139,7 @@ assert(#bufs==previous_buffers,'same partial sprites reuse GPU buffers')
 assert(pass.clip==nil)
 
 -- Scrolling exposes the button that was previously fully outside the clip.
-assert(view:wheel(width,height,clip.x+10,clip.y+10,-2))
+assert(view:wheel(width,height,clip.x+10,clip.y+10,-3))
 assert(view.scrolls.choice>0)
 layout=assert(view:layout(width,height))
 controls={}
