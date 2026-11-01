@@ -31,6 +31,7 @@ on:
       - 'tests/lua_engine_attached_nodes.lua'
       - 'tests/lua_engine_falling_nodes.lua'
       - 'tests/lua_engine_dynamic_rendering.lua'
+      - 'tests/lua_engine_item_pickup.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -74,6 +75,7 @@ on:
       - 'tests/lua_engine_attached_nodes.lua'
       - 'tests/lua_engine_falling_nodes.lua'
       - 'tests/lua_engine_dynamic_rendering.lua'
+      - 'tests/lua_engine_item_pickup.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -155,6 +157,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_dynamic_rendering.lua
           luajit tests/lua_engine_dynamic_rendering.lua
+      - name: Automatic pickup, leftovers, callbacks and metadata (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_item_pickup.lua
+          luajit tests/lua_engine_item_pickup.lua
       - name: Player inventory, wield and node interactions (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_player_gameplay.lua
