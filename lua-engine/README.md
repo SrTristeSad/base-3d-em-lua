@@ -1007,3 +1007,46 @@ as gravações pode deixar versões diferentes. Ainda faltam
 física de objetos contra jogadores, líquidos, geometria
 detalhada de `node_box`, áudio, coleta visual animada e
 compatibilidade 1:1 com Luanti/VoxeLibre.
+
+
+### Fase 35 — colisão precisa de itens e resistência em líquidos
+
+O módulo `core.itemphysics` substitui a aproximação de colisão por
+células inteiras por uma **varredura AABB** contra as caixas reais de
+`Nodebox.boxes(..., "collision_box")`. A detecção consulta as formas
+que o motor já conhece para lajes, nós `fixed` com múltiplas caixas,
+formas `facedir`/`4dir`, paredes `wallmounted`, cercas
+`connected` e nós `leveled`. Blocos que estendem a geometria para
+fora de sua célula também entram na busca de colisão. O resultado é
+que o item pode atravessar a região vazia de uma laje ou ao lado de
+um poste fino, sem atravessar a parte sólida quando a velocidade é alta.
+
+Na água e em outros nós marcados por `liquidtype`, os drops recebem
+amortecimento exponencial de velocidade e gravidade efetiva reduzida.
+É uma **aproximação física local**, ainda não equivalente ao ciclo
+nativo de física de entidades do Luanti; não existe correnteza nem
+interação completa com líquidos. A resistência pode ser configurada
+por `Runtime.new({item_liquid_drag=3})` e pode ser zerada. O atrito
+depois de uma colisão vertical agora considera o grupo
+`groups.slippery`: superfícies mais escorregadias retêm mais
+velocidade horizontal.
+
+**Experimento visual na demonstração LÖVR:** mire em um bloco de
+terreno e pressione **F10**; será colocada uma laje de meia altura
+com um item de areia suspenso três blocos acima, para observar a
+colisão no topo real da laje. **F8** continua testando areia caindo
+como nó e **F9** cria um item solto. Os mapas e objetos continuam
+sendo salvos pelas funções da Fase 34.
+
+**Teste automatizado:** `tests/lua_engine_item_nodebox_liquids.lua`
+roda em Lua 5.4 e LuaJIT, cobrindo lajes, postes, orientação,
+caixas fora da célula, atravessamento de partes vazias,
+damping em líquidos, superfícies escorregadias e persistência após
+movimentação. As regressões de todas as fases anteriores também
+continuam habilitadas.
+
+**Limites:** ainda faltam colisões entre entidades e jogadores,
+correção de itens que nascem dentro de sólidos, física exata de
+flutuabilidade/correnteza, efeitos visuais de água e testes
+manuais da demonstração gráfica. Não há compatibilidade 1:1
+com Luanti/VoxeLibre nesta fase.

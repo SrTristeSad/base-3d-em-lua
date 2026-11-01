@@ -17,6 +17,10 @@ api.register_node('lua:stone',{tiles={'default_stone.png'},description='Stone',g
 api.register_node('lua:wood',{tiles={'default_tree.png'},description='Wood',groups={choppy=2}})
 api.register_node('lua:leaves',{tiles={'default_leaves.png'},description='Leaves',groups={snappy=3}})
 api.register_node('lua:sand',{tiles={'default_sand.png'},description='Sand',groups={crumbly=3,falling_node=1}})
+api.register_node('lua:slab',{description='Stone half slab (physics demo)',
+ drawtype='nodebox',walkable=true,
+ node_box={type='fixed',fixed={-.5,-.5,-.5,.5,0,.5}},
+ tiles={'default_stone.png'},groups={cracky=2}})
 api.register_node('lua:water',{drawtype='liquid',liquidtype='source',use_texture_alpha='blend',tiles={'mcl_core_water_source_animation.png'},description='Water',groups={water=1,liquid=1},
  walkable=false})
 api.register_node('lua:glass',{description='Glass',drawtype='glasslike',
@@ -195,6 +199,17 @@ function lovr.keypressed(key)
   local ok,generated,writes=pcall(generator.generate,generator,cx,cz)
   if not ok then print('chunk generation failed:',generated)
   else print('chunk',cx,cz,generated and 'generated' or 'already generated',writes) end
+ elseif key=='f10' then
+  -- Visual QA: half-height nodebox and free falling item.
+  local hit=target()
+  if hit then
+   local support={x=hit.x,y=hit.y+1,z=hit.z}
+   if api.get_node(support).name=='air' then
+    api.set_node(support,{name='lua:slab'})
+    api.add_item({x=support.x,y=support.y+3,z=support.z},'lua:sand')
+    print('half-height slab and dropped sand spawned')
+   else print('F10 blocked: empty space needed above target') end
+  else print('look at a block before pressing F10') end
  elseif key=='f9' then
   -- Show a loose item mesh without waiting for node-drop inventory overflow.
   local hit=target()
