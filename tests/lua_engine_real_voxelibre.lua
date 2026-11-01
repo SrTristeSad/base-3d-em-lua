@@ -169,6 +169,27 @@ assert(original_snow and original_snow.drawtype=='nodebox')
 local snow_faces=Nodebox.faces(original_snow,{param2=0})
 assert(snow_faces and snow_faces[1].corners[1][2]==-.375,
  'real snow layer height must follow upstream definition')
+-- Physics must consume genuine collision boxes from the original mods.
+local PlayerPhysics=require('core.physics')
+for bx=98,110 do
+ rt.api.set_node({x=bx,y=0,z=0},{name='mcl_core:stone'})
+end
+rt.api.set_node({x=102,y=1,z=0},{name='mcl_core:snow'})
+rt.api.set_node({x=106,y=1,z=0},{name='mcl_fences:fence'})
+local simulated=PlayerPhysics.new(rt.api,{x=100,y=.5,z=0})
+local climbed=false
+for _=1,30 do
+ simulated:update(.05,{x=1})
+ if simulated.pos.y>.5+.05 then climbed=true end
+end
+assert(climbed,'upstream snow layer must raise feet by its actual height')
+assert(simulated.pos.x>103,
+ 'player must walk across original snow collision box')
+assert(simulated.pos.x<105.6,
+ 'original fence collision must prevent walking through or stepping over')
+for _=1,10 do simulated:update(.05,{x=1,sprint=true}) end
+assert(simulated.pos.x<105.6,
+ 'fence collision must also block the original physics at sprint speed')
 assert(rt.api.registered_items['mcl_stonecutter:stonecutter'].groups.pickaxey==1)
 assert(#rt.callbacks.allow_player_inventory_action>=1)
 assert(#rt.callbacks.on_player_inventory_action>=1)
