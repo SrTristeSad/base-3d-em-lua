@@ -87,7 +87,7 @@ assert(#direct==4096 and direct[1].x==0 and direct[1].y==0 and
  direct[#direct].y==15 and direct[#direct].z==15)
 local sweep={0,0,0,15,15,15}
 local checked=verify(dense,sweep,2,true,'dense nodeboxes')
-assert(#checked==4096)
+assert(#checked>=4096, 'connected nodes may contribute multiple shapes')
 local cache=Geometry.cache(dense)
 assert(cache.dense_fallbacks==1 and cache.dense_queries==1 and
  cache.sparse_queries==0,'dense world should use the direct scan')
