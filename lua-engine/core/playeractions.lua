@@ -40,7 +40,7 @@ local function drops_fit(inv,items,registry)
  end
  return true
 end
-function Actions.dig(rt,player,where)
+function Actions.dig(rt,player,where,default_only)
  local pos=position(where)
  local inventory,name=player_inventory(rt,player)
  local api=rt.api
@@ -53,9 +53,13 @@ function Actions.dig(rt,player,where)
  if def.can_dig and not def.can_dig(pos,player) then
   return false,'can_dig'
  end
- if def.on_dig then
-  -- Original mods own their custom dig implementation, not this subset.
-  return false,'custom_on_dig_unsupported'
+ if def.on_dig and not default_only then
+  -- Mod-controlled diggers receive the genuine host Player ObjectRef.
+  -- Per Luanti: nil is deprecated but means successful handling.
+  -- Never duplicate callback-owned drops, node removal, or lifecycle.
+  local result=def.on_dig(pos,old,player)
+  if result==false then return false,'custom_dig_rejected' end
+  return true,'custom_handled'
  end
  local tool=player:get_wielded_item():get_name()
  local drops=api.get_node_drops(old.name,tool)
@@ -81,30 +85,81 @@ function Actions.dig(rt,player,where)
  end
  return true,drops
 end
-function Actions.place(rt,player,where)
+-- Explicit pointed_thing is required for full orientation-sensitive
+-- interactions. Older callers may pass only a destination position.
+local function pointed_for(pos,pointed)
+ if pointed==nil then
+  return {type='node',above=pos,
+   under={x=pos.x,y=pos.y-1,z=pos.z}}
+ end
+ assert(type(pointed)=='table' and pointed.type=='node' and
+  type(pointed.under)=='table' and type(pointed.above)=='table',
+  'node interaction requires pointed_thing with under and above')
+ local under,above=position(pointed.under),position(pointed.above)
+ assert(above.x==pos.x and above.y==pos.y and above.z==pos.z,
+  'placement destination must match pointed_thing.above')
+ return {type='node',under=under,above=above}
+end
+local function update_wield_if_unchanged(player,before,after)
+ if after==nil then return end
+ local current=player:get_wielded_item()
+ -- Callbacks may modify the player's inventory directly; never overwrite
+ -- their newer stack state with an outdated returned value.
+ if current:equals(before) then
+  assert(player:set_wielded_item(Stack.new(after,before.registry)),
+   'failed to update wield after custom placement')
+ end
+end
+function Actions.place(rt,player,where,pointed)
  local pos=position(where)
  local _,name=player_inventory(rt,player)
  local api=rt.api
+ local hit=pointed_for(pos,pointed)
  if api.is_protected(pos,name) then return false,'protected' end
  local wield=player:get_wielded_item()
  if wield:is_empty() then return false,'empty_hand' end
- local def=rt.registry.nodes[wield:get_name()]
- if not def then return false,'not_placeable_node' end
- if def.on_place then return false,'custom_on_place_unsupported' end
+ local def=rt.registry.items[wield:get_name()]
+ if not def then return false,'unknown_item' end
  local old=api.get_node(pos)
  local olddef=rt.registry.nodes[old.name]
+ -- Right-clicking the pointed node takes priority over the selected
+ -- item's on_place, just as Luanti's default item_place does.
+ local undernode=api.get_node(hit.under)
+ local underdef=rt.registry.nodes[undernode.name]
+ if underdef and underdef.on_rightclick then
+  if api.is_protected(hit.under,name) then return false,'protected' end
+  local outcome=underdef.on_rightclick(hit.under,undernode,
+   player,wield:copy(),hit)
+  update_wield_if_unchanged(player,wield,outcome)
+  return true,'rightclick_handled'
+ end
+ if def.on_place then
+  local outcome=def.on_place(wield:copy(),player,hit)
+  -- nil means "leave itemstack unchanged", not an empty stack.
+  update_wield_if_unchanged(player,wield,outcome)
+  return true,'custom_handled'
+ end
+ if def.type~='node' then return false,'not_placeable_node' end
  if old.name~='air' and not (olddef and olddef.buildable_to) then
   return false,'occupied'
  end
  local next_node={name=wield:get_name(),param1=0,param2=0}
  if not api.set_node(pos,next_node) then return false,'place_failed' end
- wield:take_item(1)
- assert(player:set_wielded_item(wield),'wield slot changed during place')
  if def.on_construct then def.on_construct(pos) end
- if def.after_place_node then def.after_place_node(pos,player,wield,{
-  type='node',under=pos,above=pos}) end
+ local dont_take=false
+ if def.after_place_node then
+  dont_take=def.after_place_node(pos,player,wield:copy(),hit)==true
+ end
+ if not dont_take then
+  local selected=player:get_wielded_item()
+  if selected:equals(wield) then
+   selected:take_item(1)
+   assert(player:set_wielded_item(selected),
+    'wield slot changed during place')
+  end
+ end
  for _,callback in ipairs(rt.callbacks.on_placenode) do
-  callback(pos,api.get_node(pos),player,old,wield,nil)
+  callback(pos,api.get_node(pos),player,old,wield:copy(),hit)
  end
  return true
 end
@@ -134,7 +189,6 @@ function Actions.begin(rt,player,where)
  if def.can_dig and not def.can_dig(pos,player) then
   return false,'can_dig'
  end
- if def.on_dig then return false,'custom_on_dig_unsupported' end
  local tool=player:get_wielded_item()
  local params=Digging.params(def,tool,rt.registry)
  if not params.diggable then return false,params.reason end
