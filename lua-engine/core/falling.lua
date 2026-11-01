@@ -113,56 +113,106 @@ end
 -- Host-side pickup: remaining items stay in the same world object when
 -- only part of the stack fits. The returned number counts units removed
 -- from objects, not callbacks (callbacks may alter a returned stack).
-function Falling.pickup_player(rt,player,radius)
+-- Shared item-entity pickup transaction for automatic collection and
+-- explicit player punches. Luanti's builtin:item uses itemdef.on_pickup
+-- and leaves the resulting nonempty remainder in the same world entity.
+local function collect(rt,player,obj)
+ if obj.removed then return 0 end
+ local old=obj:get_item()
+ local def=rt.registry.items[old:get_name()]
+ local pointed={type='object',ref=obj}
+ local remainder
+ if def and type(def.on_pickup)=='function' then
+  local result=def.on_pickup(old:copy(),player,pointed)
+  if result then remainder=Stack.new(result,rt.registry.items) end
+ else
+  remainder=Falling.item_pickup(rt,old:copy(),player,pointed)
+ end
+ if not remainder or obj.removed then return 0 end
+ if remainder:is_empty() then
+  obj:remove()
+  return old:get_count()
+ end
+ local count=0
+ if old:stackable(remainder) then
+  count=math.max(0,old:get_count()-remainder:get_count())
+ end
+ obj:set_item(remainder)
+ return count
+end
+local function connected(rt,player)
  assert(type(player)=='table' and
   type(player.get_player_name)=='function','connected player required')
  local name=player:get_player_name()
  assert(rt.players[name]==player,'player not connected to runtime')
+end
+function Falling.pickup_player(rt,player,radius)
+ connected(rt,player)
  radius=radius or rt.opts.pickup_radius or 1.5
  assert(valid_distance(radius),'pickup radius must be finite and nonnegative')
  if type(player.get_pos)~='function' then return 0 end
  local at=player:get_pos()
- if not at or type(at.x)~='number' or
-  type(at.y)~='number' or type(at.z)~='number' then return 0 end
+ if not at or not finite(at.x) or
+  not finite(at.y) or not finite(at.z) then return 0 end
  local r2=radius*radius
  local collected=0
  local delay=rt.opts.pickup_delay
  if delay==nil then delay=.35 end
  assert(valid_distance(delay),'pickup delay must be finite and nonnegative')
  local pending=rt.droppedItems or {}
- -- Iterate backwards so removing a collected object cannot skip another.
  for i=#pending,1,-1 do
   local obj=pending[i]
   if not obj.removed and obj.age>=delay then
    local dx,dy,dz=obj.pos.x-at.x,
     obj.pos.y-(at.y+.6),obj.pos.z-at.z
    if dx*dx+dy*dy+dz*dz<=r2 then
-    local old=obj:get_item()
-    local def=rt.registry.items[old:get_name()]
-    local pointed={type='object',ref=obj}
-    local remainder
-    if def and type(def.on_pickup)=='function' then
-     local result=def.on_pickup(old:copy(),player,pointed)
-     if result then remainder=Stack.new(result,rt.registry.items) end
-    else
-     remainder=Falling.item_pickup(rt,old:copy(),player,pointed)
-    end
-    -- nil on custom on_pickup leaves the original entity unchanged.
-    if remainder and not obj.removed then
-     if remainder:is_empty() then
-      collected=collected+old:get_count()
-      obj:remove()
-     else
-      if old:stackable(remainder) then
-       collected=collected+math.max(0,old:get_count()-remainder:get_count())
-      end
-      obj:set_item(remainder)
-     end
-    end
+    collected=collected+collect(rt,player,obj)
    end
   end
  end
  return collected
+end
+local function dist_to_player(player,position)
+ if type(player.get_pos)~='function' then return math.huge end
+ local at=player:get_pos()
+ if type(at)~='table' or not finite(at.x) or
+  not finite(at.y) or not finite(at.z) then return math.huge end
+ local props=type(player.get_properties)=='function'
+  and player:get_properties() or nil
+ local box=props and props.collisionbox or
+  {-.3,0,-.3,.3,1.8,.3}
+ local axes={{'x',1,4},{'y',2,5},{'z',3,6}}
+ local distance2=0
+ for _,axis in ipairs(axes) do
+  local key,lower,upper=axis[1],axis[2],axis[3]
+  local low=at[key]+box[lower]
+  local high=at[key]+box[upper]
+  if not finite(low) or not finite(high) or low>high then
+   return math.huge
+  end
+  local d=position[key]<low and low-position[key] or
+   (position[key]>high and position[key]-high or 0)
+  distance2=distance2+d*d
+ end
+ return math.sqrt(distance2)
+end
+-- Explicit builtin:item-style punch. Native Luanti items deliberately use
+-- collide_with_objects=false; a player cannot physically push them, but a
+-- genuine player interaction can collect them. Validate entity ownership
+-- and distance at the host boundary; do not allow remote or foreign pickup.
+function Falling.punch_item(rt,player,obj,reach)
+ connected(rt,player)
+ reach=reach or rt.opts.item_punch_reach or 4
+ assert(valid_distance(reach),'item punch reach must be finite and nonnegative')
+ local owned=false
+ for _,entry in ipairs(rt.droppedItems or {}) do
+  if entry==obj then owned=true;break end
+ end
+ if not owned or obj.removed then return false,'missing_item' end
+ if dist_to_player(player,obj.pos)>reach then
+  return false,'out_of_reach'
+ end
+ return true,collect(rt,player,obj)
 end
 function Falling.get_falling_nodes(rt)
  local out={}
