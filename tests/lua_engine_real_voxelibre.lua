@@ -77,6 +77,12 @@ assert(type(g.walkover.register_global)=='function',
  'original walkover runtime did not load')
 assert(type(g.tt.register_snippet)=='function',
  'original tooltip module did not load')
+local tooltip_stack=rt.api.ItemStack('mcl_stonecutter:stonecutter')
+assert(tooltip_stack:get_definition()==
+ rt.api.registered_items['mcl_stonecutter:stonecutter'])
+assert(rt:predictCraft(tooltip_stack,nil,{},nil)==tooltip_stack)
+assert(tooltip_stack:get_name()=='mcl_stonecutter:stonecutter',
+ 'tooltip prediction must not change the source item name')
 assert(type(g.mcl_luck.get_luck)=='function',
  'original luck module did not load')
 assert(type(g.mcl_gamemode.get_gamemode)=='function',
