@@ -121,14 +121,14 @@ assert(click(locate('button',function(c)
  return c.field=='__switch_stack' end)))
 assert(player:get_meta():get_int('mcl_stonecutter:switch_stack')==64)
 assert(inv:get_stack('stonecutter_output',1):get_count()==4)
--- Actual LÖVR draw uses the original formspec layout. Images are currently
--- flat placeholders; the source UI geometry and interactions are authentic.
+-- The mock Pass mirrors the LÖVR 0.19 scissor API. Original stonecutter
+-- formspecs include scroll containers; they must not break rendering.
 local old=_G.lovr
 _G.lovr={math={newMat4=function()return {} end}}
 local commands={}
 local pass={}
 for _,name in ipairs({'push','pop','setViewPose','setProjection',
- 'setDepthTest','setMaterial','setColor','plane','text'}) do
+ 'setDepthTest','setMaterial','setColor','setScissor','plane','text'}) do
  pass[name]=function(_,...)commands[#commands+1]=name end
 end
 assert(view:draw(pass,w,h))
