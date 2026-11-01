@@ -154,4 +154,19 @@ eq(dug[1],'example:grass')
 eq(api.get_node(p).name,'air')
 eq(env.map.count,1)
 assert(not api.dig_node(p))
+-- Cancellable player punch callbacks used by original enchanting.
+local punch_count=0
+local victim={}
+api.register_on_punchplayer(function(player,hitter,interval,caps,dir,damage)
+ assert(player==victim and hitter==nil and interval==0.5)
+ assert(caps.damage_groups.fleshy==2 and dir.z==1 and damage==2)
+ punch_count=punch_count+1
+ return false
+end)
+assert(not env:isPlayerPunchCancelled(victim,nil,0.5,
+ {damage_groups={fleshy=2}},{x=0,y=0,z=1},2))
+api.register_on_punchplayer(function() punch_count=punch_count+1;return true end)
+assert(env:isPlayerPunchCancelled(victim,nil,0.5,
+ {damage_groups={fleshy=2}},{x=0,y=0,z=1},2))
+eq(punch_count,3,'punch callbacks executed')
 print('lua_engine_core: OK')
