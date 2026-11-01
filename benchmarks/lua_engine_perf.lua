@@ -202,6 +202,41 @@ local function work_dense_geometry(ctx,iterations,adaptive)
  end
  return total
 end
+-- Mixed-world fixture: dense stone clusters alternate with mostly
+-- empty mapblocks, exercising the spatial selector and ordered merges.
+local function mixed_geometry_setup(n)
+ local rt,api=fresh()
+ api.register_node('bench:stone',{})
+ api.register_node('bench:slab',{drawtype='nodebox',
+  node_box={type='fixed',fixed={-.5,-.5,-.5,.5,0,.5}}})
+ for x=-32,47 do for y=-2,2 do for z=-4,4 do
+  local block=floor(x/16)
+  local dense=block%2==0
+  if dense and (x+y+z)%5~=0 or
+     (not dense and (x*7+y*11+z*3)%17==0) then
+   api.set_node(p(x,y,z),{name=(x+y+z)%13==0 and
+    'bench:slab' or 'bench:stone'})
+  end
+ end end end
+ local positions={}
+ for i=1,n do
+  positions[i]=p(((i*7)%80)-32,0,0)
+ end
+ return {rt=rt,api=api,positions=positions}
+end
+local function work_mixed_geometry(ctx,iterations,cached)
+ local total=0
+ for i=1,iterations do
+  local pos=ctx.positions[1+((i*13-1)%#ctx.positions)]
+  local region={pos.x-12,-.2,-3,pos.x+12,.2,3}
+  if cached then
+   total=total+#Geometry.collect(ctx.rt,region,2,true)
+  else
+   total=total+geometry_reference(ctx,region)
+  end
+ end
+ return total
+end
 local function median(data)
  table.sort(data)
  if #data%2==1 then return data[(#data+1)/2] end
@@ -253,6 +288,7 @@ local relocation_iterations=quick and 80 or 300
 local geometry_iterations=quick and 80 or 240
 local wide_iterations=quick and 40 or 120
 local dense_iterations=quick and 4 or 10
+local mixed_iterations=quick and 16 or 60
 print('Lua engine performance baseline | '.._VERSION..
  (jit and (' / '..jit.version) or '')..
  ' | samples='..samples..' | quick='..tostring(quick))
@@ -322,6 +358,12 @@ for _,n in ipairs(sizes) do
  measure('node_dense_linear',n,dense_iterations,'geometry_queries',
   function()return dense_geometry_setup(n) end,
   function(c,it)return work_dense_geometry(c,it,false) end)
+ measure('node_mixed_cached',n,mixed_iterations,'geometry_queries',
+  function()return mixed_geometry_setup(n) end,
+  function(c,it)return work_mixed_geometry(c,it,true) end)
+ measure('node_mixed_linear',n,mixed_iterations,'geometry_queries',
+  function()return mixed_geometry_setup(n) end,
+  function(c,it)return work_mixed_geometry(c,it,false) end)
 end
 
 local function escaped(str)
