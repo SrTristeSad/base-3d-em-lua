@@ -38,6 +38,31 @@ local function parts(value)
  out[#out+1]=table.concat(buf)
  return out
 end
+local function options(raw)
+ local out,buf={},{}
+ local i=1
+ raw=raw or ''
+ while i<=#raw do
+  local c=raw:sub(i,i)
+  if c=='\\' and i<#raw and raw:sub(i+1,i+1)==',' then
+   buf[#buf+1]=',';i=i+2
+  elseif c==',' then
+   out[#out+1]=table.concat(buf);buf={};i=i+1
+  else buf[#buf+1]=c;i=i+1 end
+ end
+ out[#out+1]=table.concat(buf)
+ return out
+end
+local function last_utf8_boundary(s)
+ local i=#s
+ if i==0 then return 0 end
+ while i>1 do
+  local byte=s:byte(i)
+  if byte<128 or byte>=192 then break end
+  i=i-1
+ end
+ return i-1
+end
 local function clamp(x,a,b)return math.max(a,math.min(b,x))end
 local function within(x,y,c)
  return x>=c.x and y>=c.y and x<=c.x+c.w and y<=c.y+c.h
@@ -47,7 +72,8 @@ function View.new(runtime,playername)
   and type(runtime.movePlayerInventoryStack)=='function')
  assert(type(playername)=='string' and playername~='')
  return setmetatable({runtime=runtime,playername=playername,
-  selected=nil,scrolls={},last_formname=nil,message=''},View)
+  selected=nil,scrolls={},last_formname=nil,last_formspec=nil,
+  values={},focus=nil,field_enter_close={},message=''},View)
 end
 function View:session()
  return self.runtime:getPlayerFormspec(self.playername)
@@ -57,14 +83,27 @@ function View:layout(width,height)
   'invalid formspec viewport')
  local session=self:session()
  if not session then
-  self.last_formname=nil;self.selected=nil;self.scrolls={}
+  self.last_formname=nil;self.last_formspec=nil
+  self.selected=nil;self.scrolls={};self.values={}
+  self.field_enter_close={};self.focus=nil
   return nil
  end
- if self.last_formname~=session.formname then
+ if self.last_formname~=session.formname or
+  self.last_formspec~=session.formspec then
   self.last_formname=session.formname
-  self.selected=nil;self.scrolls={}
+  self.last_formspec=session.formspec
+  self.selected=nil;self.scrolls={};self.values={}
+  self.field_enter_close={};self.focus=nil
  end
  local elements=session.elements or {}
+ for _,e in ipairs(elements) do
+  if e.name=='field_close_on_enter' then
+   local p=parts(e.params)
+   if p[1] and p[1]~='' then
+    self.field_enter_close[p[1]]=(p[2]~='false')
+   end
+  end
+ end
  local fw,fh=8,6
  for _,e in ipairs(elements) do
   if e.name=='size' then
@@ -142,6 +181,38 @@ function View:layout(width,height)
      item=t:find('item_image_button',1,true) and p[3] or nil,
      close=t:find('_exit',1,true)~=nil})
    end
+  elseif t=='field' or t=='textarea' or t=='pwdfield' then
+   local x,y=pair(p[1]);local w,h=pair(p[2])
+   local field=p[3]
+   if x and y and w and h and field and field~='' then
+    if self.values[field]==nil then self.values[field]=p[5] or '' end
+    add('field',x,y,w,h,{field=field,label=p[4] or '',
+     multiline=t=='textarea',password=t=='pwdfield'})
+   end
+  elseif t=='checkbox' then
+   local x,y=pair(p[1]);local field=p[2]
+   if x and y and field and field~='' then
+    if self.values[field]==nil then
+     self.values[field]=(p[4]=='true') and 'true' or 'false'
+    end
+    add('checkbox',x,y,math.max(1.4,fw-x),.65,
+     {field=field,label=p[3] or ''})
+   end
+  elseif t=='dropdown' then
+   local x,y=pair(p[1])
+   local w,h=pair(p[2])
+   if not w then w=number(p[2]);h=.7 end
+   local field=p[3]
+   local entries=options(p[4])
+   if x and y and w and h and field and field~='' and
+    #entries>0 and #entries<=256 then
+    local selected=clamp(floor(number(p[5]) or 1),1,#entries)
+    if self.values[field]==nil then
+     self.values[field]=selected
+    end
+    add('dropdown',x,y,w,h,{field=field,items=entries,
+     index_event=p[6]=='true'})
+   end
   elseif t=='image' or t=='box' then
    local x,y=pair(p[1]);local w,h=pair(p[2])
    add('decoration',x,y,w,h,{label=p[3] or ''})
@@ -154,23 +225,126 @@ function View:layout(width,height)
  return {controls=controls,x=left,y=top,w=fw*unit,h=fh*unit,
   unit=unit,formname=session.formname,scrolls=all_scrolls}
 end
+-- Luanti submits currently edited fields on a button or close event.
+-- User-authored values are kept only for the currently active formspec.
+function View:form_values()
+ local fields={}
+ local layout=self:session()
+ if not layout then return fields end
+ local elements=layout.elements or {}
+ for _,e in ipairs(elements) do
+  local p=parts(e.params)
+  if e.name=='field' or e.name=='textarea' or e.name=='pwdfield' then
+   local field=p[3]
+   if field and field~='' and self.values[field]~=nil then
+    fields[field]=self.values[field]
+   end
+  elseif e.name=='checkbox' then
+   local field=p[2]
+   if field and field~='' and self.values[field]~=nil then
+    fields[field]=self.values[field]
+   end
+  elseif e.name=='dropdown' then
+   local field=p[3]
+   if field and field~='' and self.values[field]~=nil then
+    local entries=options(p[4])
+    local index=self.values[field]
+    if type(index)=='number' and entries[index] then
+     fields[field]=p[6]=='true' and tostring(index) or entries[index]
+    end
+   end
+  end
+ end
+ return fields
+end
+function View:submit(extra)
+ local session=self:session()
+ if not session then return false,'no_form' end
+ local fields=self:form_values()
+ for k,v in pairs(extra or {}) do fields[k]=v end
+ return self.runtime:receiveFormFields(
+  self.playername,session.formname,fields)
+end
+function View:textinput(input)
+ if not self.focus then return false,'no_field_focus' end
+ if type(input)~='string' or input=='' or input:find('%z') then
+  return false,'invalid_input'
+ end
+ local old=self.values[self.focus]
+ if type(old)~='string' or #old+#input>8192 then
+  return false,'field_limit'
+ end
+ self.values[self.focus]=old..input
+ return true
+end
+function View:keypressed(key)
+ if not self.focus then return false,'no_field_focus' end
+ local value=self.values[self.focus]
+ if type(value)~='string' then return false,'invalid_focus' end
+ if key=='backspace' then
+  self.values[self.focus]=value:sub(1,last_utf8_boundary(value))
+  return true
+ elseif key=='return' or key=='kpenter' then
+  local layout=self:layout(self.width or 1100,self.height or 800)
+  local multiline=false
+  if layout then
+   for _,c in ipairs(layout.controls) do
+    if c.kind=='field' and c.field==self.focus then
+     multiline=c.multiline
+     break
+    end
+   end
+  end
+  if multiline then
+   return self:textinput('\n')
+  end
+  local fields={key_enter_field=self.focus}
+  if self.field_enter_close[self.focus]~=false then
+   fields.quit='true'
+  end
+  return self:submit(fields)
+ end
+ return false,'unsupported_key'
+end
 function View:click(width,height,x,y,mousebutton)
  local layout=self:layout(width,height)
  if not layout then return false,'no_form' end
+ self.width,self.height=width,height
  if not number(x) or not number(y) or
   (mousebutton~=1 and mousebutton~=2) then
   return false,'invalid_pointer'
  end
  for i=#layout.controls,1,-1 do
   local ctl=layout.controls[i]
-  if (ctl.kind=='button' or ctl.kind=='slot') and within(x,y,ctl) then
-   if ctl.kind=='button' then
+  if (ctl.kind=='button' or ctl.kind=='slot' or
+   ctl.kind=='field' or ctl.kind=='checkbox' or
+   ctl.kind=='dropdown') and within(x,y,ctl) then
+   if ctl.kind=='field' then
+    if mousebutton~=1 then return false,'unsupported_button' end
+    self.focus=ctl.field
     self.selected=nil
+    return true,'field_focused'
+   elseif ctl.kind=='checkbox' then
+    if mousebutton~=1 then return false,'unsupported_button' end
+    self.focus=nil;self.selected=nil
+    local selected=self.values[ctl.field]~='true'
+    self.values[ctl.field]=selected and 'true' or 'false'
+    return self:submit({[ctl.field]=self.values[ctl.field]})
+   elseif ctl.kind=='dropdown' then
+    if mousebutton~=1 then return false,'unsupported_button' end
+    self.focus=nil;self.selected=nil
+    local index=self.values[ctl.field] or 1
+    index=index%#ctl.items+1
+    self.values[ctl.field]=index
+    local value=ctl.index_event and tostring(index) or ctl.items[index]
+    return self:submit({[ctl.field]=value})
+   elseif ctl.kind=='button' then
+    self.focus=nil;self.selected=nil
     local fields={[ctl.field]='true'}
     if ctl.close then fields.quit='true' end
-    return self.runtime:receiveFormFields(
-     self.playername,layout.formname,fields)
+    return self:submit(fields)
    end
+   self.focus=nil
    local player=self.runtime.players[self.playername]
    if not player or not player.get_inventory then
     return false,'player_not_connected'
@@ -205,14 +379,14 @@ function View:click(width,height,x,y,mousebutton)
    return ok,reason
   end
  end
+ self.focus=nil
  return false,'outside_control'
 end
 function View:close()
  local session=self:session()
  if not session then return false,'no_form' end
- self.selected=nil
- return self.runtime:receiveFormFields(
-  self.playername,session.formname,{quit='true'})
+ self.selected=nil;self.focus=nil
+ return self:submit({quit='true'})
 end
 function View:wheel(width,height,x,y,amount)
  if not number(amount) or amount==0 then return false end
@@ -271,6 +445,36 @@ function View:draw(pass,width,height)
    pass:setColor(.99,.99,1,1)
    pass:text(caption:sub(1,22),x,y,.1,
     clamp(layout.unit*.19,9,14))
+   elseif ctl.kind=='field' then
+   pass:setColor(self.focus==ctl.field and .33 or .22,
+    self.focus==ctl.field and .40 or .28,.38,1)
+   pass:plane(x,y,0,ctl.w*.98,ctl.h*.9)
+   local value=self.values[ctl.field] or ''
+   if ctl.password then value=string.rep('*',#value) end
+   pass:setColor(.97,.97,.99,1)
+   if ctl.label~='' then
+    pass:text(ctl.label:sub(1,48),x,y-ctl.h*.52,.1,
+     clamp(layout.unit*.16,9,13))
+   end
+   pass:text(value:sub(-96),x,y,.1,
+    clamp(layout.unit*.18,10,14))
+  elseif ctl.kind=='checkbox' then
+   pass:setColor(.24,.31,.43,1)
+   pass:plane(ctl.x+ctl.h*.28,y,0,ctl.h*.50,ctl.h*.50)
+   pass:setColor(1,1,1,1)
+   if self.values[ctl.field]=='true' then
+    pass:text('X',ctl.x+ctl.h*.28,y,.1,
+     clamp(layout.unit*.25,11,16))
+   end
+   pass:text(ctl.label:sub(1,40),x+ctl.h*.32,y,.1,
+    clamp(layout.unit*.17,10,14))
+  elseif ctl.kind=='dropdown' then
+   pass:setColor(.28,.37,.49,1)
+   pass:plane(x,y,0,ctl.w*.98,ctl.h*.92)
+   pass:setColor(1,1,1,1)
+   local chosen=ctl.items[self.values[ctl.field] or 1] or ''
+   pass:text((chosen..'  v'):sub(1,50),x,y,.1,
+    clamp(layout.unit*.18,10,14))
   elseif ctl.kind=='slot' then
    local selected=self.selected and self.selected.list==ctl.list
     and self.selected.index==ctl.index
