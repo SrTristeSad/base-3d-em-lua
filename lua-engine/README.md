@@ -606,9 +606,8 @@ O módulo `core/digging.lua` agora interpreta o subconjunto
 `groups.level` e `dig_immediate`. Calcula a duração necessária
 para quebrar um nó e o incremento de desgaste da ferramenta
 (`ItemStack.wear`). Uma ferramenta de usos limitados se quebra
-quando atinge o limite de desgaste. As regras de escala de tempo
-de `leveldiff` ainda são aproximações e não substituem a
-implementação nativa de `core.get_dig_params`.
+quando atinge o limite de desgaste. A Fase 28 substituiu as aproximações de `leveldiff` pela
+fórmula do motor Luanti e expôs `core.get_dig_params`.
 
 O runtime fornece um ciclo de mineração por jogador:
 `beginDigNodeAsPlayer(player,pos)`,
@@ -623,8 +622,7 @@ A mineração pela sessão de jogador preserva uma cópia de
 `oldmetadata`, remove metadados do nó antigo e executa
 `after_dig_node(pos,oldnode,oldmetadata,digger)` quando
 o nó implementa esse callback. Os callbacks personalizados
-`on_dig` continuam rejeitados explicitamente no caminho
-simplificado: essa compatibilidade ainda precisa ser portada.
+`on_dig` foram posteriormente integrados na Fase 27.
 
 Na demo LÖVR, o botão esquerdo **precisa ser mantido**
 para minerar; soltar o botão ou deixar de mirar no bloco
@@ -692,3 +690,41 @@ fluxos de controle cliente-servidor, orientação automática completa,
 interação com entidades, privilegios completos, drops como entidades
 e regras especiais de mineração. A compatibilidade 1:1 com VoxeLibre
 continua sendo uma meta, não uma funcionalidade já alcançada.
+
+
+### Parâmetros nativos de mineração e interação (Fase 28)
+
+O cálculo de `core.get_dig_params(groups,tool_capabilities[,initial_wear])`
+agora segue o código-fonte de `src/tool.cpp` do Luanti:
+`dig_immediate=2/3` com tempos fixos quando não há groupcap
+específico, `maxlevel=1` e `uses=20` por padrão,
+redução de duração por `leveldiff` quando superior a 1 e
+desgaste escalonado em `65536` unidades, distribuído
+entre usos normais e usos de desgaste adicional.
+A implementação usa o `initial_wear` real do `ItemStack` e
+seleciona o grupo mais rápido. O campo `main_group`
+está disponível, assim como o alias interno `group`.
+
+O desgaste do caminho padrão de mineração foi centralizado:
+`core.node_dig` chamado por um `on_dig` personalizado
+não aplica o desgaste duas vezes quando a mineração começou
+por `beginDigNodeAsPlayer`. Ferramentas com `after_use`
+podem alterar/devolver o `ItemStack`, preservando alterações
+diretas que callbacks façam ao inventário.
+
+A colocação padrão substitui o nó apontado quando ele define
+`buildable_to` (p.ex. neve fina); a devolução de `true`
+em `register_on_placenode` também impede consumir o item,
+e um jogador agachado ignora `on_rightclick` na interação
+padrão. Os métodos posicionais legados continuam aceitos.
+
+Regressões em `tests/lua_engine_native_dig_params.lua`, cobrindo
+Lua 5.4 e LuaJIT, verificam a fórmula e os limiares de desgaste,
+escavação delegada, `after_use`, colocação substituível,
+retenção de pilha por callback e interação agachada.
+
+**Compatibilidade 1:1 ainda não concluída:** faltam regras
+completas de `item_place`, `preserve_metadata`, modo criativo,
+overflow de drops como entidades, orientação por `paramtype2`,
+`attached_node` e implementação integral da lógica client/server
+do Luanti/VoxeLibre.
