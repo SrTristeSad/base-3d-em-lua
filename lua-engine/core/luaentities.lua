@@ -2,6 +2,7 @@
 -- remain deliberately limited: callbacks run, velocity/acceleration integrate,
 -- but entity-to-entity collisions, attachments and native serialization are not implemented.
 local EntityPhysics=require('core.entityphysics')
+local SpatialIndex=require('core.spatialindex')
 local CollisionEvents=require('core.collisionevents')
 local Entities={}
 local MAX_STATICDATA=65536
@@ -74,6 +75,7 @@ local function methods(rt,obj)
  function obj:set_pos(p)
   assert(active(rt,self),'entity is removed')
   self.pos=vec(p)
+  SpatialIndex.update(rt,self)
  end
  function obj:get_velocity()
   if not active(rt,self) then return nil end
@@ -124,6 +126,7 @@ local function methods(rt,obj)
   local merged=copy(self.properties)
   for k,v in pairs(changes) do merged[k]=copy(v) end
   self.properties=props({initial_properties=merged})
+  SpatialIndex.update(rt,self)
   self.hp=math.min(self.hp,self.properties.hp_max)
  end
  function obj:get_hp()
@@ -137,6 +140,7 @@ local function methods(rt,obj)
  function obj:remove()
   if self.removed then return end
   self.removed=true
+  SpatialIndex.remove(rt,self)
   for i,v in ipairs(rt.luaEntities) do
    if v==self then table.remove(rt.luaEntities,i);break end
   end
@@ -172,6 +176,7 @@ function Entities.add(rt,pos,name,staticdata,restored)
  end
  obj.luaentity=instance
  rt.luaEntities[#rt.luaEntities+1]=obj
+ SpatialIndex.update(rt,obj)
  -- on_activate gets the actual object already in the active registry, as
  -- native mods often query self.object inside their activation callback.
  if type(instance.on_activate)=='function' then
@@ -220,6 +225,7 @@ end
 function Entities.deactivate_all(rt)
  local old=rt.luaEntities or {}
  rt.luaEntities={}
+ rt.spatialEntities=nil
  for _,obj in ipairs(old) do
   if active(rt,obj) then
    obj.removed=true
