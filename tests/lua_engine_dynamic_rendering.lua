@@ -102,7 +102,7 @@ calls={}
 renderer:draw_dynamic(pass,rt,camera,20)
 assert(#calls==2 and calls[1].y<8 and
  calls[1].buffer==original_sand_buffer,
- 'moving object's translation must update without regenerating geometry')
+ 'moving object translation must update without regenerating geometry')
 
 calls={}
 renderer:draw_dynamic(pass,rt,p(100,0,100),3)
