@@ -83,6 +83,14 @@ assert(tooltip_stack:get_definition()==
 assert(rt:predictCraft(tooltip_stack,nil,{},nil)==tooltip_stack)
 assert(tooltip_stack:get_name()=='mcl_stonecutter:stonecutter',
  'tooltip prediction must not change the source item name')
+rt.api.register_craftitem('test:tooltip',{
+ description='Tooltip probe',_tt_help='Genuine upstream snippet'})
+local item=rt.api.ItemStack('test:tooltip')
+rt:predictCraft(item,nil,{},nil)
+assert(item:get_meta():get_string('description'):find('Genuine upstream snippet',1,true),
+ 'original tooltip callback must populate itemstack metadata')
+rt.api.override_item('test:tooltip',{description='Updated tooltip probe'})
+assert(rt.api.registered_items['test:tooltip'].description=='Updated tooltip probe')
 assert(type(g.mcl_luck.get_luck)=='function',
  'original luck module did not load')
 assert(type(g.mcl_gamemode.get_gamemode)=='function',
