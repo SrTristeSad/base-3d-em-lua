@@ -21,7 +21,7 @@ Baixe o pacote `Motor-Lua-Experimental-Windows-x64` na
 extraia os arquivos e execute `Motor-Lua-Demo.exe`.
 
 **Controles:** mouse para olhar, WASD para caminhar, Espaço pula
-(e sobe escadas/nada), Ctrl desce escadas, Shift corre, botão esquerdo quebra bloco,
+(e sobe escadas/nada), Ctrl agacha no solo e desce escadas/água, Shift corre, botão esquerdo quebra bloco,
 direito coloca pedra, F6 salva o mapa, **F7 gera o chunk 16×16 sob a câmera**; Escape libera o cursor.
 
 O motor 3D usa o runtime **LÖVR 0.19** como camada nativa de
@@ -409,3 +409,36 @@ posição do jogador em rede, impulsos de superfícies ou sistema de
 animações. O suporte gráfico a escadas utiliza um modelo provisório
 `plantlike`, não a geometria original. O objetivo segue sendo a
 compatibilidade 1:1, ainda não alcançada.
+
+### Agachar e proteger bordas (Fase 21)
+
+O controlador em `core/physics.lua` reconhece `input.sneak`
+enquanto o jogador está apoiado, fora de água e escadas.
+No solo, Ctrl reduz a velocidade máxima para
+`sneak_speed` (1,5 nós/s por padrão) e rebaixa
+gradualmente a câmera por `sneak_eye_offset` (0,28 nó).
+A caixa de colisão do corpo **não é redimensionada**.
+
+A proteção de bordas consulta as caixas reais de colisão
+sob o **centro** do jogador, não apenas o tipo de nó, para
+detectar solo firme. Quando o próximo movimento sairia do
+apoio, a coordenada horizontal é limitada por uma busca
+binária; o movimento paralelo à borda permanece disponível.
+A implementação suporta superfícies parciais como lajes e
+pode ser desativada com `sneak_edge_guard=false`, sem alterar
+o movimento agachado. Ao nadar ou subir escadas, Ctrl continua
+funcionando como comando de descida, sem prender o jogador
+nas bordas.
+
+A regressão `tests/lua_engine_sneak.lua` cobre o limite
+da plataforma, movimento diagonal paralelo ao precipício,
+câmera agachada, travessia normal sem proteção, lajes,
+prioridade de água/escadas e configuração inválida em
+Lua 5.4 e LuaJIT.
+
+**Limites:** a busca atual por apoio é conservadora e não
+reproduz toda a lógica de `sneak` nativa do Luanti,
+incluindo pendurar-se nas bordas, colisão exata com
+faces irregulares, animação corporal e movimentação em rede.
+Os números da física são provisórios, não calibrados
+como a física 1:1 do Luanti.
