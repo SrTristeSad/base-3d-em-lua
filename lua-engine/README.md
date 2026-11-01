@@ -38,6 +38,7 @@ a partir da raiz do repositório.
   `register_craft`;
 - `registered_nodes`, `registered_items`,
   `registered_entities`, grupos;
+- `core/nodedrops.lua`: leitura dos drops originais dos nós (subconjunto: strings, listas, `rarity`, `max_items` e ferramentas); sem silk touch ou fortune.
 - `core/particles.lua`: hash espacial reversível de posições, registro e retirada de emissores de partículas (sem renderizador visual).
 - callbacks de permissão e notificação de operações de inventário,
   registro da bancada de corte original e receita (sem interface de jogador).
@@ -96,7 +97,8 @@ Os testes de lógica executam sob Lua 5.4 **e LuaJIT**:
 `tests/lua_engine_core.lua` e
 `tests/lua_engine_inventory_modloader.lua` e
 `tests/lua_engine_crafting.lua`, `tests/lua_engine_rng.lua`,
-`tests/lua_engine_voxel.lua` e `tests/lua_engine_worldgen.lua`.
+`tests/lua_engine_voxel.lua`, `tests/lua_engine_worldgen.lua` e
+`tests/lua_engine_nodedrops.lua`.
 A demonstração gráfica precisa de hardware Vulkan e teste manual.
 
 O VoxeLibre integral continua disponível em `games/voxelibre/`

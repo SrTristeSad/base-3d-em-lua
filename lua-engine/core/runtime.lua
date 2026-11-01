@@ -8,6 +8,7 @@ local Crafting=require('core.crafting')
 local ModStorage=require('core.modstorage')
 local Voxel=require('core.voxel')
 local Particles=require('core.particles')
+local NodeDrops=require('core.nodedrops')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -398,6 +399,12 @@ function Runtime.new(options)
  function api.get_node_group(name,group)
   local def=self.registry.nodes[resolve(name)]
   return (def and def.groups and def.groups[group]) or 0
+ end
+ -- Small supported subset of Luanti node drops. No fortune/silk-touch or
+ -- automatic item entities: the caller must consume returned item strings.
+ function api.get_node_drops(name,tool,rng)
+  assert(type(name)=='string','node name required')
+  return NodeDrops.evaluate(self.registry.nodes,resolve(name),tool,rng)
  end
  function api.find_nodes_in_area(minp,maxp,names)
   local matches={}

@@ -143,8 +143,23 @@ local path_core=root..'/mods/ITEMS/mcl_core'
 rt.opts.modpaths.mcl_core=path_core
 local core_ok,core_error=pcall(rt.loadMod,rt,'mcl_core',path_core)
 assert(rt.current_mod==nil,'mod context leaked after probe')
+local core_nodes={}
+for name in pairs(rt.api.registered_nodes) do
+ if name:sub(1,9)=='mcl_core:' then core_nodes[#core_nodes+1]=name end
+end
+table.sort(core_nodes)
+local stone=rt.api.registered_nodes['mcl_core:stone']
+if stone then
+ assert(stone.description=='Stone')
+ assert(stone.groups.pickaxey==1)
+ assert(rt.api.get_node_drops('mcl_core:stone')[1]=='mcl_core:cobble')
+ assert(rt.api.get_node_drops('mcl_core:stone_with_iron')[1]==
+  'mcl_raw_ores:raw_iron')
+end
+print(('MCL_CORE PROBE: %d original nodes registered; stone=%s; error=%s')
+ :format(#core_nodes,tostring(stone~=nil),tostring(core_error):sub(1,180)))
 local report={
- '# VoxeLibre real Lua mod boot — Fase 8','',
+ '# VoxeLibre real Lua mod boot — Fase 9','',
  'Original VoxeLibre code from the pinned Git checkout was executed.',
  'Lua 5.4 and LuaJIT tests must both pass for this report to be published.','',
  ('- Real modules loaded: **%d**'):format(#results),
@@ -174,6 +189,9 @@ local report={
  ('- First issue: %s'):format(tostring(core_error or
   'no Lua error; gameplay and dependencies still unverified')
   :gsub('[\\r\\n]+',' '):sub(1,900)),
+ ('- Real mcl_core nodes registered before failure: **%d**'):format(#core_nodes),
+ ('- Original stone registered and its drops evaluated: **%s**')
+  :format(tostring(stone~=nil)),
  '- This is a diagnostic; mcl_core is not counted as a loaded module.',
  '- The original files remain unchanged.',
  '',

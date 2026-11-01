@@ -12,6 +12,7 @@ on:
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
       - 'tests/lua_engine_particles_inventory.lua'
+      - 'tests/lua_engine_nodedrops.lua'
       - 'scripts/mcl_core_dependencies.py'
       - 'scripts/audit_voxelibre_api.py'
       - 'scripts/export_lua_engine_api.lua'
@@ -77,6 +78,10 @@ jobs:
         run: lua5.4 tests/lua_engine_particles_inventory.lua
       - name: Same particle and permission tests on LuaJIT
         run: luajit tests/lua_engine_particles_inventory.lua
+      - name: Node drop rules and item return values (Lua 5.4)
+        run: lua5.4 tests/lua_engine_nodedrops.lua
+      - name: Same node drops tests on LuaJIT
+        run: luajit tests/lua_engine_nodedrops.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr
       - uses: actions/upload-artifact@v4

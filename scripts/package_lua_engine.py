@@ -9,7 +9,8 @@ REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/itemstack.lua", "core/inventory.lua", "core/modloader.lua",
             "core/modenvironment.lua", "core/modstorage.lua",
             "core/bitops.lua", "core/pcgrandom.lua", "core/voxel.lua",
-            "core/worldgen.lua", "core/particles.lua")
+            "core/worldgen.lua", "core/particles.lua",
+            "core/nodedrops.lua")
 
 
 def build(source: Path, output: Path) -> None:
