@@ -127,11 +127,11 @@ mantém os registradores correspondentes, mas ainda não reproduz todos
 os caminhos de gameplay que geram esses eventos.
 
 A tentativa de iniciar `mcl_core` após carregar a documentação
-registrou **75 nós originais** antes de encontrar a dependência da API
+registrou **166 nós originais** antes de encontrar a dependência da API
 `register_on_liquid_transformed`. O registro e despacho do evento de
 transformação de líquidos foi acrescentado, mas **não há simulação
-1:1 do fluxo de líquidos** nesta versão. A contagem de 75 é o último
-resultado confirmado antes dessa implementação, não uma previsão da
+1:1 do fluxo de líquidos** nesta versão. A contagem de 166 é o último
+resultado confirmado antes da implementação de \`item_eat\`, não uma previsão da
 próxima auditoria.
 
 Foram adicionadas as definições nativas de `air`, `ignore` e da mão;
