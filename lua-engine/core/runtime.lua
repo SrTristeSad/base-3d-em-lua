@@ -56,6 +56,18 @@ function Runtime.new(options)
  api.registered_biomes=self.registry.biomes
  api.registered_ores=self.registry.ores
  api.registered_decorations=self.registry.decorations
+ -- Engine-owned definitions exist before gameplay mods load.  Content IDs
+ -- 0 (air) and 127 (ignore) are reserved by Voxel.ContentIDs.
+ local air={name='air',description='Air',drawtype='airlike',
+  pointable=false,walkable=false,buildable_to=true,diggable=false,groups={}}
+ local ignore={name='ignore',description='Ignore',drawtype='airlike',
+  pointable=false,walkable=false,buildable_to=false,diggable=false,groups={}}
+ self.registry.nodes.air=air
+ self.registry.nodes.ignore=ignore
+ self.registry.items.air=air
+ self.registry.items.ignore=ignore
+ self.registry.items['']={name='',description='',type='none',
+  range=4,groups={}}
  api.CONTENT_AIR=0
  api.CONTENT_IGNORE=127
  local biomeIds,biomeNames,nextBiomeId={}, {},1
