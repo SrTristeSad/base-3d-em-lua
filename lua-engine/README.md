@@ -1262,3 +1262,47 @@ desses callbacks. `on_activate` não recebe ainda o tempo real de
 inatividade, e o arquivo lateral não é transacional com o mapa.
 Esta persistência **não** substitui o banco de dados de entidades
 nativo de Luanti nem garante compatibilidade 1:1 com VoxeLibre.
+
+
+### Fase 40 — colisão física de LuaEntities com o terreno
+
+O módulo `core.entityphysics` integra **velocidade, aceleração e
+varredura contínua AABB** de entidades registradas contra a geometria
+verdadeira dos `collision_box` dos nós. O recurso é habilitado pela
+propriedade nativa `initial_properties.physical=true`. Entidades
+com `physical=false` (padrão) continuam com a movimentação sem
+colisão, preservando o comportamento da Fase 38. A varredura usa
+as caixas fixas, rotacionadas, conectadas, com altura variável e
+formas que ultrapassam os limites do bloco: uma laje não bloqueia
+um volume cúbico inteiro, por exemplo.
+
+Os movimentos são separados pelos eixos X, Y e Z para que objetos
+**deslizem nas paredes** e parem ao atingir o chão, sem atravessar
+nós sólidos mesmo com grandes deslocamentos. O callback
+`on_step(self,dt,moveresult)` passa a receber informação efetiva
+de colisões: `collides`, `touching_ground` e registros em
+`collisions[]` contendo `type='node'`, `axis`, `node_pos`,
+`normal`, `old_velocity` e `new_velocity`. O contato do chão
+é detectado mesmo quando a criatura já está parada.
+
+**Gravidade:** conforme a semântica do Luanti, a definição
+`physical=true` **não aplica gravidade automaticamente**.
+O próprio mod deve informar a aceleração vertical com
+`self.object:set_acceleration({x=0,y=-9.81,z=0})`.
+O golem demonstrativo (F4) agora usa `physical=true`
+e gravidade explícita, de modo que pode cair até o chão.
+
+As propriedades físicas e a aceleração continuam preservadas
+pelo arquivo lateral de entidades da Fase 39. Os testes
+`tests/lua_engine_entity_collision_physics.lua` verificam,
+em Lua 5.4 e LuaJIT, queda, gravidade explícita, estabilidade
+no chão, contato durante salto, colisão lateral em alta velocidade,
+deslizamento por parede, lajes, postes, orientações 4dir,
+cercas conectadas, passagem de entidades não físicas, validação
+de propriedades e física após restauração.
+
+**Limitações:** esta etapa **não** inclui colisões entre
+entidades ou com jogadores, stepheight, física completa em
+líquidos, detecção de penetração inicial, subpassos específicos
+para acelerações extremas, nem o algoritmo C++ exato do Luanti.
+É uma implementação incremental, não compatibilidade 1:1.
