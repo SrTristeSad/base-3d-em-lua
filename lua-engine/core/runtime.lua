@@ -18,6 +18,7 @@ local EntityPhysics=require('core.entityphysics')
 local CollisionGeometry=require('core.collisiongeometry')
 local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
+local PlayerHP=require('core.playerhp')
 local Serialization=require('core.serialization')
 local Runtime={}
 Runtime.__index=Runtime
@@ -53,6 +54,7 @@ function Runtime.new(options)
  },Runtime)
  local api={}
  self.api=api
+ PlayerHP.install(api)
  api.serialize=Serialization.serialize
  api.deserialize=Serialization.deserialize
  self.map.registry=self.registry.items
@@ -239,6 +241,15 @@ function Runtime.new(options)
  end
  function api.get_position_from_hash(hash)
   return Particles.get_position_from_hash(hash)
+ end
+ -- Native-style position formatting used by VoxeLibre death messages.
+ function api.pos_to_string(pos,decimal_places)
+  assert(ispos(pos),'pos_to_string requires a position')
+  local digits=decimal_places or 0
+  assert(type(digits)=='number' and digits==floor(digits) and
+   digits>=0 and digits<=9,'invalid position decimal precision')
+  local spec=('(%%.%df, %%.%df, %%.%df)'):format(digits,digits,digits)
+  return spec:format(pos.x,pos.y,pos.z)
  end
  function api.add_particlespawner(def)
   return self.particles:add_spawner(def)
@@ -883,7 +894,10 @@ function Runtime:bindPlayerPhysics(name,controller)
   'player already has a Lua physics binding: '..name)
  assert(type(controller)=='table' and controller.api==self.api,
   'character controller belongs to a different runtime')
- local release=PlayerPhysics.attach(player,controller)
+ local release=PlayerPhysics.attach(player,controller,
+  function(host_player,old_hp,new_hp,hp_max,reason)
+   return PlayerHP.set(self,host_player,old_hp,new_hp,hp_max,reason)
+  end)
  local previous_provider=controller.object_colliders
  controller.object_colliders=function(swept)
   local boxes=EntityPhysics.entity_boxes(self,swept)
