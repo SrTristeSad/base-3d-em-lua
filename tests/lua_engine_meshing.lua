@@ -53,6 +53,7 @@ assert(other.faces==5,'neighbor chunk must not draw shared face')
 assert(Atlas.index('default_stone.png')==4)
 assert(Atlas.index({name='default_dirt.png^overlay.png'})==3)
 assert(Atlas.index('nonexistent.png')==1)
+assert(Atlas.index('default_dirt.png^mcl_dirt_grass_shadow.png')==9)
 local grassmap=Engine.new().map
 grassmap:set_node(pos(3,3,3),{name='test:grass'})
 local grass=Mesher.build(grassmap,rt.registry.nodes,0,0,0)
