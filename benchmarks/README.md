@@ -42,10 +42,14 @@ compare **median CPU time** on the same hardware and Lua runtime.
 | `spatial_relocation` | `ObjectRef:set_pos` with index maintenance | calls |
 | `node_collision_cached` | Shared, revision-aware node collision AABB cache | geometry queries |
 | `node_collision_uncached` | Same nodebox geometry via direct map and Nodebox.boxes reads | geometry queries |
+| `node_wide_sparse` | Wide AABB via stored-node mapblock index | geometry queries |
+| `node_wide_linear` | Same wide AABB through every voxel, including air | geometry queries |
 
 All cases use explicit, reproducible positions, velocities and a
 fixed query order; counts are **32, 128** in CI, plus **256** in
 the default local run. `--quick` uses fewer iterations per case.
+For wide-area collision geometry, the runner also checks indexed and
+full-grid nodebox counts over the same long sweeps.
 For node geometry, the runner checks cached and uncached box counts on
 identical maps containing regular cubes and slabs. For radius searches,
 the runner checks the indexed results against
