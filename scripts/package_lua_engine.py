@@ -50,7 +50,7 @@ def build(source: Path, output: Path, game: Path | None = None,
                    build_atlas(source / "core/atlas.lua", game, require_upstream))
         # Both GPU pixels and Lua lookup are derived from the SAME ordered names.
         z.writestr("core/atlas_manifest.lua", atlas_manifest(names, columns))
-        z.writestr("visual/ATLAS-INDEX.txt", "\\n".join(names) + "\\n")
+        z.writestr("visual/ATLAS-INDEX.txt", "\n".join(names) + "\n")
         if original:
             # The image pixels are from the pinned submodule, not generated
             # lookalikes. Preserve upstream licensing and credit references.
