@@ -29,12 +29,13 @@ def images(game: Path) -> list[Path]:
 
 def manifest(files: list[Path]) -> str:
     """Encode verified pixel dimensions as data, not a Lua code expression."""
-    from PIL import Image
     lines = [
         "-- Original source-resolution UI textures from pinned VoxeLibre.",
         "-- This manifest lists only PNGs bundled into visual/formspec/.",
         "return {",
     ]
+    if files:
+        from PIL import Image
     for path in files:
         if not SAFE.fullmatch(path.name) or not path.name.startswith(PREFIXES):
             raise ValueError("unsafe GUI texture filename: " + path.name)
