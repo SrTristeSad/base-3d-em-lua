@@ -1,7 +1,6 @@
--- Bind the independent Lua character controller to a REAL host player object.
--- No synthetic player or emulator userdata: the host owns player sessions.
--- The Lua ObjectRef subset is installed only when the host does not already
--- implement its own physics methods; disconnect restores original behavior.
+-- Bridge the host-owned Player ObjectRef subset to a Lua character.
+-- The host owns player identity and session lifetime. Lua methods installed
+-- here are removed on disconnect and never replace existing host methods.
 local Bridge={}
 local function validate(player,controller)
  assert(type(player)=='table' and type(player.get_player_name)=='function',
@@ -18,30 +17,66 @@ function Bridge.attach(player,controller)
  validate(player,controller)
  local detached=false
  local function check(self)
-  assert(self==player,'physics override called with wrong player')
-  assert(not detached,'physics binding was disconnected')
+  assert(self==player,'player API called with wrong player')
+  assert(not detached,'player binding was disconnected')
  end
- local setter=function(self,overrides)
-  check(self)
-  return controller:set_physics_override(overrides)
+ local functions={
+  set_physics_override=function(self,overrides)
+   check(self)
+   return controller:set_physics_override(overrides)
+  end,
+  get_physics_override=function(self)
+   check(self)
+   return controller:get_physics_override()
+  end,
+  get_pos=function(self)
+   check(self)
+   return controller:get_pos()
+  end,
+  set_pos=function(self,position)
+   check(self)
+   return controller:set_pos(position)
+  end,
+  get_velocity=function(self)
+   check(self)
+   return controller:get_velocity()
+  end,
+  set_velocity=function(self,velocity)
+   check(self)
+   return controller:set_velocity(velocity)
+  end,
+  add_velocity=function(self,velocity)
+   check(self)
+   return controller:add_velocity(velocity)
+  end,
+  get_player_control=function(self)
+   check(self)
+   return controller:get_player_controls()
+  end,
+  get_properties=function(self)
+   check(self)
+   return controller:get_properties()
+  end,
+  set_properties=function(self,properties)
+   check(self)
+   return controller:set_properties(properties)
+  end,
+ }
+ local installed={}
+ -- Methods provided by a real host remain authoritative. Only supply the
+ -- missing methods; do not manufacture any unrelated ObjectRef capabilities.
+ for key,fn in pairs(functions) do
+  if player[key]==nil then
+   player[key]=fn
+   installed[key]=fn
+  end
  end
- local getter=function(self)
-  check(self)
-  return controller:get_physics_override()
- end
- -- Both methods are attached to the host ObjectRef table. Luanti mods
- -- receive the same object from get_connected_players/get_player_by_name.
- player.set_physics_override=setter
- player.get_physics_override=getter
  return function()
   if detached then return end
   detached=true
-  -- Never remove or overwrite a newer implementation supplied by host.
-  if rawget(player,'set_physics_override')==setter then
-   player.set_physics_override=nil
-  end
-  if rawget(player,'get_physics_override')==getter then
-   player.get_physics_override=nil
+  for key,fn in pairs(installed) do
+   -- If a host replaced a method during the session, leave it untouched.
+   if rawget(player,key)==fn then player[key]=nil end
   end
  end
 end
