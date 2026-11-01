@@ -478,3 +478,42 @@ do suporte ainda são aproximações do motor Luanti, e velocidade
 fast não inclui a verificação de privilégio original. O teste
 automatizado não substitui a execução visual em Windows.
 A paridade 1:1 permanece a meta.
+
+### Física por jogador ligada à API de mods (Fase 23)
+
+O novo módulo `core/playerphysics.lua` conecta um controlador
+`core.physics` a um objeto de jogador que **o host fornece**.
+`Runtime:connectPlayer(player, controller)` instala nesse objeto
+os métodos Luanti `player:set_physics_override(table)` e
+`player:get_physics_override()` **antes** de executar
+`register_on_joinplayer`. O objeto visto pelos mods é a mesma
+referência que o host passou e que a API retorna por
+`get_player_by_name` e `get_connected_players`.
+
+Um host também pode ligar a física depois da conexão, com
+`Runtime:bindPlayerPhysics(player_name, controller)`. Os métodos
+encaminham as alterações ao controlador real, preservando
+atualizações parciais, validação de valores e cópias independentes.
+Quando o jogador sai, `on_leaveplayer` ainda vê os overrides;
+em seguida, a ligação é desfeita, sem apagar o estado do controlador.
+Falhas em `on_joinplayer` desfazem a conexão antes de retornar
+o erro. Um jogador que já implementa os métodos nativamente
+não é substituído silenciosamente.
+
+A demo LÖVR agora conecta uma sessão local mínima chamada
+`singleplayer` ao controlador de movimento existente e a
+desconecta ao encerrar. **Isso não implementa os demais métodos
+de um ObjectRef nem autenticação, replicação em rede ou um
+servidor multijogador.** A integração da física cobre apenas
+jogadores fornecidos explicitamente pelo host. O runtime
+continua sem fabricar jogadores para simular o VoxeLibre.
+
+O teste `tests/lua_engine_player_physics_bridge.lua` verifica
+identidade, callbacks de entrada/saída, aplicação real de overrides,
+cópias de dados, falha atômica, conexão tardia, objetos com
+métodos nativos, rejeição de controladores de outros runtimes,
+reconexão e limpeza após falha de entrada em Lua 5.4 e LuaJIT.
+
+**Limites:** o contrato ObjectRef ainda é parcial, a física
+continua aproximada e a demo não executa o VoxeLibre completo.
+A compatibilidade 1:1 com Luanti permanece como objetivo.
