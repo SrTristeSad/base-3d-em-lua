@@ -251,23 +251,29 @@ function Physics:eye()
  return {x=self.pos.x,y=self.pos.y+self.eyeheight+self.view_offset,z=self.pos.z}
 end
 function Physics:colliders(swept)
- local x1,x2,y1,y2,z1,z2=broadphase(swept)
  local colliders={}
- for x=x1,x2 do for y=y1,y2 do for z=z1,z2 do
-  local pos={x=x,y=y,z=z}
-  local node=self.api.get_node(pos)
-  local def=self.api.registered_nodes[node.name]
-  if def and def.walkable~=false then
-   -- Collision boxes are DISTINCT from visible geometry. For nodebox
-   -- drawtypes, the runtime supplies connected and facedir shapes.
-   local boxes=self.api.get_node_boxes('collision_box',pos,node)
-   for _,b in ipairs(boxes) do
-    colliders[#colliders+1]={
-     x+b[1],y+b[2],z+b[3],x+b[4],y+b[5],z+b[6]
-    }
-   end
+ if type(self.api._node_collision_entries)=='function' then
+  -- Runtime-owned geometry cache preserves exact node shapes and scan
+  -- order; standalone hosts without the provider retain the old path.
+  for _,entry in ipairs(self.api._node_collision_entries(swept,1.5,false)) do
+   colliders[#colliders+1]=entry.box
   end
- end end end
+ else
+  local x1,x2,y1,y2,z1,z2=broadphase(swept)
+  for x=x1,x2 do for y=y1,y2 do for z=z1,z2 do
+   local pos={x=x,y=y,z=z}
+   local node=self.api.get_node(pos)
+   local def=self.api.registered_nodes[node.name]
+   if def and def.walkable~=false then
+    local boxes=self.api.get_node_boxes('collision_box',pos,node)
+    for _,box in ipairs(boxes) do
+     colliders[#colliders+1]={
+      x+box[1],y+box[2],z+box[3],
+      x+box[4],y+box[5],z+box[6]}
+    end
+   end
+  end end end
+ end
  -- The host binds a live registry provider only for connected players.
  -- Standalone character controllers remain independent of world entities.
  if self.object_colliders then

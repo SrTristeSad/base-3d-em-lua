@@ -1597,3 +1597,57 @@ não representam uma comparação direta com o Luanti C++ e
 não autorizam afirmar ganho de performance sem comparar
 máquinas e configurações equivalentes. A compatibilidade 1:1
 com Luanti/VoxeLibre continua parcial.
+
+
+### Fase 48 — cache de geometria de colisão dos nós
+
+A física de LuaEntities e o controlador de personagem passaram a
+reutilizar as mesmas **AABBs de colisão dos nós em coordenadas do mundo**
+por meio de `core.collisiongeometry`. Cada consulta mantém a ordem
+de varredura (x, y, z) e as distinções anteriores: as entidades
+ignoram nós `buildable_to`; o controlador do jogador preserva a
+semântica de consulta anterior, inclusive de `walkable`.
+
+As consultas internas reconhecem rapidamente os **cubos completos**
+(`collision_box` regular, ou nós comuns sem caixa customizada).
+Para outros blocos a geometria continua sendo produzida pelo
+`Nodebox.boxes` original; portanto rotações `facedir`,
+`wallmounted`, `leveled`, `nodebox` e conexões entre blocos
+não são substituídas por cubos aproximados.
+
+O cache é **limitado a 8.192 células** de nós presentes, sem
+armazenar células de ar ausentes do mapa esparso (para evitar
+expulsões e realocações de cache desnecessárias), e possui invalidação por
+`Map.geometry_revision`. Qualquer mudança real via
+`set_node`, `swap_node` ou `remove_node` atualiza esse contador
+e descarta as formas obsoletas, inclusive as formas de blocos
+conectados vizinhos. A substituição da tabela de nós ou
+do registro de definições também reinicia o cache. Mudanças
+nas definições realizadas pelas APIs `register_node` e
+`override_item` invalidam explicitamente os dados. Não é
+suportada a alteração direta, sem API, de campos internos da
+tabela `registered_nodes` ou da tabela `map.nodes` em uso.
+
+A função pública `get_node_boxes` continua **sem cache e retorna
+cópias novas**, permitindo que mods manipulem seus resultados
+sem afetar o motor. As estruturas do cache são privadas e só
+devem ser utilizadas pelos caminhos de colisão do runtime.
+Contadores internos `hits`, `misses`, `resets` e
+`nodes_examined` permitem investigar reutilização.
+
+A suíte `tests/lua_engine_collision_geometry_cache.lua`,
+rodando em Lua 5.4 e LuaJIT, compara a geometria armazenada
+com a implementação original (inclusive ordem e coordenadas)
+em cubos, lajes, caixas orientadas, conectadas, atualizações
+de vizinhos, mudanças de registro, testes físicos do jogador
+e das entidades. Os benchmarks da Fase 47 ganharam
+`node_collision_cached` versus `node_collision_uncached`,
+com o mesmo cenário, checksum e relatório JSON, sem
+introduzir thresholds artificiais de tempo.
+
+**Limites:** consultas amplas ainda percorrem muitos nós da
+grade espacial (inclusive ar); não houve mudança no motor
+de rendering ou transferência da física para C++. Esses
+benchmarks medem custo de CPU de geometria em mundos
+sintéticos, não desempenho gráfico nem equivalência 1:1 com
+Luanti/VoxeLibre.

@@ -6,6 +6,8 @@ package.path='./lua-engine/?.lua;./lua-engine/?/init.lua;'..package.path
 local Runtime=require('core.runtime')
 local Index=require('core.spatialindex')
 local Events=require('core.collisionevents')
+local Geometry=require('core.collisiongeometry')
+local Nodebox=require('core.nodebox')
 local floor,sqrt,abs=math.floor,math.sqrt,math.abs
 
 local quick=false
@@ -112,6 +114,52 @@ local function work_relocation(ctx,iterations)
  end
  return Index.ensure(ctx.rt).queries+#entities
 end
+-- Geometry benchmarks use identical world-space AABBs and the same
+-- nodebox routine. Their reference path does not read the collision cache.
+local function geometry_setup(n)
+ local rt,api=fresh()
+ api.register_node('bench:stone',{})
+ api.register_node('bench:slab',{drawtype='nodebox',
+  node_box={type='fixed',fixed={-.5,-.5,-.5,.5,0,.5}}})
+ local positions={}
+ for i=1,n do
+  local pos=p(i*8,0,0)
+  api.set_node(pos,{name=i%7==0 and 'bench:slab' or 'bench:stone'})
+  positions[i]=pos
+ end
+ return {rt=rt,api=api,positions=positions}
+end
+local function geometry_reference(ctx,region)
+ local rt=ctx.rt
+ local x1,x2=floor(region[1]-2),floor(region[4]+2)
+ local y1,y2=floor(region[2]-2),floor(region[5]+2)
+ local z1,z2=floor(region[3]-2),floor(region[6]+2)
+ local total=0
+ for x=x1,x2 do for y=y1,y2 do for z=z1,z2 do
+  local pos=p(x,y,z)
+  local node=rt.map:get_node(pos)
+  local def=rt.registry.nodes[node.name]
+  if def and def.walkable~=false and not def.buildable_to then
+   total=total+#Nodebox.boxes(
+    def,node,rt.map,pos,rt.registry.nodes,'collision_box')
+  end
+ end end end
+ return total
+end
+local function work_geometry(ctx,iterations,cached)
+ local total=0
+ for i=1,iterations do
+  local pos=ctx.positions[1+((i*13-1)%#ctx.positions)]
+  local region={pos.x-.2,pos.y-.2,pos.z-.2,
+   pos.x+.2,pos.y+.2,pos.z+.2}
+  if cached then
+   total=total+#Geometry.collect(ctx.rt,region,2,true)
+  else
+   total=total+geometry_reference(ctx,region)
+  end
+ end
+ return total
+end
 local function median(data)
  table.sort(data)
  if #data%2==1 then return data[(#data+1)/2] end
@@ -160,6 +208,7 @@ local radius_iterations=quick and 120 or 600
 local motion_iterations=quick and 4 or 12
 local event_iterations=quick and 8 or 32
 local relocation_iterations=quick and 80 or 300
+local geometry_iterations=quick and 80 or 240
 print('Lua engine performance baseline | '.._VERSION..
  (jit and (' / '..jit.version) or '')..
  ' | samples='..samples..' | quick='..tostring(quick))
@@ -211,6 +260,12 @@ for _,n in ipairs(sizes) do
   events_setup,work_events)
  measure('spatial_relocation',n,relocation_iterations,'set_pos',
   function()return populate(n,'sparse',true) end,work_relocation)
+ measure('node_collision_cached',n,geometry_iterations,'geometry_queries',
+  function()return geometry_setup(n) end,
+  function(c,it)return work_geometry(c,it,true) end)
+ measure('node_collision_uncached',n,geometry_iterations,'geometry_queries',
+  function()return geometry_setup(n) end,
+  function(c,it)return work_geometry(c,it,false) end)
 end
 
 local function escaped(str)

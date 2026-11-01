@@ -2,7 +2,7 @@
 -- Nodes use real collision_box geometry; other physical LuaEntities may
 -- block movement when BOTH parties have collide_with_objects enabled.
 -- Object response is deterministic sequential blocking, NOT native impulses.
-local Nodebox=require('core.nodebox')
+local CollisionGeometry=require('core.collisiongeometry')
 local SpatialIndex=require('core.spatialindex')
 local P={}
 local floor,min,max,abs=math.floor,math.min,math.max,math.abs
@@ -18,23 +18,7 @@ local function overlap(a,b,c,d)
  return a<d-EPS and c<b-EPS
 end
 local function colliders(rt,swept,selfobj)
- local boxes={}
- -- Supported nodeboxes can extend 1.45 nodes beyond their voxel cell.
- local x1,x2=max(-31000,floor(swept[1]-2)),min(31000,floor(swept[4]+2))
- local y1,y2=max(-31000,floor(swept[2]-2)),min(31000,floor(swept[5]+2))
- local z1,z2=max(-31000,floor(swept[3]-2)),min(31000,floor(swept[6]+2))
- for x=x1,x2 do for y=y1,y2 do for z=z1,z2 do
-  local pos={x=x,y=y,z=z}
-  local node=rt.map:get_node(pos)
-  local def=rt.registry.nodes[node.name]
-  if def and def.walkable~=false and not def.buildable_to then
-   for _,b in ipairs(Nodebox.boxes(
-    def,node,rt.map,pos,rt.registry.nodes,'collision_box')) do
-    boxes[#boxes+1]={type='node',box={
-     x+b[1],y+b[2],z+b[3],x+b[4],y+b[5],z+b[6]},node_pos=pos}
-   end
-  end
- end end end
+ local boxes=CollisionGeometry.collect(rt,swept,2,true)
  if selfobj.properties.collide_with_objects~=false then
   for _,other in ipairs(SpatialIndex.query(rt,swept,selfobj)) do
    if other~=selfobj and not other.removed and

@@ -17,6 +17,8 @@ CASES = {
     "physical_entity_step",
     "collision_event_search",
     "spatial_relocation",
+    "node_collision_cached",
+    "node_collision_uncached",
 }
 FIELDS = {
     "name", "entities", "iterations", "unit", "cpu_seconds_median",
@@ -45,7 +47,7 @@ def validate(path: Path):
         assert item["name"] in CASES, item
         assert item["entities"] in expected_sizes, item
         assert isinstance(item["iterations"], int) and item["iterations"] > 0
-        assert item["unit"] in {"queries", "entity_steps", "event_batches", "set_pos"}
+        assert item["unit"] in {"queries", "entity_steps", "event_batches", "set_pos", "geometry_queries"}
         for key in NUMBERS:
             value = item[key]
             assert isinstance(value, (int, float)) and math.isfinite(value), (
@@ -67,6 +69,13 @@ def validate(path: Path):
             assert a["checksum"] == b["checksum"], (
                 path, density, n, "indexed query diverged from linear baseline"
             )
+    for n in expected_sizes:
+        a = seen[("node_collision_cached", n)]
+        b = seen[("node_collision_uncached", n)]
+        assert a["iterations"] == b["iterations"]
+        assert a["checksum"] == b["checksum"], (
+            path, n, "cached geometry differs from raw nodeboxes"
+        )
     print(
         f"VALID BENCHMARK {path}: {data['runtime']}, "
         f"{data['samples']} sample(s), {len(cases)} cases"
