@@ -85,20 +85,18 @@ local function look()
  local dz=-math.cos(camera.yaw)*math.cos(camera.pitch)
  return dx,dy,dz
 end
-local function target()
- local ox,oy,oz=camera.x,camera.y,camera.z
+local function view_ray()
  local dx,dy,dz=look()
- local last,seen=nil,''
- for t=0,6,.05 do
-  local p={x=math.floor(ox+dx*t+.5),
-   y=math.floor(oy+dy*t+.5),
-   z=math.floor(oz+dz*t+.5)}
-  local k=p.x..','..p.y..','..p.z
-  if k~=seen then
-   seen=k
-   if api.get_node(p).name~='air' then return p,last end
-   last=p
-  end
+ return {x=camera.x,y=camera.y,z=camera.z},
+  {x=dx,y=dy,z=dz}
+end
+local function target()
+ -- Ray-node intersection uses real selection_box geometry, including
+ -- halves/slabs and orientations, instead of sampling full map cells.
+ local from,dir=view_ray()
+ local pointed=engine:raycast(from,dir,6,{objects=false,liquids=true})
+ if pointed and pointed.type=='node' then
+  return pointed.under,pointed.above
  end
  return nil
 end
@@ -168,14 +166,18 @@ function lovr.mousemoved(x,y,dx,dy)
  camera.pitch=math.max(-1.5,math.min(1.5,camera.pitch-dy*.002))
 end
 function lovr.mousepressed(x,y,button)
- local hit,previous=target()
- if button==1 and hit then
-  local ok,reason=engine:beginDigNodeAsPlayer(demo_player,hit)
-  if ok then digging_target=hit
+ local from,dir=view_ray()
+ local pointed=engine:raycast(from,dir,6,{objects=true,liquids=false})
+ if button==1 and pointed and pointed.type=='object' then
+  local ok,reason=engine:punchItemAlongRay(demo_player,from,dir,4)
+  if not ok then print('item interaction rejected:',reason) end
+ elseif button==1 and pointed and pointed.type=='node' then
+  local ok,reason=engine:beginDigNodeAsPlayer(demo_player,pointed.under)
+  if ok then digging_target=pointed.under
   else print('dig rejected:',reason) end
- elseif button==2 and previous then
-  local ok,reason=engine:placeNodeAsPlayer(demo_player,previous,
-   {type='node',under=hit,above=previous})
+ elseif button==2 and pointed and pointed.type=='node' then
+  local ok,reason=engine:placeNodeAsPlayer(demo_player,pointed.above,
+   {type='node',under=pointed.under,above=pointed.above})
   if not ok then print('place rejected:',reason) end
  end
 end
@@ -208,19 +210,10 @@ function lovr.keypressed(key)
    print('embedded item spawned; recovery on next tick',obj~=nil)
   else print('look at a solid block before pressing F11') end
  elseif key=='f12' then
-  -- Demo-only manual pickup through the same validated item-punch path.
-  -- Nearest-item selection is for QA, not raycast/line-of-sight targeting.
-  local chosen,best=nil,4*4
-  for _,obj in ipairs(engine.droppedItems or {}) do
-   local pos=obj:get_pos()
-   local dx,dy,dz=pos.x-camera.x,pos.y-camera.y,pos.z-camera.z
-   local dist=dx*dx+dy*dy+dz*dz
-   if dist<best then chosen,best=obj,dist end
-  end
-  if chosen then
-   local ok,count=engine:punchItemAsPlayer(demo_player,chosen)
-   print('manual item punch',ok,count)
-  else print('no nearby loose item for F12') end
+  -- Aim at an item, not merely its proximity: solid blocks occlude items.
+  local from,dir=view_ray()
+  local ok,count=engine:punchItemAlongRay(demo_player,from,dir,4)
+  print('aimed item interaction',ok,count)
  elseif key=='f10' then
   -- Visual QA: half-height nodebox and free falling item.
   local hit=target()

@@ -1103,3 +1103,53 @@ velocidade de repulsão do Luanti, e não simula todos os detalhes da
 física nativa. A demonstração ainda não tem ataque a entidades por
 raycast; o sistema de objetos do Luanti/VoxeLibre e a compatibilidade
 1:1 continuam incompletos.
+
+
+### Fase 37 — raycast de blocos e objetos com interação por mira
+
+O módulo independente `core.raycast` calcula interseções geométricas de
+raios com as **selection_box** dos nós, respeitando orientações,
+conexões, caixas parciais e nós `pointable=false`. Os resultados
+preservam `under`, `above` e a posição exata do contato. Itens
+soltos e blocos em queda são consultados como objetos do runtime; o
+objeto devolvido é a **referência real**, não uma cópia do snapshot.
+A lista é ordenada pela distância ao ponto de origem, com precedência
+de nós em empates, impedindo que se aponte para itens atrás da
+geometria sólida.
+
+APIs disponíveis:
+- `Runtime:raycast(origin,direction,reach[,options])` devolve o primeiro
+  apontamento (`node`, `object`) ou `nil`. `direction` é
+  normalizada internamente; opções `objects=false` e
+  `liquids=true` filtram categorias. O alcance máximo suportado
+  nesta fase é 64 nós.
+- `core.raycast(from,to[,objects[,liquids]])` devolve um iterador
+  de apontamentos ordenados, como no Luanti. A implementação atual
+  percorre apenas nós registrados, drops e blocos em queda;
+  **não enumera ainda entidades Lua genéricas, jogadores, nem
+  todos os detalhes de pointed_thing da API nativa**.
+- `Runtime:punchItemAlongRay(player,origin,direction[,reach])`
+  somente recolhe se o primeiro alvo efetivamente visível for um
+  objeto de item solto pertencente ao mundo e se o originador
+  estiver próximo da posição real do jogador. Reusa o caminho
+  validado de `punchItemAsPlayer` da Fase 36, com seus callbacks,
+  alcance e regras de pilhas parciais.
+
+Na demonstração LÖVR, o **clique esquerdo** recolhe um item quando
+ele está sob a mira; caso o alvo seja um bloco, continua a
+mineração com tempo. O **clique direito** posiciona blocos pela
+face real do nó apontado. A tecla **F12** agora testa coleta
+**por raycast**, em vez de selecionar o drop mais próximo, evitando
+interações através de paredes. F8–F11 e F6 permanecem disponíveis.
+
+A regressão `tests/lua_engine_raycast_entities.lua` executa no CI
+com Lua 5.4 e LuaJIT. Testa seleção de superfícies parciais,
+distância, ordenação, geometria de líquidos, entidades em queda,
+item oculto por parede, origem do jogador, inventário cheio,
+pilhas parciais e remoção segura.
+
+**Limitações:** faltam seleção de jogadores e LuaEntities arbitrárias,
+interação física com entidades móveis, filtros avançados de
+`pointabilities`, raycasts do motor nativo em regiões descarregadas,
+animações e validação gráfica manual no Windows. O sistema é
+experimental, não uma cópia funcional completa do Luanti.
