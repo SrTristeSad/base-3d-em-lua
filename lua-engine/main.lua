@@ -5,6 +5,7 @@ local Storage=require('core.storage')
 local EntityStorage=require('core.entitystorage')
 local PlayerStorage=require('core.playerstorage')
 local DemoHUD=require('core.demohud')
+local DemoInventory=require('core.demoinventory')
 local Worldgen=require('core.worldgen')
 local Renderer=require('core.renderer')
 local Physics=require('core.physics')
@@ -35,6 +36,17 @@ api.register_node('lua:ladder',{description='Ladder (experimental)',drawtype='pl
 api.register_node('lua:flower',{description='Flower',drawtype='plantlike',
  tiles={'flowers_dandelion_yellow.png'},walkable=false})
 api.register_node('lua:coal_ore',{tiles={'mcl_core_coal_ore.png'},description='Coal Ore',groups={cracky=2}})
+-- Minimal demo recipes using the existing Lua crafting registry.
+-- Every output is a registered gameplay item and uses real ingredients.
+api.register_node('lua:plank',{description='Wooden Planks',
+ tiles={'default_wood.png'},groups={choppy=2}})
+api.register_craftitem('lua:stick',{description='Stick'})
+api.register_craft({type='shapeless',output='lua:plank 4',
+ recipe={'lua:wood'}})
+api.register_craft({output='lua:stick 4',
+ recipe={{'lua:plank'},{'lua:plank'}}})
+api.register_craft({output='lua:slab 4',
+ recipe={{'lua:stone','lua:stone'}}})
 api.register_tool('lua:pickaxe',{description='Demo pickaxe',stack_max=1,
  tool_capabilities={groupcaps={
  cracky={times={[1]=2,[2]=3,[3]=5},uses=30,maxlevel=1},
@@ -88,6 +100,7 @@ local objectpath='lua-engine-world.objects'
 local playerpath='lua-engine-world.player'
 local renderer
 local character
+local inventory_screen
 local digging_target
 -- The LÖVR demo is the session host. This object is NOT a complete Luanti
 -- ObjectRef; it only supplies a stable local identity for the physics bridge.
@@ -179,9 +192,13 @@ function lovr.load()
  elseif why~='not found' then
   print('player profile could not be loaded:',why)
  end
+ inventory_screen=DemoInventory.new(demo_player,api)
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
+ -- Inventory is a local pause screen: no movement or world actions
+ -- while the player manipulates live ItemStacks and crafting recipes.
+ if inventory_screen and inventory_screen.open then return end
  dt=math.min(math.max(dt,0),.05)
  engine:step(dt)
  local down=lovr.system.isKeyDown
@@ -220,10 +237,18 @@ function lovr.update(dt)
  end
 end
 function lovr.mousemoved(x,y,dx,dy)
+ if inventory_screen and inventory_screen.open then return end
  camera.yaw=camera.y+dx*.002
  camera.pitch=math.max(-1.5,math.min(1.5,camera.pitch-dy*.002))
 end
 function lovr.mousepressed(x,y,button)
+ if inventory_screen and inventory_screen.open then
+  if button==1 or button==2 then
+   local w,h=lovr.system.getWindowDimensions()
+   inventory_screen:click(w,h,x,y,button)
+  end
+  return
+ end
  local from,dir=view_ray()
  local pointed=engine:raycast(from,dir,6,{objects=true,liquids=false})
  if button==1 and pointed and pointed.type=='object' then
@@ -252,6 +277,7 @@ function lovr.mousereleased(x,y,button)
 end
 -- Mousewheel cycles the active gameplay item, not an isolated UI slot.
 function lovr.wheelmoved(x,y)
+ if inventory_screen and inventory_screen.open then return end
  if y~=0 and demo_player.get_wielded_item then
   DemoHUD.scroll(demo_player,y)
  end
@@ -268,6 +294,20 @@ local function saveSession()
  end
 end
 function lovr.keypressed(key)
+ if key=='e' or (key=='escape' and
+  inventory_screen and inventory_screen.open) then
+  if digging_target then
+   engine:cancelDigNodeAsPlayer(demo_player)
+   digging_target=nil
+  end
+  local opened=inventory_screen:toggle()
+  lovr.system.setMouseMode(opened and 'normal' or 'relative')
+  return
+ end
+ if inventory_screen and inventory_screen.open and key~='f6' then
+  inventory_screen:key(key)
+  return
+ end
  -- Number keys select the actual player's wielded slot.
  local hotbar=tonumber(key)
  if hotbar and hotbar>=1 and hotbar<=9 and
@@ -367,4 +407,5 @@ function lovr.draw(pass)
  renderer:draw_dynamic(pass,engine,camera,20)
  local w,h=lovr.system.getWindowDimensions()
  DemoHUD.draw(pass,demo_player,engine.registry.items,w,h)
+ if inventory_screen then inventory_screen:draw(pass,w,h) end
 end
