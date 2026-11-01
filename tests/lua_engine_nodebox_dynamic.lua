@@ -35,7 +35,7 @@ api.register_node('test:fence',{
   connect_back={-.125,-.125,.125,.125,.125,.5},
   disconnected={-.25,-.5,-.25,.25,-.375,.25},
   disconnected_sides={-.375,.375,-.375,.375,.5,.375},
- }}
+ }})
 api.register_node('test:stone',{groups={cracky=1}})
 api.register_node('test:wood',{drawtype='airlike',groups={fence=1}})
 local fence=rt.registry.nodes['test:fence']
