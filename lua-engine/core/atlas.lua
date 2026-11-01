@@ -13,7 +13,7 @@ A.tiles={
  'mcl_core_grass_block_side.png',
  'default_tree.png',
  'default_leaves.png',
- 'default_water.png',
+ 'mcl_core_water_source_animation.png',
  'default_wood.png',
  'mcl_core_gold_ore.png',
  'default_gravel.png',
