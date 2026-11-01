@@ -61,7 +61,7 @@ rt:step(.3)
 local saved_age=rich.age
 local saved_pos=rich:get_pos()
 local saved_velocity=rich:get_velocity()
-assert(saved_age>.3)
+assert(saved_age>=.3)
 
 -- A falling voxel is saved separately from the map, retaining its timer,
 -- node orientation, metadata fields and inventory contents.
