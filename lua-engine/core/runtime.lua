@@ -774,6 +774,14 @@ function Runtime:disconnectPlayer(name)
  if not ok then error(err,0) end
  return true
 end
+-- Host-driven player node actions. Unlike core.dig_node/place_node, these
+-- pass the actual connected player, wielded stack, and real drop inventory.
+function Runtime:digNodeAsPlayer(player,pos)
+ return require('core.playeractions').dig(self,player,pos)
+end
+function Runtime:placeNodeAsPlayer(player,pos)
+ return require('core.playeractions').place(self,player,pos)
+end
 -- Return true when a Lua mod cancels the incoming player punch.
 -- This is a policy/callback preflight; the host owns actual HP and physics.
 function Runtime:isPlayerPunchCancelled(player,hitter,interval,toolcaps,dir,damage)
