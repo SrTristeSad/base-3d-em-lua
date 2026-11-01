@@ -118,6 +118,31 @@ assert(type(g.doc)=='table' and type(g.doc.sub.items.temp.build)=='string',
  'original doc_items must load before mcl_core')
 assert(rt.api.registered_nodes['mcl_stonecutter:stonecutter'],
  'stonecutter original upstream node not registered')
+local Nodebox=require('core.nodebox')
+local real_stonecutter=rt.api.registered_nodes['mcl_stonecutter:stonecutter']
+assert(real_stonecutter.drawtype=='nodebox' and
+ real_stonecutter.paramtype2=='facedir')
+local blade=Nodebox.faces(real_stonecutter,{param2=0})
+assert(blade and #blade==8,
+ 'upstream stonecutter must render base and two-sided zero-width blade')
+rt.api.set_node({x=6,y=4,z=2},
+ {name='mcl_stonecutter:stonecutter',param2=1})
+local blade_vertices,blade_stats=require('core.mesher').build(
+ rt.map,rt.api.registered_nodes,0,0,0)
+assert(blade_stats.nodeboxes>=1 and blade_stats.faces>=8,
+ 'the real facedir stonecutter must produce nodebox triangles')
+assert(#blade_vertices==blade_stats.faces*6)
+local original_path=rt.api.registered_nodes['mcl_core:grass_path']
+assert(original_path and original_path.drawtype=='nodebox')
+local grass_boxes=Nodebox.faces(original_path,{param2=0})
+assert(grass_boxes and #grass_boxes==6)
+assert(grass_boxes[1].corners[1][2]==0.4375,
+ 'real grass path must be one sixteenth below a full block')
+local original_snow=rt.api.registered_nodes['mcl_core:snow_1']
+assert(original_snow and original_snow.drawtype=='nodebox')
+local snow_faces=Nodebox.faces(original_snow,{param2=0})
+assert(snow_faces and snow_faces[1].corners[1][2]==-.375,
+ 'real snow layer height must follow upstream definition')
 assert(rt.api.registered_items['mcl_stonecutter:stonecutter'].groups.pickaxey==1)
 assert(#rt.callbacks.allow_player_inventory_action>=1)
 assert(#rt.callbacks.on_player_inventory_action>=1)
