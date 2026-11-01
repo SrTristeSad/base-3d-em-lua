@@ -160,6 +160,22 @@ local function work_geometry(ctx,iterations,cached)
  end
  return total
 end
+-- Identical long horizontal sweeps compare sparse occupied-mapblock
+-- broadphase against the original full voxel traversal.
+local function work_wide_geometry(ctx,iterations,sparse)
+ local total=0
+ for i=1,iterations do
+  local pos=ctx.positions[1+((i*13-1)%#ctx.positions)]
+  local region={pos.x-20,pos.y-.2,pos.z-.2,
+   pos.x+20,pos.y+.2,pos.z+.2}
+  if sparse then
+   total=total+#Geometry.collect(ctx.rt,region,2,true)
+  else
+   total=total+geometry_reference(ctx,region)
+  end
+ end
+ return total
+end
 local function median(data)
  table.sort(data)
  if #data%2==1 then return data[(#data+1)/2] end
@@ -209,6 +225,7 @@ local motion_iterations=quick and 4 or 12
 local event_iterations=quick and 8 or 32
 local relocation_iterations=quick and 80 or 300
 local geometry_iterations=quick and 80 or 240
+local wide_iterations=quick and 40 or 120
 print('Lua engine performance baseline | '.._VERSION..
  (jit and (' / '..jit.version) or '')..
  ' | samples='..samples..' | quick='..tostring(quick))
@@ -266,6 +283,12 @@ for _,n in ipairs(sizes) do
  measure('node_collision_uncached',n,geometry_iterations,'geometry_queries',
   function()return geometry_setup(n) end,
   function(c,it)return work_geometry(c,it,false) end)
+ measure('node_wide_sparse',n,wide_iterations,'geometry_queries',
+  function()return geometry_setup(n) end,
+  function(c,it)return work_wide_geometry(c,it,true) end)
+ measure('node_wide_linear',n,wide_iterations,'geometry_queries',
+  function()return geometry_setup(n) end,
+  function(c,it)return work_wide_geometry(c,it,false) end)
 end
 
 local function escaped(str)
