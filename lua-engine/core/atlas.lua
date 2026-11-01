@@ -23,7 +23,24 @@ A.tiles={
  'mcl_core_lava_source_animation.png',
  'default_brick.png',
 }
-A.columns=4
+-- In the packaged LÖVR build this file is generated alongside the PNG.
+-- Source-only API tests keep the small fixed atlas and its stable indices.
+local loaded,manifest=pcall(require,'core.atlas_manifest')
+if loaded then
+ assert(type(manifest)=='table' and type(manifest.tiles)=='table' and
+  type(manifest.columns)=='number' and
+  manifest.columns>=1 and manifest.columns<=64 and
+  #manifest.tiles>=#A.tiles,'invalid generated atlas manifest')
+ for i,name in ipairs(A.tiles) do
+  assert(manifest.tiles[i]==name,'generated atlas changed reserved tile order')
+ end
+ A.tiles=manifest.tiles
+ A.columns=manifest.columns
+elseif not tostring(manifest):find("module 'core.atlas_manifest' not found",1,true) then
+ error(manifest)
+else
+ A.columns=4
+end
 A.rows=math.ceil(#A.tiles/A.columns)
 local lookup={}
 for i,name in ipairs(A.tiles) do lookup[name]=i end
