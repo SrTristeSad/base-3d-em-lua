@@ -12,6 +12,7 @@ local NodeDrops=require('core.nodedrops')
 local Digging=require('core.digging')
 local Placement=require('core.placement')
 local Falling=require('core.falling')
+local Raycast=require('core.raycast')
 local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
@@ -676,6 +677,11 @@ function Runtime.new(options)
  end
  function api.is_protected() return false end
  function api.get_objects_inside_radius() return {} end
+ -- First native-like raycast subset. Includes pointable registered nodes
+ -- and real dropped/falling objects, not arbitrary LuaEntity refs yet.
+ function api.raycast(from,to,objects,liquids)
+  return Raycast.iterator(self,from,to,objects,liquids)
+ end
  -- Access to not-yet-ported APIs intentionally raises instead of returning
  -- plausible but false results. This is essential to track compatibility.
  return self
@@ -892,6 +898,42 @@ end
 -- reach of the player's collisionbox before invoking item callbacks.
 function Runtime:punchItemAsPlayer(player,item,reach)
  return Falling.punch_item(self,player,item,reach)
+end
+-- Return the first real pointing hit; entities behind node collision
+-- geometry cannot be selected. Direction need not be normalized.
+function Runtime:raycast(origin,direction,reach,opts)
+ return Raycast.first(self,origin,direction,reach or 6,opts)
+end
+-- Host-player ray interaction. A forged remote camera origin cannot
+-- collect items because the ray origin must remain near the live player.
+-- The existing item-punch path checks object ownership and reach again.
+function Runtime:punchItemAlongRay(player,origin,direction,reach)
+ assert(type(player)=='table' and
+  type(player.get_player_name)=='function' and
+  self.players[player:get_player_name()]==player,
+  'ray punch requires connected player')
+ assert(type(player.get_pos)=='function',
+  'ray punch requires player position')
+ local feet=player:get_pos()
+ assert(type(origin)=='table' and
+  type(origin.x)=='number' and type(origin.y)=='number' and
+  type(origin.z)=='number','ray punch requires eye coordinates')
+ local dx,dy,dz=origin.x-feet.x,
+  origin.y-feet.y,origin.z-feet.z
+ if dx*dx+dz*dz>.75*.75 or dy<-.6 or dy>2.6 then
+  return false,'invalid_origin'
+ end
+ reach=reach or self.opts.item_punch_reach or 4
+ local hit=self:raycast(origin,direction,reach)
+ if not hit or hit.type~='object' then return false,'not_item' end
+ -- A falling block has no dropped-item inventory and cannot be punched
+ -- as an item until it actually becomes a dropped entity.
+ local found=false
+ for _,obj in ipairs(self.droppedItems or {}) do
+  if obj==hit.ref then found=true;break end
+ end
+ if not found then return false,'not_item' end
+ return self:punchItemAsPlayer(player,hit.ref,reach)
 end
 -- Return true when a Lua mod cancels the incoming player punch.
 -- This is a policy/callback preflight; the host owns actual HP and physics.
