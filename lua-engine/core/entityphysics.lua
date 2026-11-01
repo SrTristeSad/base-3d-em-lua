@@ -3,6 +3,7 @@
 -- block movement when BOTH parties have collide_with_objects enabled.
 -- Object response is deterministic sequential blocking, NOT native impulses.
 local Nodebox=require('core.nodebox')
+local SpatialIndex=require('core.spatialindex')
 local P={}
 local floor,min,max,abs=math.floor,math.min,math.max,math.abs
 local EPS=1e-8
@@ -35,7 +36,7 @@ local function colliders(rt,swept,selfobj)
   end
  end end end
  if selfobj.properties.collide_with_objects~=false then
-  for _,other in ipairs(rt.luaEntities or {}) do
+  for _,other in ipairs(SpatialIndex.query(rt,swept,selfobj)) do
    if other~=selfobj and not other.removed and
     other.properties.physical==true and
     other.properties.collide_with_objects~=false then
@@ -73,14 +74,20 @@ local function colliders(rt,swept,selfobj)
 end
 -- Available to the host player controller for symmetric obstacle tests.
 -- Always read live positions; disconnected players must not retain a provider.
-function P.entity_boxes(rt)
+function P.entity_boxes(rt,swept)
  local boxes={}
- for _,obj in ipairs(rt.luaEntities or {}) do
+ local candidates
+ if swept then
+  candidates=SpatialIndex.query(rt,swept)
+ else
+  -- Explicit unbounded queries are retained for existing callers.
+  candidates=rt.luaEntities or {}
+ end
+ for _,obj in ipairs(candidates) do
   local prop=obj.properties
   if not obj.removed and prop.physical==true and
     prop.collide_with_objects~=false then
-   local b=aabb(obj.pos,prop.collisionbox)
-   boxes[#boxes+1]=b
+   boxes[#boxes+1]=aabb(obj.pos,prop.collisionbox)
   end
  end
  return boxes
@@ -279,6 +286,9 @@ function P.move(rt,obj,dt)
   end
  end
  obj.velocity=final_v
+ if obj.properties.physical==true then
+  SpatialIndex.update(rt,obj)
+ end
  return result
 end
 return P
