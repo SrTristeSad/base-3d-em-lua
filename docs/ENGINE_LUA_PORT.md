@@ -438,3 +438,28 @@ considerado um dos módulos integrados.**
   reproduzido; scissor real dos `scroll_container` e os modificadores
   gerais de textura ainda requerem implementação. O objetivo 1:1
   continua não concluído.
+
+### Fase 67 — visibilidade parcial no scroll_container
+
+- O visualizador de formspecs mantém controles cuja área **intersecta**
+  a janela do `scroll_container`, em vez de esconder todos os controles
+  que não cabem inteiros. Os controles preservam as dimensões e os UVs
+  originais; a rasterização aplica um `Pass:setScissor(x,y,w,h)` do
+  LÖVR 0.19 individualmente para cada filho da região de rolagem.
+- O cálculo do scissor converte o retângulo para pixels inteiros, arredonda
+  os limites para fora e restringe ao framebuffer. O estado é restaurado
+  ao fim do desenho de cada controle, impedindo vazamento para o restante
+  do formulário e para a cena 3D. A renderização não recorta o PNG no CPU.
+- Eventos de mouse para botão, inventário, campos e dropdowns respeitam
+  **tanto** o retângulo integral do elemento **quanto** o clip de rolagem:
+  a parte exposta continua interativa e a área escondida deixa de aceitar
+  cliques. Os identificadores e callbacks são os originais dos mods.
+- Novo teste `tests/lua_engine_formspec_scroll_clip.lua`, sob Lua 5.4
+  e LuaJIT, verifica controles parcialmente visíveis, texturas recortadas
+  por scissor, slots reais, callbacks, cache GPU, wheel e limites dos
+  cliques. As regressões anteriores permanecem na CI.
+- **Limites**: por enquanto o parser continua suportando um único
+  contêiner de rolagem ativo por vez, e a escala, parâmetros do scrollbar
+  e layout global ainda não reproduzem todas as regras do Luanti C++.
+  A melhoria representa o recorte dos filhos desse subconjunto e não
+  significa paridade visual ou funcional 1:1 completa.
