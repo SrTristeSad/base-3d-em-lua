@@ -26,6 +26,13 @@ local function ground(z)
 end
 for z=-6,10 do ground(z) end
 local function character(x,y,z,opts)
+ -- Earlier Fase 19 collision assertions intentionally test constant-speed
+ -- sweeps. Keep that configuration explicit; later tests cover inertia.
+ opts=opts or {}
+ opts.acceleration=opts.acceleration==nil and 0 or opts.acceleration
+ opts.braking=opts.braking==nil and 0 or opts.braking
+ opts.air_acceleration=opts.air_acceleration==nil and 0 or opts.air_acceleration
+ opts.fluid_physics=false
  return Physics.new(api,xyz(x,y,z),opts)
 end
 local function advance(p,count,dt,input)

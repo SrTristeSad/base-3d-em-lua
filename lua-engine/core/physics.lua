@@ -8,6 +8,18 @@ local EPS=1e-7
 local function finite(n)
  return type(n)=='number' and n==n and n~=math.huge and n~=-math.huge
 end
+local function approach(current,target,rate,dt)
+ if rate==0 then return target end  -- compatibility for old instant-move configs
+ if current<target then return min(target,current+rate*dt) end
+ return max(target,current-rate*dt)
+end
+local function valid_rate(n)
+ return finite(n) and n>=0
+end
+local function group(def,name)
+ local groups=def and def.groups
+ return type(groups)=='table' and tonumber(groups[name]) or 0
+end
 local function copy(p) return {x=p.x,y=p.y,z=p.z} end
 local function bounds(p,r,h)
  return {p.x-r,p.y,p.z-r,p.x+r,p.y+h,p.z+r}
@@ -33,10 +45,24 @@ function Physics.new(api,position,opts)
  local height=opts.height or 1.8
  local stepheight=opts.stepheight or .6
  local eyeheight=opts.eyeheight or 1.62
+ local acceleration=opts.acceleration==nil and 26 or opts.acceleration
+ local braking=opts.braking==nil and 20 or opts.braking
+ local air_acceleration=opts.air_acceleration==nil and 9 or opts.air_acceleration
+ local water_acceleration=opts.water_acceleration==nil and 8 or opts.water_acceleration
+ local water_braking=opts.water_braking==nil and 7 or opts.water_braking
+ local water_gravity=opts.water_gravity==nil and 3 or opts.water_gravity
+ local water_drag=opts.water_drag==nil and 3 or opts.water_drag
+ local swim_speed=opts.swim_speed==nil and 3 or opts.swim_speed
+ local climb_speed=opts.climb_speed==nil and 3 or opts.climb_speed
  assert(finite(radius) and radius>0 and radius<=.5)
  assert(finite(height) and height>0 and height<=3)
  assert(finite(stepheight) and stepheight>=0 and stepheight<=1)
  assert(finite(eyeheight) and eyeheight>0 and eyeheight<=height)
+ for _,rate in ipairs({acceleration,braking,air_acceleration,
+  water_acceleration,water_braking,water_gravity,water_drag,
+  swim_speed,climb_speed}) do
+  assert(valid_rate(rate),'invalid movement parameter')
+ end
  return setmetatable({
   api=api,pos=copy(position),velocity={x=0,y=0,z=0},
   radius=radius,height=height,eyeheight=eyeheight,
@@ -44,7 +70,13 @@ function Physics.new(api,position,opts)
   jump_speed=opts.jump_speed or 7.2,
   speed=opts.speed or 4.8,sprint_speed=opts.sprint_speed or 7.2,
   terminal_velocity=opts.terminal_velocity or 40,
-  grounded=false
+  acceleration=acceleration,braking=braking,
+  air_acceleration=air_acceleration,
+  water_acceleration=water_acceleration,water_braking=water_braking,
+  water_gravity=water_gravity,water_drag=water_drag,
+  swim_speed=swim_speed,climb_speed=climb_speed,
+  fluid_physics=opts.fluid_physics~=false,
+  grounded=false,in_liquid=false,on_ladder=false
  },Physics)
 end
 function Physics:eye()
@@ -69,6 +101,42 @@ function Physics:colliders(swept)
   end
  end end end
  return colliders
+end
+-- Contact with climbable nodes or liquids is independent from walkable
+-- collision geometry. Sample a small footprint at leg and chest height.
+function Physics:medium()
+ local p=self.pos
+ local radius=self.radius*.8
+ local offsets={{0,0},{radius,0},{-radius,0},{0,radius},{0,-radius}}
+ local heights={.2,self.height*.55}
+ local liquid=false
+ for _,offset in ipairs(offsets) do
+  for _,height in ipairs(heights) do
+   local at={x=floor(p.x+offset[1]+.5),
+    y=floor(p.y+height+.5),
+    z=floor(p.z+offset[2]+.5)}
+   local node=self.api.get_node(at)
+   local def=self.api.registered_nodes[node.name]
+   if def then
+    if def.climbable==true then return false,true end
+    if self.fluid_physics and
+     ((def.liquidtype and def.liquidtype~='none')
+       or group(def,'water')>0 or group(def,'liquid')>0) then
+     liquid=true
+    end
+   end
+  end
+ end
+ return liquid,false
+end
+function Physics:surface_friction()
+ local p=self.pos
+ local at={x=floor(p.x+.5),y=floor(p.y-.07+.5),
+  z=floor(p.z+.5)}
+ local node=self.api.get_node(at)
+ local value=group(self.api.registered_nodes[node.name],'slippery')
+ -- Higher group values mean reduced traction. Smoothly retain some grip.
+ return value>0 and 1/(value+1) or 1
 end
 function Physics:clip(p,axis,wanted)
  if abs(wanted)<EPS then return 0,false end
@@ -117,12 +185,25 @@ function Physics:tick(dt,input)
  assert(finite(dx) and finite(dz) and finite(dt) and dt>0)
  local length=sqrt(dx*dx+dz*dz)
  if length>1 then dx=dx/length;dz=dz/length end
- local speed=input.sprint and self.sprint_speed or self.speed
- local vx,vz=dx*speed,dz*speed
- self.velocity.x,self.velocity.z=vx,vz
+ self.in_liquid,self.on_ladder=self:medium()
  local ground_delta,ground_hit=self:clip(self.pos,'y',-.045)
  self.grounded=ground_hit and ground_delta>-.045+EPS
- local jumping=input.jump and self.grounded
+ local traction=self.grounded and self:surface_friction() or 1
+ local speed=(input.sprint and self.sprint_speed or self.speed)
+ if self.in_liquid then speed=speed*.48 end
+ local rate
+ if self.in_liquid then
+  rate=(length>EPS and self.water_acceleration or self.water_braking)
+ elseif self.grounded then
+  rate=(length>EPS and self.acceleration or self.braking)*traction
+ else
+  rate=(length>EPS and self.air_acceleration or self.braking*.2)
+ end
+ self.velocity.x=approach(self.velocity.x,dx*speed,rate,dt)
+ self.velocity.z=approach(self.velocity.z,dz*speed,rate,dt)
+ local vx,vz=self.velocity.x,self.velocity.z
+ local jumping=input.jump and self.grounded and
+  not self.in_liquid and not self.on_ladder
  if jumping then
   self.velocity.y=self.jump_speed
   self.grounded=false
@@ -152,8 +233,24 @@ function Physics:tick(dt,input)
  end
  self.pos=chosen
  if chosen~=normal then self.grounded=true end
- self.velocity.y=max(-self.terminal_velocity,
-  self.velocity.y-self.gravity*dt)
+ if self.on_ladder then
+  self.velocity.y=input.jump and self.climb_speed or
+   (input.sneak and -self.climb_speed or 0)
+ elseif self.in_liquid then
+  if input.jump or input.sneak then
+   local target=input.jump and self.swim_speed or -self.swim_speed
+   self.velocity.y=approach(self.velocity.y,target,
+    self.water_acceleration,dt)
+  else
+   self.velocity.y=self.velocity.y-self.water_gravity*dt
+   self.velocity.y=self.velocity.y*max(0,1-self.water_drag*dt)
+  end
+  self.velocity.y=max(-self.swim_speed,min(self.swim_speed,
+   self.velocity.y))
+ else
+  self.velocity.y=max(-self.terminal_velocity,
+   self.velocity.y-self.gravity*dt)
+ end
  local vertical,collided=self:clip(self.pos,'y',self.velocity.y*dt)
  self.pos.y=self.pos.y+vertical
  if collided then
