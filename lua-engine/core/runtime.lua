@@ -19,6 +19,8 @@ local CollisionGeometry=require('core.collisiongeometry')
 local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local PlayerHP=require('core.playerhp')
+local Formspec=require('core.formspec')
+local PlayerMeta=require('core.playermeta')
 local Serialization=require('core.serialization')
 local Runtime={}
 Runtime.__index=Runtime
@@ -50,10 +52,12 @@ function Runtime.new(options)
     on_craft={},craft_predict={},on_item_eat={},on_item_pickup={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
-  chatcommands={},privileges={},players={},playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new()
+  chatcommands={},privileges={},players={},player_meta={},
+  playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new()
  },Runtime)
  local api={}
  self.api=api
+ self.formspec=Formspec.new(self)
  PlayerHP.install(api)
  api.serialize=Serialization.serialize
  api.deserialize=Serialization.deserialize
@@ -225,10 +229,13 @@ function Runtime.new(options)
   local t=self.callbacks.on_player_inventory_action
   t[#t+1]=callback
  end
- -- Storage registration can be exercised by mods even though no player
- -- renderer, HUD, or formspec backend exists in this port.
- function api.show_formspec()
-  error('formspec renderer and player sessions are not implemented',2)
+ -- Session state and field events are real; visual drawing still belongs
+ -- to the host's formspec renderer (not yet wired to the LÖVR demo).
+ function api.show_formspec(playername,formname,source)
+  return self.formspec:show(playername,formname,source)
+ end
+ function api.close_formspec(playername,formname)
+  return self.formspec:close(playername,formname)
  end
  function api.colorize(color,message)
   assert(type(color)=='string' and type(message)=='string',
@@ -862,6 +869,13 @@ end
 function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
 end
+-- Entry points for the real host UI: no fabricated UI or player events.
+function Runtime:getPlayerFormspec(playername)
+ return self.formspec:get(playername)
+end
+function Runtime:receiveFormFields(playername,formname,fields)
+ return self.formspec:receive(playername,formname,fields)
+end
 -- Prediction is a separate lifecycle from taking a crafting result.
 -- The host supplies the item stack and actual crafting inventory.
 function Runtime:predictCraft(stack,player,old_grid,inventory)
@@ -894,10 +908,15 @@ function Runtime:bindPlayerPhysics(name,controller)
   'player already has a Lua physics binding: '..name)
  assert(type(controller)=='table' and controller.api==self.api,
   'character controller belongs to a different runtime')
+ local meta=self.player_meta[name]
+ if not meta then
+  meta=PlayerMeta.new()
+  self.player_meta[name]=meta
+ end
  local release=PlayerPhysics.attach(player,controller,
   function(host_player,old_hp,new_hp,hp_max,reason,apply)
    return PlayerHP.set(self,host_player,old_hp,new_hp,hp_max,reason,apply)
-  end)
+  end,meta)
  local previous_provider=controller.object_colliders
  controller.object_colliders=function(swept)
   local boxes=EntityPhysics.entity_boxes(self,swept)
@@ -949,6 +968,7 @@ function Runtime:connectPlayer(player,controller)
   self:emit('on_joinplayer',player)
  end)
  if not ok then
+  self.formspec:close(name,'')
   local release=self.playerPhysicsBindings[name]
   if release then release();self.playerPhysicsBindings[name]=nil end
   self.playerPhysicsControllers[name]=nil
@@ -963,6 +983,7 @@ function Runtime:disconnectPlayer(name)
  if not player then return false end
  -- Leave callbacks can still use player physics before the host releases it.
  local ok,err=pcall(function() self:emit('on_leaveplayer',player) end)
+ self.formspec:close(name,'')
  local release=self.playerPhysicsBindings[name]
  if release then release();self.playerPhysicsBindings[name]=nil end
   self.playerPhysicsControllers[name]=nil
