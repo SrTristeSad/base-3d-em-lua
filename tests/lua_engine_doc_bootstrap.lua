@@ -63,6 +63,31 @@ rt.api.register_on_item_eat(function() eaten=eaten+1 end)
 rt:emit('on_craft')
 rt:emit('on_item_eat')
 assert(crafted==1 and eaten==1)
+-- Real item use: callback dispatch, stack consumption and player HP.
+rt.api.register_craftitem('probe:fruit',{description='Fruit'})
+rt.api.register_craftitem('probe:bowl',{description='Bowl'})
+local player_hp=8
+local hp_reason
+local consumer={
+ get_hp=function() return player_hp end,
+ set_hp=function(_,n,reason) player_hp=n;hp_reason=reason end,
+}
+local fruit=rt.api.ItemStack('probe:fruit 2')
+local eat=rt.api.item_eat(3)
+assert(eat(fruit,nil)==nil and fruit:get_count()==2)
+assert(eat(fruit,consumer)==nil)
+assert(fruit:get_count()==1 and player_hp==11)
+assert(hp_reason.custom_type=='__builtin:item_eat')
+local last=rt.api.ItemStack('probe:fruit 1')
+rt.api.item_eat(1,'probe:bowl')(last,consumer)
+assert(last:get_name()=='probe:bowl' and last:get_count()==1)
+assert(player_hp==12)
+local cancelled=rt.api.ItemStack('probe:fruit 1')
+rt.api.register_on_item_eat(function() return cancelled end)
+local hp_before=player_hp
+assert(eat(cancelled,consumer)==cancelled)
+assert(cancelled:get_count()==1 and player_hp==hp_before,
+ 'an on_item_eat override must prevent default consumption')
 -- Liquid callbacks receive the changed-node list without inventing flow.
 local transformed
 rt.api.register_on_liquid_transformed(function(list) transformed=list end)
