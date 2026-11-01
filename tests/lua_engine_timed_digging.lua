@@ -20,7 +20,9 @@ api.register_node('test:stone',{
 api.register_node('test:cobble',{groups={}})
 api.register_node('test:instant',{groups={dig_immediate=3}})
 api.register_node('test:hard',{groups={cracky=1,level=2}})
-api.register_node('test:custom',{on_dig=function()error('never call') end,
+api.register_node('test:custom',{on_dig=function(pos,node,player)
+ assert(node.name=='test:custom' and player:get_player_name()=='Alice')
+ return false end,
  groups={cracky=2,level=1}})
 api.register_tool('test:pick',{stack_max=1,
  tool_capabilities={groupcaps={cracky={
@@ -104,7 +106,10 @@ assert(not blocked and reason=='unsupported_tool')
 player:set_wielded_item('test:pick')
 api.set_node(third,{name='test:custom'})
 blocked,reason=rt:beginDigNodeAsPlayer(player,third)
-assert(not blocked and reason=='custom_on_dig_unsupported')
+assert(blocked and reason==.25)
+blocked,reason=rt:advanceDigNodeAsPlayer(player,.25)
+assert(not blocked and reason=='custom_dig_rejected')
+assert(api.get_node(third).name=='test:custom')
 api.set_node(third,{name='test:hard'})
 blocked,reason=rt:beginDigNodeAsPlayer(player,third)
 assert(not blocked and reason=='unsupported_tool')
