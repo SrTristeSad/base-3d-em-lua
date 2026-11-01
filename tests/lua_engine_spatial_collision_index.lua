@@ -41,7 +41,7 @@ assert(idx.queries>=2 and idx.candidates_examined<=2)
 assert(#Index.query(rt,box(0,3,500))==0,
  'far-away query must not enumerate the whole world')
 local old_count=idx.candidates_examined
-local near_list=Index.query(rt,box(24,3,0,5))
+local near_list=Index.query(rt,box(24,3,0))
 assert(#near_list==1 and near_list[1]==entities[3])
 assert(idx.candidates_examined==old_count+1,
  'broadphase should inspect only candidates in query cells')
@@ -85,15 +85,15 @@ assert(moving:get_luaentity().result.collides)
 assert(moving:get_luaentity().result.collisions[1].object==blocker)
 assert(Index.query(rt,box(41.4,3,0))[1]==moving)
 -- A nonphysical entity is absent from the broadphase and not a barrier.
-api.add_entity(p(100,3,0),'test:ghost')
-assert(#Index.query(rt,box(100,3,0))==0)
+api.add_entity(p(0,3,500),'test:ghost')
+assert(#Index.query(rt,box(0,3,500))==0)
 -- Large collisionboxes span multiple cells, including negative ones.
 local wide=api.add_entity(p(-16,3,-16),'test:body')
 wide:set_properties({collisionbox={-5,-1,-5,5,1,5}})
 assert(Index.query(rt,box(-20,3,-20))[1]==wide)
 assert(Index.query(rt,box(-12,3,-12))[1]==wide)
 wide:set_properties({collisionbox={-.2,-.2,-.2,.2,.2,.2}})
-assert(#Index.query(rt,box(-20,3,-20))==0)
+assert(#Index.query(rt,box(-24,3,-24))==0)
 assert(Index.query(rt,box(-16,3,-16))[1]==wide)
 -- Querying a giant swept box degrades safely to a linear scan, no giant
 -- allocation or missed obstacles at the index's query-volume threshold.
