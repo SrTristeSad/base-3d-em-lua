@@ -23,6 +23,8 @@ local paths={
  mcl_experience='mods/HUD/mcl_experience',
  mcl_enchanting='mods/ITEMS/mcl_enchanting',
  mcl_core='mods/ITEMS/mcl_core',
+ mcl_nether='mods/ITEMS/mcl_nether',
+ mcl_fences='mods/ITEMS/mcl_fences',
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
  mcl_util='mods/CORE/mcl_util',
@@ -118,6 +120,26 @@ assert(type(g.doc)=='table' and type(g.doc.sub.items.temp.build)=='string',
  'original doc_items must load before mcl_core')
 assert(rt.api.registered_nodes['mcl_stonecutter:stonecutter'],
  'stonecutter original upstream node not registered')
+-- Actual VoxeLibre connected fence, not a duplicated test definition.
+local oak_fence=rt.api.registered_nodes['mcl_fences:fence']
+assert(oak_fence and oak_fence.drawtype=='nodebox' and
+ oak_fence.node_box.type=='connected' and
+ type(oak_fence.connects_to)=='table',
+ 'original VoxeLibre oak fence registration must load')
+local npos={x=8,y=5,z=7}
+rt.api.set_node(npos,{name='mcl_fences:fence'})
+local isolated=require('core.nodebox').faces(
+ oak_fence,rt.api.get_node(npos),rt.map,npos,rt.registry.nodes)
+assert(isolated and #isolated==6,'original oak fence must begin as isolated post')
+rt.api.set_node({x=9,y=5,z=7},{name='mcl_fences:fence'})
+local connected=require('core.nodebox').faces(
+ oak_fence,rt.api.get_node(npos),rt.map,npos,rt.registry.nodes)
+assert(connected and #connected==18,
+ 'original oak fence must grow its two right-side horizontal rails')
+rt.api.remove_node({x=9,y=5,z=7})
+local disconnected=require('core.nodebox').faces(
+ oak_fence,rt.api.get_node(npos),rt.map,npos,rt.registry.nodes)
+assert(#disconnected==6,'oak fence rails must disappear when neighbor is mined')
 local Nodebox=require('core.nodebox')
 local real_stonecutter=rt.api.registered_nodes['mcl_stonecutter:stonecutter']
 assert(real_stonecutter.drawtype=='nodebox' and
