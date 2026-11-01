@@ -556,3 +556,45 @@ callbacks de entrada/saída com Lua 5.4 e LuaJIT.
 jogadores, aparência, HUD, inventário de jogador integrado
 à sessão visual, interações com entidades, sincronização
 cliente-servidor e a execução integral do VoxeLibre.
+
+### Inventário do jogador, ferramenta selecionada e ações no mundo (Fase 25)
+
+O jogador fornecido pelo host expõe agora `get_inventory()`,
+`get_wield_list()`, `get_wield_index()`, `set_wield_index()`,
+`get_wielded_item()` e `set_wielded_item()`. Caso o host não
+tenha inventário próprio, o runtime fornece uma **InvRef por sessão**
+com lista `main` de 32 espaços. Caso o host já forneça
+`get_inventory`, ela não é sobrescrita. Os valores `ItemStack`
+retornados são cópias, com índices de ferramenta iniciando em 1.
+
+`Runtime:digNodeAsPlayer(player,pos)` consulta a ferramenta selecionada
+e os drops originais do nó, testa espaço disponível no inventário
+**antes de escavar** e envia o jogador conectado a
+`on_dignode`. Respeita os bloqueios básicos de proteção,
+`diggable=false` e `can_dig`. `Runtime:placeNodeAsPlayer(player,pos)`
+coloca um nó simples registrado pelo motor a partir do item
+selecionado, consumindo uma unidade somente quando a colocação
+é aceita e repassando o jogador a `on_placenode`. Todos os
+métodos validam que o jogador pertence à sessão conectada.
+
+A demo LÖVR agora conecta a sessão local **durante `lovr.load`**,
+antes de encaminhar os controles (corrigindo uma lacuna da demo
+anterior). Começa com 64 blocos de pedra na posição 1 e uma
+picareta demonstrativa na posição 2. As teclas 1 a 9 selecionam
+os espaços da barra; botão esquerdo escava, direito coloca o
+bloco selecionado. O inventário ainda não possui HUD visual.
+
+A regressão `tests/lua_engine_player_gameplay.lua` cobre
+`InvRef`, seleção, cópias de `ItemStack`, drops dependentes de
+ferramentas, callbacks, inventário cheio, nós protegidos,
+conexão/desconexão e inventários próprios do host.
+
+**Limitações:** não implementa ainda desgaste e velocidade reais de
+ferramentas, animação de mineração, colocação por `on_place`,
+escavação personalizada por `on_dig`, itens caídos como entidades,
+modo criativo, callbacks completos de inventário, persistência
+da lista `main` entre sessões, ou menu/HUD de inventário.
+Os nós com esses callbacks personalizados são rejeitados
+explicitamente no novo caminho simplificado, não tratados como
+compatíveis. Portanto, este avanço **não é jogabilidade 1:1 do
+VoxeLibre**. A meta continua a compatibilidade completa em Lua.
