@@ -279,3 +279,33 @@ quadro, paletas de bioma, dimensões de sprite distintas, transparência
 e geometrias de `nodebox`/`mesh` ainda precisam ser implementados.
 Todas as imagens são reduzidas a células de 16×16 nesta fase;
 isso é um passo de cobertura de assets, **não paridade 1:1**.
+
+### Blocos com geometria fixa e orientação (Fase 17)
+
+O módulo independente `core/nodebox.lua` traduz `drawtype=nodebox`,
+`node_box.type=fixed` e `node_box.fixed` em faces reais, preservando
+caixas parciais, lajes, caminhos rebaixados, camadas finas de neve
+e vários cuboides no mesmo nó. Um plano de espessura zero pode
+produzir as duas faces visíveis, como a lâmina do cortador de pedra.
+
+Os parâmetros `paramtype2=facedir` e `colorfacedir` utilizam as
+24 orientações ortogonais de Luanti. `4dir` e `color4dir` aplicam
+as quatro orientações horizontais. O `param2` é lido diretamente
+do mapa, cujas revisões já invalidam as malhas após uma rotação.
+Para faces de caixas tocando os limites da célula, o mesher evita
+enviá-las quando há um cubo opaco adjacente que as cobre.
+O empacotamento da demo inclui o módulo automaticamente.
+
+Os testes em Lua 5.4 e LuaJIT cobrem os seis eixos da rotação,
+os 24 valores de `facedir`, lajes, elementos de espessura zero,
+oclusão nas bordas e alteração de `param2`. A auditoria VoxeLibre
+usa sem reescrever as definições dos nós originais
+`mcl_stonecutter:stonecutter`, `mcl_core:grass_path`
+e `mcl_core:snow`.
+
+**Ainda não é geometria 1:1**: tipos `connected`, `leveled`
+e orientações `wallmounted`, colisões e seleção por formas,
+ocultação parcial entre superfícies complexas, modelos OBJ
+e tratamento exato de texturas/iluminação continuarão em fases
+posteriores. Esta fase não transforma a demo LÖVR no jogo
+VoxeLibre completo.
