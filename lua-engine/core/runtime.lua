@@ -498,6 +498,12 @@ function Runtime.new(options)
   if location.type=='detached' then
    local v=self.detached[location.name]
    return v and v.inv or nil
+  elseif location.type=='player' and type(location.name)=='string' then
+   local player=self.players[location.name]
+   if player and type(player.get_inventory)=='function' then
+    return player:get_inventory()
+   end
+   return nil
   elseif location.type=='node' and ispos(location.pos) then
    return self.map:get_meta(location.pos):get_inventory()
   end
