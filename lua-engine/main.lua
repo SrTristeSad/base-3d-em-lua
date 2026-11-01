@@ -199,6 +199,28 @@ function lovr.keypressed(key)
   local ok,generated,writes=pcall(generator.generate,generator,cx,cz)
   if not ok then print('chunk generation failed:',generated)
   else print('chunk',cx,cz,generated and 'generated' or 'already generated',writes) end
+ elseif key=='f11' then
+  -- Visual QA: the item must escape the actual collision boxes of the
+  -- pointed solid node without duplicating or deleting the drop.
+  local hit=target()
+  if hit then
+   local obj=api.add_item(hit,'lua:sand')
+   print('embedded item spawned; recovery on next tick',obj~=nil)
+  else print('look at a solid block before pressing F11') end
+ elseif key=='f12' then
+  -- Demo-only manual pickup through the same validated item-punch path.
+  -- Nearest-item selection is for QA, not raycast/line-of-sight targeting.
+  local chosen,best=nil,4*4
+  for _,obj in ipairs(engine.droppedItems or {}) do
+   local pos=obj:get_pos()
+   local dx,dy,dz=pos.x-camera.x,pos.y-camera.y,pos.z-camera.z
+   local dist=dx*dx+dy*dy+dz*dz
+   if dist<best then chosen,best=obj,dist end
+  end
+  if chosen then
+   local ok,count=engine:punchItemAsPlayer(demo_player,chosen)
+   print('manual item punch',ok,count)
+  else print('no nearby loose item for F12') end
  elseif key=='f10' then
   -- Visual QA: half-height nodebox and free falling item.
   local hit=target()

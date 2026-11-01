@@ -31,6 +31,62 @@ local function solid_boxes(rt,x,y,z)
  -- in pure Lua. Empty boxes must not become an unintended solid cube.
  return Nodebox.boxes(def,node,rt.map,p,rt.registry.nodes,'collision_box')
 end
+-- Return only actual overlapping collision boxes. We check a two-cell
+-- neighborhood because supported nodeboxes can protrude beyond their cell.
+-- The same test is used to verify escape destinations, so an embedded item
+-- cannot be moved into an adjacent wall or the closed world boundary.
+local function overlaps(rt,pos)
+ local collisions={}
+ local x1,x2=floor(pos.x-HALF-2),floor(pos.x+HALF+2)
+ local y1,y2=floor(pos.y-HALF-2),floor(pos.y+HALF+2)
+ local z1,z2=floor(pos.z-HALF-2),floor(pos.z+HALF+2)
+ for x=x1,x2 do for y=y1,y2 do for z=z1,z2 do
+  local boxes=solid_boxes(rt,x,y,z)
+  if boxes then
+   for _,b in ipairs(boxes) do
+    if intersect(pos.x-HALF,pos.x+HALF,x+b[1],x+b[4]) and
+       intersect(pos.y-HALF,pos.y+HALF,y+b[2],y+b[5]) and
+       intersect(pos.z-HALF,pos.z+HALF,z+b[3],z+b[6]) then
+     collisions[#collisions+1]={x+b[1],y+b[2],z+b[3],
+      x+b[4],y+b[5],z+b[6]}
+    end
+   end
+  end
+ end end end
+ return collisions
+end
+-- Builtin item_entity.lua's stuck recovery tries +X,-X,+Z,-Z and +Y.
+-- Here a candidate is the *nearest face* of an overlapping collision box,
+-- not the border of the enclosing voxel. Verify that the whole target
+-- AABB is free before committing. If there is no free destination, keep
+-- the item intact and retry when the terrain changes.
+function Physics.unstick(rt,pos)
+ local collisions=overlaps(rt,pos)
+ if #collisions==0 then return true end
+ local directions={{'x',4,1},{'x',1,-1},{'z',6,1},
+  {'z',3,-1},{'y',5,1}}
+ for _,entry in ipairs(directions) do
+  local axis,index,direction=entry[1],entry[2],entry[3]
+  local candidates={}
+  for _,box in ipairs(collisions) do
+   local target=box[index]+direction*(HALF+0.00001)
+   local delta=(target-pos[axis])*direction
+   if delta>0 and target>=min_world and target<=max_world then
+    candidates[#candidates+1]={target=target,delta=delta}
+   end
+  end
+  table.sort(candidates,function(a,b) return a.delta<b.delta end)
+  for _,candidate in ipairs(candidates) do
+   local nextpos={x=pos.x,y=pos.y,z=pos.z}
+   nextpos[axis]=candidate.target
+   if #overlaps(rt,nextpos)==0 then
+    pos.x,pos.y,pos.z=nextpos.x,nextpos.y,nextpos.z
+    return true
+   end
+  end
+ end
+ return false
+end
 local function sweep(rt,pos,axis,delta)
  if delta==0 then return false,nil end
  local current=pos[axis]
@@ -115,6 +171,11 @@ function Physics.step(rt,dt)
  for _,item in ipairs(rt.droppedItems or {}) do
   local v=item.velocity
   if v then
+   -- Never discard objects that spawn inside solid nodes: escape through
+   -- a genuinely free face or remain in place until space becomes available.
+   if not Physics.unstick(rt,item.pos) then
+    v.x,v.y,v.z=0,0,0
+   else
    local wet=in_liquid(rt,item.pos)
    local effective_g=g
    if wet then
@@ -141,6 +202,7 @@ function Physics.step(rt,dt)
    else
     v.y=v.y-effective_g*dt
    end
+   end -- world space available after stuck-object recovery
   end
  end
 end

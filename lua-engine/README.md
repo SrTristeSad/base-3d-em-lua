@@ -1050,3 +1050,56 @@ correção de itens que nascem dentro de sólidos, física exata de
 flutuabilidade/correnteza, efeitos visuais de água e testes
 manuais da demonstração gráfica. Não há compatibilidade 1:1
 com Luanti/VoxeLibre nesta fase.
+
+
+### Fase 36 — recuperação de itens presos e interação de coleta por golpe
+
+O módulo `core.itemphysics` agora reconhece quando um item nasce ou
+entra em uma caixa sólida de colisão. Ele tenta deslocar o centro
+até o espaço **livre** mais próximo por +X, -X, +Z, -Z e finalmente
++Y, consultando a geometria real de `core.nodebox` — incluindo lajes,
+postes e caixas que ultrapassam as células. A posição candidata só
+é aceita se **todo o volume do item** estiver livre. Se a região
+estiver completamente bloqueada, o objeto não é apagado: permanece
+intacto, zera a velocidade e tenta escapar novamente quando a física
+for atualizada, inclusive depois de uma alteração no terreno.
+
+A coleta automática da Fase 33 permanece. Além dela, o host pode usar
+`Runtime:punchItemAsPlayer(player,item_object[,reach])` para processar
+o golpe/interação em um item real. O método exige um jogador conectado,
+um objeto pertencente à mesma sessão e proximidade da caixa de colisão
+do jogador. A distância máxima padrão é **4 nós**, configurável por
+`item_punch_reach`. A coleta usa o mesmo mecanismo de
+`itemdef.on_pickup` e `core.register_on_item_pickup`, respeitando
+metadados, pilhas parciais e ausência de espaço no inventário.
+O resultado é `true,quantidade_coletada` quando processado, ou
+`false,"missing_item"` / `false,"out_of_reach"` na rejeição.
+O golpe não usa a espera mínima da coleta automática.
+
+Como no Luanti, o item solto **não empurra fisicamente jogadores**:
+a entidade `__builtin:item` original usa
+`collide_with_objects=false`. Esta fase implementa a
+interação com jogadores, não uma colisão física adicional que
+desrespeitaria o objetivo de compatibilidade.
+
+**Controles experimentais da demonstração LÖVR:**
+**F11** cria um drop no interior do bloco mirado, para observar a
+recuperação automática da posição. **F12** tenta recolher manualmente
+o item solto mais próximo do jogador usando o novo método validado.
+A seleção por proximidade no F12 é **apenas de depuração** e ainda
+não faz raycast ou teste de linha de visão. F8–F10 e F6 continuam
+com suas funções anteriores.
+
+A suíte `tests/lua_engine_item_player_interaction.lua` testa em
+Lua 5.4 e LuaJIT: ejeção de blocos completos e postes finos,
+prioridade dos sentidos de saída, objetos inteiramente enclausurados,
+recuperação após remoção de bloco, salvamento de itens presos,
+objetos não sólidos, inventário cheio, golpes repetidos,
+callbacks personalizados, alcance físico do jogador e recusa de
+objetos de outros runtimes.
+
+**Limites:** a recuperação é discreta, sem animação de expulsão nem
+velocidade de repulsão do Luanti, e não simula todos os detalhes da
+física nativa. A demonstração ainda não tem ataque a entidades por
+raycast; o sistema de objetos do Luanti/VoxeLibre e a compatibilidade
+1:1 continuam incompletos.
