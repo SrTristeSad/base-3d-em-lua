@@ -289,6 +289,10 @@ function Runtime.new(options)
  end
  local function register(kind,name,definition)
   assert(type(name)=='string' and name~='','registered name required')
+  -- Luanti treats a leading colon as an explicit name prefix override,
+  -- not as part of the registered item identifier.
+  if name:sub(1,1)==':' then name=name:sub(2) end
+  assert(name~='','registered item cannot have an empty identifier')
   assert(type(definition)=='table','definition must be table')
   assert(not self.registry.items[name],'item already registered: '..name)
   local def=opts_copy(definition)
