@@ -74,6 +74,47 @@ for _,orientation in ipairs({0,1,2,3}) do
   'orientation '..orientation..' precise collision boundary')
 end
 
+-- Leveled height and wallmounted orientation affect the physical hit.
+local levels_rt,levels_api=world()
+levels_api.register_node('test:leveled',{
+ drawtype='nodebox',paramtype2='leveled',
+ node_box={type='leveled',fixed={-.5,-.5,-.5,.5,.5,.5}}
+})
+levels_api.set_node(p(0,0,0),{name='test:leveled',param2=32})
+local leveled=drop(levels_api,0,8,0)
+levels_rt:step(3)
+close(leveled:get_pos().y,.16,'leveled half-height landing')
+local wall_rt,wall_api=world()
+wall_api.register_node('test:wallmounted',{
+ drawtype='nodebox',paramtype2='wallmounted',
+ node_box={type='wallmounted',
+  wall_top={-.3,.375,-.1,.3,.5,.1},
+  wall_bottom={-.3,-.5,-.1,.3,-.375,.1},
+  wall_side={-.5,-.3,-.1,-.375,.3,.1}}
+})
+wall_api.set_node(p(2,3,0),{name='test:wallmounted',param2=2})
+local mounted=drop(wall_api,0,3,0)
+mounted:set_velocity(p(50,0,0))
+wall_rt:step(.1)
+close(mounted:get_pos().x,2+.375-.16,'wallmounted +X bracket')
+
+-- A connected fence rail extends collision laterally, even when its
+-- connecting node itself is nonwalkable and would not block the item.
+local fence_rt,fence_api=world()
+fence_api.register_node('test:anchor',{walkable=false})
+fence_api.register_node('test:fence',{
+ drawtype='nodebox',connects_to={'test:anchor'},
+ node_box={type='connected',
+  fixed={-.125,-.5,-.125,.125,.5,.125},
+  connect_right={.125,-.125,-.125,.5,.125,.125}}
+})
+fence_api.set_node(p(2,3,0),{name='test:fence'})
+fence_api.set_node(p(3,3,0),{name='test:anchor'})
+local rail=drop(fence_api,2.35,3,-2)
+rail:set_velocity(p(0,0,30))
+fence_rt:step(.1)
+close(rail:get_pos().z,-.125-.16,'connected fence arm')
+
 -- The collision broadphase includes nodeboxes extending outside own cells.
 local rt4,a4=world()
 a4.set_node(p(3,3,0),{name='test:farbox'})
