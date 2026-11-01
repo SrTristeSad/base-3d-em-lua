@@ -26,6 +26,11 @@ function A.name(tile)
  if type(tile)=='table' then tile=tile.name end
  if type(tile)~='string' then return A.tiles[1] end
  -- Complex texture modifiers will require their own compositing stage.
+ -- VoxeLibre's grass side is composed of the dirt base and a shadow
+ -- overlay.  This atlas uses a representative combined placeholder.
+ if tile:find('default_dirt.png^mcl_dirt_grass_shadow.png',1,true)==1 then
+  return 'mcl_core_grass_block_side.png'
+ end
  local simple=tile:match('^([^%^%[%:]+)')
  if not simple then return A.tiles[1] end
  return simple
