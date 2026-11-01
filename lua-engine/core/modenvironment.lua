@@ -108,6 +108,21 @@ function ModEnvironment.new(runtime)
   for i,v in ipairs(tbl) do if v==item then return i end end
   return -1
  end
+ -- Restrict legacy documentation reads to its world-local doc.mt file.
+ -- This is compatibility plumbing, not a general-purpose io sandbox.
+ env.io={
+  open=function(path,mode)
+   assert(type(path)=='string','io.open expects a path')
+   if path~=runtime.api.get_worldpath()..'/doc.mt' then
+    return nil,'file access outside documentation save is disabled'
+   end
+   if mode~='r' and mode~='rb' then
+    return nil,'write access is disabled in this bootstrap'
+   end
+   return io.open(path,mode)
+  end,
+  close=function(file) return file:close() end,
+ }
  env._G=env
  env.dofile=function(path) return self:runfile(path) end
  self.globals=env
