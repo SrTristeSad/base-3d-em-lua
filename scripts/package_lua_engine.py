@@ -4,6 +4,7 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import argparse
 import subprocess
+from formspec_assets import images as gui_images, manifest as gui_manifest
 from build_lua_engine_atlas import (create as build_atlas, tile_names,
     upstream_tile_names, atlas_columns, atlas_manifest)
 
@@ -56,6 +57,12 @@ def build(source: Path, output: Path, game: Path | None = None,
         # Both GPU pixels and Lua lookup are derived from the SAME ordered names.
         z.writestr("core/atlas_manifest.lua", atlas_manifest(names, columns))
         z.writestr("visual/ATLAS-INDEX.txt", "\n".join(names) + "\n")
+        originals = gui_images(game) if original else []
+        z.writestr("core/formspec_original_manifest.lua",
+                   gui_manifest(originals))
+        for asset in originals:
+            # Preserve full source dimensions, alpha and every animation frame.
+            z.write(asset, "visual/formspec/" + asset.name)
         if original:
             # The image pixels are from the pinned submodule, not generated
             # lookalikes. Preserve upstream licensing and credit references.
@@ -83,6 +90,7 @@ def build(source: Path, output: Path, game: Path | None = None,
         assert all(name in z.namelist() for name in REQUIRED)
         assert "visual/atlas.png" in z.namelist()
         assert "core/atlas_manifest.lua" in z.namelist()
+        assert "core/formspec_original_manifest.lua" in z.namelist()
 
 
 if __name__ == "__main__":
