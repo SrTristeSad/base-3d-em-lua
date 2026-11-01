@@ -2,6 +2,8 @@
 -- IMoveAction and player_inventory_Allow*/On* callback contracts.
 -- Host-only entry points; never expose a method that fabricates a client.
 local Transfers={}
+local ItemStack=require('core.itemstack')
+local stack_mt=getmetatable(ItemStack.new(nil))
 
 local function positive_integer(value)
  return type(value)=='number' and value==math.floor(value)
@@ -150,10 +152,7 @@ function Transfers.put(runtime,playername,request)
  if not player then return false,reason end
  local list,index,held=request.listname,request.index,request.stack
  if not valid_slot(inv,list,index) then return false,'invalid_slot_or_count' end
- if type(held)~='table' or type(held.get_count)~='function' or
-  type(held.peek_item)~='function' or
-  type(held.take_item)~='function' or
-  type(held.equals)~='function' then
+ if type(held)~='table' or getmetatable(held)~=stack_mt then
   return false,'invalid_held_stack'
  end
  if held:is_empty() then return false,'empty_held_stack' end
