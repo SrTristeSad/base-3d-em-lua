@@ -16,7 +16,8 @@ end
 local function create(map)
  local index={nodes=map.nodes,blocks={},entries={},
   count=0,block_count=0,queries=0,candidates_examined=0,
-  blocks_examined=0,dense_rejections=0,rebuilds=1}
+  blocks_examined=0,dense_rejections=0,rebuilds=1,
+  sorted_blocks=0,merge_items=0}
  for k in pairs(map.nodes) do
   local pos=position(k)
   local bk=block(pos.x,pos.y,pos.z)
@@ -64,12 +65,14 @@ function Index.changed(map,x,y,z,present)
    index.block_count=index.block_count+1
   end
   bucket.nodes[k]={x=x,y=y,z=z}
+  bucket.sorted=nil
   bucket.count=bucket.count+1
   index.entries[k]=bk
   index.count=index.count+1
  elseif existing then
   local bucket=index.blocks[existing]
   bucket.nodes[k]=nil
+  bucket.sorted=nil
   bucket.count=bucket.count-1
   if bucket.count==0 then
    index.blocks[existing]=nil
@@ -121,22 +124,76 @@ function Index.query(map,x1,x2,y1,y2,z1,z2,max_candidates)
    end
   end
  end
- local out={}
- for _,bucket in ipairs(buckets) do
-  for _,pos in pairs(bucket.nodes) do
-   index.candidates_examined=index.candidates_examined+1
-   if pos.x>=x1 and pos.x<=x2 and
-      pos.y>=y1 and pos.y<=y2 and
-      pos.z>=z1 and pos.z<=z2 then
-    out[#out+1]=pos
-   end
-  end
- end
- table.sort(out,function(a,b)
+ -- Keep each mapblock ordered between queries; a node edit invalidates
+ -- only its own block's ordering. Merging K sorted block streams avoids
+ -- sorting all N candidate nodes afresh for each moving character.
+ local function less(a,b)
   if a.x~=b.x then return a.x<b.x end
   if a.y~=b.y then return a.y<b.y end
   return a.z<b.z
- end)
+ end
+ local heap={}
+ local function advance(c)
+  while c.i<=#c.list do
+   local pos=c.list[c.i]
+   index.candidates_examined=index.candidates_examined+1
+   if pos.x>=x1 and pos.x<=x2 and pos.y>=y1 and
+      pos.y<=y2 and pos.z>=z1 and pos.z<=z2 then
+    c.pos=pos
+    return true
+   end
+   c.i=c.i+1
+  end
+  c.pos=nil
+  return false
+ end
+ local function push(c)
+  local n=#heap+1
+  while n>1 do
+   local parent=floor(n/2)
+   if not less(c.pos,heap[parent].pos) then break end
+   heap[n]=heap[parent]
+   n=parent
+  end
+  heap[n]=c
+ end
+ for _,bucket in ipairs(buckets) do
+  if not bucket.sorted then
+   local sorted={}
+   for _,pos in pairs(bucket.nodes) do
+    sorted[#sorted+1]=pos
+   end
+   table.sort(sorted,less)
+   bucket.sorted=sorted
+   index.sorted_blocks=index.sorted_blocks+1
+  end
+  local cursor={list=bucket.sorted,i=1}
+  if advance(cursor) then push(cursor) end
+ end
+ local out={}
+ while #heap>0 do
+  local first=heap[1]
+  out[#out+1]=first.pos
+  index.merge_items=index.merge_items+1
+  first.i=first.i+1
+  if not advance(first) then
+   first=heap[#heap]
+   heap[#heap]=nil
+   if #heap==0 then break end
+  end
+  local at=1
+  while true do
+   local child=at*2
+   if child>#heap then break end
+   if child+1<=#heap and less(heap[child+1].pos,heap[child].pos) then
+    child=child+1
+   end
+   if not less(heap[child].pos,first.pos) then break end
+   heap[at]=heap[child]
+   at=child
+  end
+  heap[at]=first
+ end
  return out
 end
 return Index
