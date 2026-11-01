@@ -31,13 +31,13 @@ local initial={
  {{-1,0,0},{0,-1,0},{0,0,1}},
 }
 local function turn(v,axis,steps)
- -- Right-handed quarter turns, around the positive local top axis.
+ -- Luanti facedir uses left-handed quarter turns about the node top.
  for _=1,steps do
   local ax,ay,az=axis[1],axis[2],axis[3]
   local dot=v[1]*ax+v[2]*ay+v[3]*az
-  v={ay*v[3]-az*v[2]+ax*dot,
-     az*v[1]-ax*v[3]+ay*dot,
-     ax*v[2]-ay*v[1]+az*dot}
+  v={az*v[2]-ay*v[3]+ax*dot,
+     ax*v[3]-az*v[1]+ay*dot,
+     ay*v[1]-ax*v[2]+az*dot}
  end
  return v
 end
