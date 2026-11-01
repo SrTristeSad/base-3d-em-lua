@@ -62,6 +62,13 @@ rt:emit('on_craft')
 rt:emit('on_item_eat')
 assert(crafted==1 and eaten==1)
 local runner=Environment.new(rt)
+local split=runner.globals.string.split
+local parts=split('pickaxey,shovely,axey',',')
+assert(#parts==3 and parts[1]=='pickaxey' and parts[3]=='axey')
+parts=split('one,,three',',',true)
+assert(#parts==3 and parts[2]=='')
+parts=split('one,two,three',',',false,1)
+assert(#parts==2 and parts[2]=='two,three')
 -- Permission regression: no arbitrary host file reads or writes.
 local file,err=runner.globals.io.open('lua-engine/main.lua','r')
 assert(file==nil and type(err)=='string','host file read must be denied')
