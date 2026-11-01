@@ -41,7 +41,7 @@ rt.api.register_on_player_receive_fields(function(_,form,fields)
 end)
 local form='formspec_version[4]size[9,7]'..
  'scroll_container[.5,.5;2,1.5;v;vertical;.1;.5]'..
- 'button[0,0;1,1;top;Top]'..
+ 'button[0,1;1,1;top;Top]'..
  'button[0,3;1,1;below;Below]'..
  'scroll_container_end[]'..
  'scrollbaroptions[min=4;max=80;smallstep=5;largestep=12;thumbsize=8;arrows=hide]'..
@@ -76,7 +76,7 @@ eq(v.value,10);eq(v.min,0);eq(v.max,30)
 eq(h.value,6);eq(h.min,2);eq(h.max,40)
 eq(v.options.thumbsize,8);eq(h.options.arrows,'show')
 local top=assert(find('button','top'))
-near(top.y,l.scrolls.v.viewport.y-10*.1*l.unit)
+near(top.y,l.scrolls.v.viewport.y+(1-10*.1)*l.unit)
 local left=assert(find('button','left'))
 near(left.x,l.scrolls.h.viewport.x-6*.1*l.unit)
 local values=view:form_values()
@@ -90,7 +90,7 @@ eq(received[#received].fields.v,'CHG:15')
 eq(received[#received].fields.h,'VAL:6')
 l=view:layout(W,H)
 top=assert(find('button','top'))
-near(top.y,l.scrolls.v.viewport.y-15*.1*l.unit)
+near(top.y,l.scrolls.v.viewport.y+(1-15*.1)*l.unit)
 local hvp=l.scrolls.h.clip
 assert(view:wheel(W,H,hvp.x+5,hvp.y+5,-1))
 eq(view.scrollbar_values.h,9)
