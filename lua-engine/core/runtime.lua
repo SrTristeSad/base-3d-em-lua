@@ -9,6 +9,7 @@ local ModStorage=require('core.modstorage')
 local Voxel=require('core.voxel')
 local Particles=require('core.particles')
 local NodeDrops=require('core.nodedrops')
+local Serialization=require('core.serialization')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -33,7 +34,7 @@ function Runtime.new(options)
     entities={},aliases={},crafts={},abms={},lbms={},
     biomes={},ores={},decorations={}},
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
-    on_placenode={},on_dignode={},on_punchnode={},on_joinplayer={},
+    on_placenode={},on_dignode={},on_punchnode={},on_punchplayer={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
     on_craft={},craft_predict={},on_item_eat={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
@@ -42,6 +43,8 @@ function Runtime.new(options)
  },Runtime)
  local api={}
  self.api=api
+ api.serialize=Serialization.serialize
+ api.deserialize=Serialization.deserialize
  self.map.registry=self.registry.items
  self.crafting=Crafting.new(self.registry.items,self.registry.aliases)
  self.content=Voxel.ContentIDs.new()
@@ -286,10 +289,15 @@ function Runtime.new(options)
  end
  local function register(kind,name,definition)
   assert(type(name)=='string' and name~='','registered name required')
+  -- Luanti treats a leading colon as an explicit name prefix override,
+  -- not as part of the registered item identifier.
+  if name:sub(1,1)==':' then name=name:sub(2) end
+  assert(name~='','registered item cannot have an empty identifier')
   assert(type(definition)=='table','definition must be table')
   assert(not self.registry.items[name],'item already registered: '..name)
   local def=opts_copy(definition)
   def.name=name
+  def.type=kind
   def.groups=opts_copy(def.groups)
   if kind=='node' then
    if def.stack_max==nil then def.stack_max=api.nodedef_default.stack_max end
@@ -433,6 +441,12 @@ function Runtime.new(options)
   local callbacks=self.callbacks.on_item_eat
   callbacks[#callbacks+1]=callback
  end
+ function api.register_on_punchplayer(callback)
+  assert(type(callback)=='function',
+   'punch player callback must be callable')
+  local list=self.callbacks.on_punchplayer
+  list[#list+1]=callback
+ end
  function api.register_on_punchnode(callback)
   assert(type(callback)=='function','punch callback must be callable')
   local callbacks=self.callbacks.on_punchnode
@@ -480,7 +494,7 @@ function Runtime.new(options)
  function api.create_detached_inventory(name,callbacks)
   assert(type(name)=='string' and name~='' and
    not self.detached[name],'detached inventory name already exists')
-  local inv=Inventory.new(self.registry.items)
+  local inv=Inventory.new(self.registry.items,{type='detached',name=name})
   self.detached[name]={inv=inv,callbacks=callbacks or {}}
   return inv
  end
@@ -489,6 +503,12 @@ function Runtime.new(options)
   if location.type=='detached' then
    local v=self.detached[location.name]
    return v and v.inv or nil
+  elseif location.type=='player' and type(location.name)=='string' then
+   local player=self.players[location.name]
+   if player and type(player.get_inventory)=='function' then
+    return player:get_inventory()
+   end
+   return nil
   elseif location.type=='node' and ispos(location.pos) then
    return self.map:get_meta(location.pos):get_inventory()
   end
@@ -702,6 +722,17 @@ function Runtime:disconnectPlayer(name)
  self:emit('on_leaveplayer',player)
  self.players[name]=nil
  return true
+end
+-- Return true when a Lua mod cancels the incoming player punch.
+-- This is a policy/callback preflight; the host owns actual HP and physics.
+function Runtime:isPlayerPunchCancelled(player,hitter,interval,toolcaps,dir,damage)
+ assert(type(player)=='table','punch victim required')
+ for _,cb in ipairs(self.callbacks.on_punchplayer) do
+  if cb(player,hitter,interval,toolcaps,dir,damage)==true then
+   return true
+  end
+ end
+ return false
 end
 -- A punch is distinct from digging a node: do not remove the node or
 -- simulate a player.  The host passes the actual puncher when available.

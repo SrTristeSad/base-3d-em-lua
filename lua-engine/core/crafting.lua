@@ -1,5 +1,5 @@
 -- Subset of Luanti's craft registry and get_craft_result.
--- Shaped, shapeless, cooking and fuel; group predicates and replacements.
+-- Shaped, shapeless, cooking, fuel and toolrepair; groups and replacements.
 -- Unsupported recipes fail explicitly. Item stacks always have value semantics.
 local Stack=require('core.itemstack')
 local Craft={}
@@ -147,7 +147,7 @@ local function match_single(recipe,slots,count,items,aliases)
  end
 end
 local function matches(recipe,method,width,slots,count,items,aliases)
- if recipe.method~=method then return nil end
+ if recipe.kind=='toolrepair' or recipe.method~=method then return nil end
  if method~='normal' then
   return match_single(recipe,slots,count,items,aliases)
  end
@@ -171,7 +171,19 @@ function Craft:register(def)
  assert(type(def)=='table','craft definition required')
  local kind=def.type or 'shaped'
  assert(kind=='shaped' or kind=='shapeless' or
-  kind=='cooking' or kind=='fuel','unsupported craft type: '..tostring(kind))
+  kind=='cooking' or kind=='fuel' or kind=='toolrepair','unsupported craft type: '..tostring(kind))
+ if kind=='toolrepair' then
+  local additional=def.additional_wear or 0
+  assert(type(additional)=='number' and additional==additional
+   and additional~=math.huge and additional~=-math.huge,
+   'toolrepair additional_wear must be finite')
+  self.serial=self.serial+1
+  local recipe={kind='toolrepair',method='normal',output='',
+   additional_wear=additional,order=self.serial}
+  self.toolrepair=recipe
+  self.recipes[#self.recipes+1]=recipe
+  return recipe
+ end
  local method=(kind=='cooking' or kind=='fuel') and kind or 'normal'
  local shape,ingredients,ingredient
  if kind=='shaped' then shape=normalized_shape(def.recipe)
@@ -260,7 +272,32 @@ function Craft:result(input)
    end
   end
  end
- if not winner then return output,change end
+ if not winner then
+  if method=='normal' and self.toolrepair and count==2 then
+   local indexes={}
+   for i,stack in ipairs(slots) do
+    if nonempty(stack) then indexes[#indexes+1]=i end
+   end
+   local a,b=slots[indexes[1]],slots[indexes[2]]
+   local def=a and self.items[a:get_name()]
+   if a and b and a:get_name()==b:get_name() and
+    def and def.type=='tool' and
+    (not def.groups or def.groups.disable_repair~=1) and
+    a:get_count()==1 and b:get_count()==1 then
+    -- Luanti wear units range from 0 to 65535.  Repair bonus is a
+    -- fraction of 65536; negative additional_wear improves durability.
+    local wear=math.floor(a:get_wear()+b:get_wear()-65536+
+     self.toolrepair.additional_wear*65536+0.5)
+    if wear<65536 then
+     output.item=make_stack({name=a:get_name(),count=1,
+      wear=math.max(0,wear)},self.items)
+     change.items[indexes[1]]:take_item(1)
+     change.items[indexes[2]]:take_item(1)
+    end
+   end
+  end
+  return output,change
+ end
  if winner.method~='fuel' then
   output.item=make_stack(winner.output,self.items)
  end

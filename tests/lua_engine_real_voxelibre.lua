@@ -19,6 +19,10 @@ local paths={
  walkover='mods/CORE/walkover',
  mcl_luck='mods/PLAYER/mcl_luck',
  mcl_gamemode='mods/PLAYER/mcl_gamemode',
+ mcl_death_drop='mods/PLAYER/mcl_death_drop',
+ mcl_experience='mods/HUD/mcl_experience',
+ mcl_enchanting='mods/ITEMS/mcl_enchanting',
+ mcl_core='mods/ITEMS/mcl_core',
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
  mcl_util='mods/CORE/mcl_util',
@@ -43,6 +47,9 @@ for name,path in pairs(paths) do
  targets[#targets+1]=def
 end
 local ordered=ModLoader.plan(targets)
+local mod_names={}
+for name in pairs(paths) do mod_names[#mod_names+1]=name end
+table.sort(mod_names)
 local rt=Engine.new({settings={
  mcl_keepInventory='false',mcl_node_particles='medium'},
  mapgen={seed=42,mg_name='v7',chunksize=5,mapgen_limit=31000},
@@ -95,6 +102,18 @@ assert(type(g.mcl_luck.get_luck)=='function',
  'original luck module did not load')
 assert(type(g.mcl_gamemode.get_gamemode)=='function',
  'original gamemode module did not load')
+assert(type(g.mcl_death_drop.register_dropped_list)=='function',
+ 'original death-drop module did not load')
+assert(#g.mcl_death_drop.registered_dropped_lists>=6,
+ 'original player inventory lists for death-drop were not registered')
+assert(type(g.mcl_experience.add_xp)=='function' and
+ rt.api.registered_entities['mcl_experience:orb'] and
+ rt.api.registered_entities['mcl_experience:bottle'],
+ 'original XP entities and functions must register')
+assert(type(g.mcl_enchanting)=='table' and
+ type(g.mcl_enchanting.overlay)=='string' and
+ type(g.mcl_enchanting.enchantments)=='table',
+ 'original enchantment registry failed to initialize')
 assert(type(g.doc)=='table' and type(g.doc.sub.items.temp.build)=='string',
  'original doc_items must load before mcl_core')
 assert(rt.api.registered_nodes['mcl_stonecutter:stonecutter'],
@@ -116,10 +135,13 @@ assert(type(id)=='number' and id>0 and rt.particles:get_spawner(id).amount==4)
 assert(g.mcl_particles.delete_node_particlespawners(pp))
 assert(rt.particles:get_spawner(id)==nil)
 assert(not g.mcl_particles.delete_node_particlespawners(pp))
-local blocked=rt:allowedInventoryAction(nil,'move',nil,{
+local permission_inv=rt.api.create_detached_inventory('stonecutter-permission')
+assert(permission_inv:get_location().type=='detached')
+assert(permission_inv:get_location().name=='stonecutter-permission')
+local blocked=rt:allowedInventoryAction(nil,'move',permission_inv,{
  from_list='main',to_list='stonecutter_output',count=3})
 assert(blocked==0,'stonecutter output is write-protected by actual mod callback')
-local permitted=rt:allowedInventoryAction(nil,'move',nil,{
+local permitted=rt:allowedInventoryAction(nil,'move',permission_inv,{
  from_list='main',to_list='stonecutter_input',count=3})
 assert(permitted==3)
 assert(not pcall(rt.api.show_formspec,'player','stonecutter','size[4,3]'),
@@ -157,7 +179,8 @@ assert(g.vl_tuning.registered_settings['gamerule:keepInventory'])
 assert(rt.chatcommands.gamerule and rt.chatcommands.settings)
 assert(rt.api.get_modpath('mcl_colors')==root..'/mods/CORE/mcl_colors')
 assert(rt.mod_storage.vl_tuning,'mod storage not attached to source mod')
-assert(#rt.callbacks.on_dieplayer==1)
+assert(#rt.callbacks.on_dieplayer>=2,
+ 'original death-drop callback must be registered')
 assert(#rt.callbacks.on_joinplayer>=1)
 assert(runner.read_count>=8,'vl_tuning should load additional source files')
 assert(g.mcl_colors~=rawget(_G,'mcl_colors'),
@@ -167,12 +190,28 @@ for _ in pairs(rt.chatcommands) do count=count+1 end
 print(('VOXELIBRE REAL MODS PASS: %d modules, %d source files, %d registered commands')
  :format(#results,runner.read_count,count))
 
--- Diagnostic only: try the real mcl_core source without disguising missing
--- gameplay dependencies. A partial failure must not count as a loaded mod.
-local path_core=root..'/mods/ITEMS/mcl_core'
-rt.opts.modpaths.mcl_core=path_core
-local core_ok,core_error=pcall(rt.loadMod,rt,'mcl_core',path_core)
-assert(rt.current_mod==nil,'mod context leaked after probe')
+-- The original mcl_core is now loaded in the normal dependency-ordered
+-- mod pass, BEFORE on_mods_loaded. Do not reexecute its init script here.
+local core_ok,core_error=true,nil
+assert(rt.current_mod==nil,'mod context leaked after real mod boot')
+assert(type(g.mcl_enchanting.enchantments.sharpness)=='table',
+ 'original enchantments must be registered alongside mcl_core')
+local enchanted_book=rt.api.ItemStack('mcl_enchanting:book_enchanted')
+enchanted_book:get_meta():set_string('mcl_enchanting:enchantments',
+ rt.api.serialize({sharpness=3,unbreaking=2}))
+assert(g.mcl_enchanting.get_enchantment(enchanted_book,'sharpness')==3)
+assert(g.mcl_enchanting.get_enchantments(enchanted_book).unbreaking==2,
+ 'real enchanting metadata must round-trip through core.deserialize')
+assert(type(rt.api.registered_craftitems['mcl_core:apple_gold_enchanted'])=='table',
+ 'original enchanted golden apple must register after mcl_enchanting')
+assert(rt.api.registered_craftitems['mcl_core:apple_gold_enchanted']
+ .inventory_image:find(g.mcl_enchanting.overlay,1,true),
+ 'real enchanted apple overlay was not preserved')
+local repair_registered=false
+for _,recipe in ipairs(rt.registry.crafts) do
+ if recipe.kind=='toolrepair' then repair_registered=true end
+end
+assert(repair_registered,'original mcl_core toolrepair recipe missing')
 local core_nodes={}
 for name in pairs(rt.api.registered_nodes) do
  if name:sub(1,9)=='mcl_core:' then core_nodes[#core_nodes+1]=name end
@@ -194,18 +233,16 @@ if stone then
  assert(rt.api.get_node({x=8,y=2,z=3}).name=='mcl_core:stone',
   'real mcl_core stone must be placeable in the Lua map')
 end
-print(('MCL_CORE PROBE: %d original nodes registered; stone=%s; error=%s')
+print(('MCL_CORE BOOT: %d original nodes registered; stone=%s; error=%s')
  :format(#core_nodes,tostring(stone~=nil),tostring(core_error):sub(1,180)))
 local report={
- '# VoxeLibre real Lua mod boot — Fase 12','',
+ '# VoxeLibre real Lua mod boot — Fase 13','',
  'Original VoxeLibre code from the pinned Git checkout was executed.',
  'Lua 5.4 and LuaJIT tests must both pass for this report to be published.','',
  ('- Real modules loaded: **%d**'):format(#results),
  ('- Real source files executed: **%d**'):format(runner.read_count),
  ('- Registered chat commands: **%d**'):format(count),
- '- Modules: mcl_init, mcl_util, vl_unittests, mcl_colors,',
- '  mcl_sounds, mcl_autogroup, tga_encoder, vl_tuning,',
- '  flowlib, vl_legacy, controls, mcl_particles, mcl_worlds, mcl_stonecutter.',
+ '- Modules: '..table.concat(mod_names,', '),
  '- Luanti binary engine: not used in this module integration test.',
  '- VoxeLibre gameplay: **NOT RUNNING** (only selected Lua modules loaded).',
  '',
@@ -221,7 +258,7 @@ local report={
  '- Original mcl_worlds dimension coordinate conversion verified.',
  '- The actual player GUI and visual particle renderer are not implemented.',
  '',
- '## mcl_core original source probe', '',
+ '## mcl_core dependency-ordered original source boot', '',
  ('- Init source execution: **%s**'):format(core_ok and
   'returned (not a verified game)' or 'blocked'),
  ('- First issue: %s'):format(tostring(core_error or
@@ -230,8 +267,8 @@ local report={
  ('- Real mcl_core nodes registered before failure: **%d**'):format(#core_nodes),
  ('- Original stone registered and its drops evaluated: **%s**')
   :format(tostring(stone~=nil)),
- '- The original doc and doc_items source is included in the loaded module count.',
- '- This is a diagnostic; mcl_core is not counted as a loaded module.',
+ '- The original doc, doc_items and mcl_core sources are included in the loaded module count.',
+ '- mcl_core Lua initialization is not proof of a playable or 1:1 game.',
  '- The original files remain unchanged.',
  '',
  '## Pending', '',

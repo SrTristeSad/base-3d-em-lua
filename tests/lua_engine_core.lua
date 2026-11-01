@@ -154,4 +154,37 @@ eq(dug[1],'example:grass')
 eq(api.get_node(p).name,'air')
 eq(env.map.count,1)
 assert(not api.dig_node(p))
+-- Cancellable player punch callbacks used by original enchanting.
+local punch_count=0
+local victim={}
+api.register_on_punchplayer(function(player,hitter,interval,caps,dir,damage)
+ assert(player==victim and hitter==nil and interval==0.5)
+ assert(caps.damage_groups.fleshy==2 and dir.z==1 and damage==2)
+ punch_count=punch_count+1
+ return false
+end)
+assert(not env:isPlayerPunchCancelled(victim,nil,0.5,
+ {damage_groups={fleshy=2}},{x=0,y=0,z=1},2))
+api.register_on_punchplayer(function() punch_count=punch_count+1;return true end)
+assert(env:isPlayerPunchCancelled(victim,nil,0.5,
+ {damage_groups={fleshy=2}},{x=0,y=0,z=1},2))
+eq(punch_count,3,'punch callbacks executed')
+-- Real player inventory lookup must follow connected session state.
+local player_inv=require('core.inventory').new(env.registry.items,
+ {type='player',name='TestPlayer'})
+local player={
+ get_player_name=function() return 'TestPlayer' end,
+ get_inventory=function() return player_inv end,
+}
+assert(api.get_inventory({type='player',name='TestPlayer'})==nil)
+env:connectPlayer(player)
+assert(api.get_inventory({type='player',name='TestPlayer'})==player_inv)
+assert(player_inv:get_location().type=='player')
+assert(player_inv:get_location().name=='TestPlayer')
+env:disconnectPlayer('TestPlayer')
+assert(api.get_inventory({type='player',name='TestPlayer'})==nil)
+api.register_tool(':test:enchanted_tool',{description='Explicitly named'})
+assert(api.registered_tools['test:enchanted_tool'])
+assert(not api.registered_tools[':test:enchanted_tool'])
+assert(api.registered_items['test:enchanted_tool'].type=='tool')
 print('lua_engine_core: OK')
