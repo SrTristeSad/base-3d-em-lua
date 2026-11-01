@@ -68,6 +68,11 @@ function Map:set_node(p,node)
   local block=bk(x,y,z)
   self.revisions[block]=(self.revisions[block] or 0)+1
   self.modified[block]=true
+  -- Optional runtime observer keeps collision geometry live without
+  -- forcing a complete shape cache reset after each mining/build edit.
+  if self.on_geometry_changed then
+   self.on_geometry_changed(self,x,y,z)
+  end
  end
  return true
 end
