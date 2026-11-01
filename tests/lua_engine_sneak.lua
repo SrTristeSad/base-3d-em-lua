@@ -62,7 +62,7 @@ assert(unguarded.pos.x>.6,'edge guard opt-out should permit walking off')
 api.set_node(pos(3,0,0),{name='test:half'})
 local slab=Physics.new(api,pos(3,0,0))
 tick(slab,8,{x=1,sneak=true})
-assert(slab.pos.x>.45 and slab.pos.x<.56,
+assert(slab.pos.x>3.45 and slab.pos.x<3.56,
  'sneak guard must work on a half-height collision_box')
 -- Holding Ctrl is reserved for descending in liquid and on a ladder.
 for y=1,4 do
