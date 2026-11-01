@@ -60,6 +60,10 @@ for i=1,#vertices,6 do
  end
 end
 assert(duplicates>=1,'zero-thickness upright saw must be visible from both sides')
+-- Luanti facedir modulo four is left-handed around the top axis.
+local yaw=Nodebox.rotate({1,0,0},'facedir',1)
+assert(yaw[1]==0 and yaw[2]==0 and yaw[3]==1,
+ 'facedir 1 must rotate the local right direction towards +Z')
 -- Six top-face axes, 4 in-plane rotations each = 24 orientations.
 local directions={
  {0,1,0},{0,0,1},{0,0,-1},{1,0,0},{-1,0,0},{0,-1,0}
@@ -93,6 +97,13 @@ local function bounds(vertices)
  end
  return max[1]-min[1],max[2]-min[2],max[3]-min[3]
 end
+-- Full param2 must affect mesh cache revisions through the Map API.
+map:set_node(pos(9,9,9),{name='test:fourdir',param2=0})
+local before=Mesher.fingerprint(map,0,0,0)
+map:set_node(pos(9,9,9),{name='test:fourdir',param2=1})
+assert(before~=Mesher.fingerprint(map,0,0,0),
+ 'changing param2 must invalidate the mapblock mesh')
+map:remove_node(pos(9,9,9))
 local a=geometry('test:fourdir',0)
 local b=geometry('test:fourdir',1)
 local ax,ay,az=bounds(a)
