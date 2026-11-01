@@ -36,7 +36,7 @@ local form='formspec_version[4]size[9,7]'..
  'button_exit[4.8,5;2,.75;close;Close]'
 assert(api.show_formspec('Editor','test:input',form))
 local layout=assert(view:layout(w,h))
-assert(layout.unit>0 and #layout.controls==8)
+assert(layout.unit>0 and #layout.controls==7)
 assert(view.values.title=='default' and view.values.notes=='line one')
 assert(view.values.safe=='false' and view.values.mode==1)
 assert(view.values.level==2)
