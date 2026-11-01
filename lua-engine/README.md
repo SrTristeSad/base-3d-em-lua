@@ -1568,3 +1568,32 @@ e movimento relativo aproximado, não implementa impulsos nem
 massa nativos do Luanti. A busca de candidatos em consultas
 muito extensas pode recair na varredura linear. Não se afirma
 compatibilidade 1:1 com a física C++ ou ganho medido de FPS.
+
+
+### Fase 47 — benchmark reproduzível de desempenho da física
+
+Criada a ferramenta **`benchmarks/lua_engine_perf.lua`** para medir
+CPU e identificar gargalos antes de alterar novamente o motor.
+O mesmo código roda em **Lua 5.4** e **LuaJIT**, sem biblioteca externa
+nem necessidade de VoxeLibre. As cargas sintéticas determinísticas
+exercitam buscas de proximidade em mundos esparsos e densos
+(com referência linear para comparação), atualização de entidades
+físicas, planejamento de contatos TOI e movimentações com manutenção
+do índice espacial, usando 32/128/256 entidades.
+
+Os relatórios JSON incluem mediana de tempo de CPU
+(`os.clock`), operações por segundo, tamanho da população e
+candidatos do índice consultados. Um verificador separado em
+`scripts/check_lua_engine_benchmarks.py` impede aceitar relatórios
+malformados ou divergência de resultados entre a busca linear
+e indexada. O CI executa uma **amostra curta independente** em
+Lua 5.4 e LuaJIT, anexando ambos os relatórios ao artefato
+`Motor-Lua-Performance-Baseline` com retenção de 30 dias.
+Não existem limites arbitrários de tempo no CI.
+
+Para reproduzir localmente, consulte **`benchmarks/README.md`**.
+Os números medem CPU em condições sintéticas, **não FPS**,
+não representam uma comparação direta com o Luanti C++ e
+não autorizam afirmar ganho de performance sem comparar
+máquinas e configurações equivalentes. A compatibilidade 1:1
+com Luanti/VoxeLibre continua parcial.
