@@ -370,7 +370,8 @@ e LuaJIT: aterrissagem, salto, paredes, prevenção de atravessamento
 em velocidade alta, plantas/líquidos não sólidos, lajes, degraus
 altos, teto, cercas com `collision_box` próprio e `4dir`.
 A auditoria original também faz o personagem caminhar sobre
-`mcl_core:snow` e testa a colisão de `mcl_fences:fence`.
+`mcl_core:snow_2` (a primeira camada `mcl_core:snow` é
+atravessável no original) e testa a colisão de `mcl_fences:fence`.
 
 **Ainda não é a física 1:1 de Luanti:** faltam aceleração e atrito
 fieis, sneak nas bordas, escadas, nado, líquidos com arrasto,
