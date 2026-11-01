@@ -104,6 +104,29 @@ function ModEnvironment.new(runtime)
  env.DIR_DELIM=package.config:sub(1,1)
  env.Settings=settings_file
  env.table.copy=recursive_copy
+ -- Luanti string.split used by original group recipe documentation.
+ env.string.split=function(value,separator,include_empty,max_splits,separator_is_pattern)
+  assert(type(value)=='string','string.split expects a string')
+  separator=separator or ','
+  assert(type(separator)=='string' and separator~='',
+   'string.split requires a nonempty separator')
+  local result={}
+  local at,count=1,0
+  local limit=max_splits or -1
+  assert(type(limit)=='number','invalid split limit')
+  while limit<0 or count<limit do
+   local first,last=value:find(separator,at,not separator_is_pattern)
+   if not first then break end
+   assert(last>=first,'zero-width string.split separator is unsupported')
+   local piece=value:sub(at,first-1)
+   if include_empty or piece~='' then result[#result+1]=piece end
+   at=last+1
+   count=count+1
+  end
+  local tail=value:sub(at)
+  if include_empty or tail~='' then result[#result+1]=tail end
+  return result
+ end
  env.table.indexof=function(tbl,item)
   for i,v in ipairs(tbl) do if v==item then return i end end
   return -1
