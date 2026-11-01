@@ -298,3 +298,31 @@ considerado um dos módulos integrados.**
 - O executável lua-engine/main.lua passa a desenhar as sessões abertas e a entregar mouse/teclado ao visualizador. F3 abre somente um formspec de diagnóstico no demo com os slots reais do jogador. Esc envia quit e devolve o controle ao jogo.
 - Testes em tests/lua_engine_formspec_view.lua cobrem apresentação, callbacks, inventário e rolagem; tests/lua_engine_original_stonecutter_visual.lua usa o formspec original não modificado do VoxeLibre, com clicks de receita, saída e consumo.
 - LIMITES: imagens e ícones são representados por placeholders planos, não sprites fiéis. field, dropdown, checkbox, table, hypertext, tooltips, scrollbar arrastável, containers aninhados e inventários externos ainda não são implementados. O demo não inicializa todos os mods do VoxeLibre, e a equivalência 1:1 continua uma meta, não um estado alcançado.
+
+### Fase 62 — campos editáveis e controles de escolha dos formspecs
+
+- O host LÖVR agora entrega eventos de texto via `lovr.textinput` e teclado
+  via `lovr.keypressed` à sessão de formspec autorizada.
+- A primeira camada visual interpreta os controles originais `field`,
+  `pwdfield`, `textarea`, `checkbox` e `dropdown`, mantendo os
+  valores por formulário. Ao clicar em um botão ou fechar, encaminha os
+  valores editados com o nome de campo de cada widget a
+  `on_player_receive_fields`; eventos específicos de escolhas também
+  passam pelos callbacks originais.
+- A tecla Enter respeita `field_close_on_enter` para campo comum e envia
+  `key_enter_field`; a textarea aceita quebra de linha. Backspace remove
+  um ponto de código UTF-8 por vez. Senhas são mascaradas no renderizador,
+  mas enviadas ao mod quando o formulário é submetido.
+- Combos respeitam a sintaxe formspec de eventos por texto ou índice
+  e strings com vírgulas escapadas. Há limites defensivos de comprimento
+  e opções para proteger o host contra formulários malformados.
+- O formulário de diagnóstico F3 testa agora campo de texto, checkbox
+  e dropdown sobre o inventário real do jogador.
+- Os testes `tests/lua_engine_formspec_input_controls.lua` exercitam
+  edição, teclado, valores enviados, UTF-8, defaults, estado após
+  substituição de formulário, senha mascarada e fechamento no CI de
+  Lua 5.4 e LuaJIT.
+- **Limites:** ainda não há widgets nativos perfeitos nem escolha expandida
+  em dropdown; o clique percorre as opções. Imagens de formulários
+  continuam representadas por placeholders. Outras partes do protocolo
+  formspec e o motor inteiro ainda não atingiram fidelidade funcional 1:1.
