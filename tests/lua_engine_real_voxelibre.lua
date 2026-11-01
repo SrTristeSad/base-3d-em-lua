@@ -230,6 +230,25 @@ assert(original_grass and Atlas.index(original_grass.tiles[1])==2,
  'original grass top tile must resolve')
 assert(Atlas.index(original_grass.tiles[3])==9,
  'original grass side overlay must be selected')
+local glass=rt.api.registered_nodes['mcl_core:glass']
+local water=rt.api.registered_nodes['mcl_core:water_source']
+local lava=rt.api.registered_nodes['mcl_core:lava_source']
+assert(glass and glass.drawtype=='glasslike_framed_optional' and
+ Atlas.index(glass.tiles[1])==17 and Mesher.is_cube(glass),
+ 'upstream framed glass must have actual atlas geometry')
+assert(water and water.drawtype=='liquid' and
+ Atlas.index(water.tiles[1])==12 and Mesher.is_cube(water),
+ 'upstream water source must render using real first-frame texture')
+assert(lava and Atlas.index(lava.tiles[1])==19 and Mesher.is_cube(lava),
+ 'upstream lava source must render using real first-frame texture')
+local smoke=require('core.map').new(rt.registry.items)
+smoke:set_node({x=0,y=0,z=0},{name='mcl_core:glass'})
+smoke:set_node({x=2,y=0,z=0},{name='mcl_core:water_source'})
+smoke:set_node({x=4,y=0,z=0},{name='mcl_core:lava_source'})
+local _,real_metrics=Mesher.build(smoke,rt.api.registered_nodes,0,0,0)
+assert(real_metrics.faces==18 and real_metrics.liquids==2,
+ 'real upstream glass and liquids must yield visible faces')
+
 local current_mesh,mesh_stat=Mesher.build(rt.map,rt.api.registered_nodes,0,0,0)
 assert(mesh_stat.faces>0 and #current_mesh==mesh_stat.faces*6,
  'original mcl_core registered cubes must produce visible faces')

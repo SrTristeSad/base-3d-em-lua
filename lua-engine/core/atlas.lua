@@ -1,4 +1,4 @@
--- Fixed 4x4 atlas layout shared with scripts/build_lua_engine_atlas.py.
+-- Expandable 4-column atlas layout shared with scripts/build_lua_engine_atlas.py.
 -- These are texture identifiers, not copies of upstream images.
 local A={}
 A.tiles={
@@ -13,13 +13,18 @@ A.tiles={
  'mcl_core_grass_block_side.png',
  'default_tree.png',
  'default_leaves.png',
- 'default_water.png',
+ 'mcl_core_water_source_animation.png',
  'default_wood.png',
  'mcl_core_gold_ore.png',
  'default_gravel.png',
- 'default_snow.png',
+ 'flowers_dandelion_yellow.png',
+ 'default_glass.png',
+ 'default_ice.png',
+ 'mcl_core_lava_source_animation.png',
+ 'default_brick.png',
 }
 A.columns=4
+A.rows=math.ceil(#A.tiles/A.columns)
 local lookup={}
 for i,name in ipairs(A.tiles) do lookup[name]=i end
 function A.name(tile)
@@ -42,11 +47,12 @@ function A.uv(tile)
  local id=A.index(tile)-1
  local column,row=id%A.columns,math.floor(id/A.columns)
  -- half-pixel inset into the 16px tile to avoid atlas bleeding.
- local inset=.5/64
- local u0=column/4+inset
- local v0=row/4+inset
- local u1=(column+1)/4-inset
- local v1=(row+1)/4-inset
+ local insetU=.5/(A.columns*16)
+ local insetV=.5/(A.rows*16)
+ local u0=column/A.columns+insetU
+ local v0=row/A.rows+insetV
+ local u1=(column+1)/A.columns-insetU
+ local v1=(row+1)/A.rows-insetV
  return u0,v0,u1,v1
 end
 return A

@@ -1,5 +1,5 @@
 -- CPU-side visible-face mesher for 16^3 mapblocks. Pure Lua; no LÖVR.
--- Only solid full cubes are currently supported. Source node definitions
+-- Cube, simple liquid/glass and crossed plantlike meshes. Source node definitions
 -- (including mcl_core) provide tiles and drawtype; no name-based geometry.
 local Atlas=require('core.atlas')
 local M={}
@@ -27,12 +27,28 @@ end
 function M.is_cube(def)
  if type(def)~='table' then return false end
  local drawtype=def.drawtype or 'normal'
- return drawtype=='normal' or drawtype=='allfaces'
+ return drawtype=='normal' or drawtype=='allfaces' or
+  drawtype=='glasslike' or drawtype=='glasslike_framed' or
+  drawtype=='glasslike_framed_optional' or drawtype=='liquid' or drawtype=='flowingliquid'
 end
 local function occludes(def)
- return M.is_cube(def) and def.use_texture_alpha~='blend'
+ return M.is_cube(def) and (def.drawtype or 'normal')~='glasslike'
+  and def.drawtype~='glasslike_framed'
+  and def.drawtype~='glasslike_framed_optional'
+  and def.drawtype~='liquid' and def.drawtype~='flowingliquid'
+  and def.use_texture_alpha~='blend'
   and def.use_texture_alpha~='clip' and def.sunlight_propagates~=true
 end
+local cross_faces={
+ {n={-.70710678,0,.70710678},tile=1,shade=1,
+  corners={{-.5,-.5,-.5},{.5,-.5,.5},{.5,.5,.5},{-.5,.5,-.5}}},
+ {n={.70710678,0,-.70710678},tile=1,shade=1,
+  corners={{-.5,.5,-.5},{.5,.5,.5},{.5,-.5,.5},{-.5,-.5,-.5}}},
+ {n={.70710678,0,.70710678},tile=1,shade=1,
+  corners={{-.5,-.5,.5},{.5,-.5,-.5},{.5,.5,-.5},{-.5,.5,.5}}},
+ {n={-.70710678,0,-.70710678},tile=1,shade=1,
+  corners={{-.5,.5,.5},{.5,.5,-.5},{.5,-.5,-.5},{-.5,-.5,.5}}},
+}
 local function tile_for(def,index)
  local tiles=def.tiles
  if type(tiles)~='table' then return 'missing.png' end
@@ -45,7 +61,7 @@ function M.build(map,registry,cx,cy,cz)
   type(cz)=='number' and cz==floor(cz),'invalid mapblock coordinates')
  assert(map and type(map.get_node)=='function','map required')
  local vertices={}
- local metrics={faces=0,cubes=0,skipped=0}
+ local metrics={faces=0,cubes=0,plants=0,liquids=0,skipped=0}
  local sx,sy,sz=cx*16,cy*16,cz*16
  local function emit(x,y,z,face,def)
   local u0,v0,u1,v1=Atlas.uv(tile_for(def,face.tile))
@@ -69,13 +85,27 @@ function M.build(map,registry,cx,cy,cz)
    local def=definition(registry,node.name)
    if M.is_cube(def) then
     metrics.cubes=metrics.cubes+1
+    local drawtype=def.drawtype or 'normal'
+    local transparent=drawtype=='glasslike' or
+     drawtype=='glasslike_framed' or
+     drawtype=='glasslike_framed_optional' or
+     drawtype=='liquid' or drawtype=='flowingliquid'
+    if drawtype=='liquid' or drawtype=='flowingliquid' then
+     metrics.liquids=metrics.liquids+1
+    end
     for _,face in ipairs(faces) do
      local adjacent=map:get_node({
       x=x+face.n[1],y=y+face.n[2],z=z+face.n[3]})
-     if not occludes(definition(registry,adjacent.name)) then
+     -- Avoid coplanar liquid/glass faces between two identical cells.
+     if not occludes(definition(registry,adjacent.name)) and
+      not (transparent and adjacent.name==node.name) then
       emit(x,y,z,face,def)
      end
     end
+   elseif def and def.drawtype=='plantlike' then
+    -- Two diagonal crossed quads; both sides are wound outwards.
+    metrics.plants=metrics.plants+1
+    for _,face in ipairs(cross_faces) do emit(x,y,z,face,def) end
    else
     metrics.skipped=metrics.skipped+1
    end

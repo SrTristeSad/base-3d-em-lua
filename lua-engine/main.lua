@@ -15,8 +15,15 @@ api.register_node('lua:stone',{tiles={'default_stone.png'},description='Stone',g
 api.register_node('lua:wood',{tiles={'default_tree.png'},description='Wood',groups={choppy=2}})
 api.register_node('lua:leaves',{tiles={'default_leaves.png'},description='Leaves',groups={snappy=3}})
 api.register_node('lua:sand',{tiles={'default_sand.png'},description='Sand',groups={crumbly=3}})
-api.register_node('lua:water',{tiles={'default_water.png'},description='Water',groups={water=1,liquid=1},
+api.register_node('lua:water',{drawtype='liquid',use_texture_alpha='blend',tiles={'mcl_core_water_source_animation.png'},description='Water',groups={water=1,liquid=1},
  walkable=false})
+api.register_node('lua:glass',{description='Glass',drawtype='glasslike',
+ use_texture_alpha='blend',walkable=true,tiles={'default_glass.png'}})
+api.register_node('lua:lava',{description='Lava',drawtype='liquid',
+ use_texture_alpha='blend',walkable=false,
+ tiles={'mcl_core_lava_source_animation.png'}})
+api.register_node('lua:flower',{description='Flower',drawtype='plantlike',
+ tiles={'flowers_dandelion_yellow.png'},walkable=false})
 api.register_node('lua:coal_ore',{tiles={'mcl_core_coal_ore.png'},description='Coal Ore',groups={cracky=2}})
 local generator=Worldgen.new(engine,{seed=42})
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
@@ -41,6 +48,10 @@ local function createWorld()
   end
  end
  vm:write_to_map()
+ api.set_node({x=3,y=2,z=3},{name='lua:flower'})
+ api.set_node({x=4,y=3,z=3},{name='lua:glass'})
+ api.set_node({x=5,y=3,z=3},{name='lua:glass'})
+ api.set_node({x=-4,y=2,z=5},{name='lua:lava'})
 end
 local function look()
  local dx=math.sin(camera.yaw)*math.cos(camera.pitch)

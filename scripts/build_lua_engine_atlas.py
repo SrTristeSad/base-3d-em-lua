@@ -7,6 +7,7 @@ generated for the standalone demo. They are NOT upstream VoxeLibre textures.
 from __future__ import annotations
 
 from pathlib import Path
+from io import BytesIO
 import re
 import struct
 import zlib
@@ -23,8 +24,8 @@ def tile_names(source: Path) -> list[str]:
     text = source.read_text(encoding="utf-8")
     content = text.split("A.tiles={", 1)[1].split("\n}", 1)[0]
     result = re.findall(r"'([^']+\.png)'", content)
-    if len(result) != 16 or len(set(result)) != 16:
-        raise ValueError("expected 16 unique Lua atlas texture names")
+    if len(result) < 16 or len(set(result)) != len(result):
+        raise ValueError("expected unique Lua atlas texture names")
     return result
 
 
@@ -43,12 +44,62 @@ def png(width: int, height: int, rgba: bytes) -> bytes:
             chunk(b"IEND", b""))
 
 
-def create(source: Path) -> bytes:
+def _open_tile(game: Path, name: str):
+    # Strictly resolve source files inside the pinned VoxeLibre texture tree.
+    if not name.endswith(".png") or "/" in name or "\\\\" in name:
+        raise ValueError("unsafe upstream texture identifier: " + name)
+    from PIL import Image
+    path = game / "textures" / name
+    if not path.is_file():
+        raise FileNotFoundError("missing pinned VoxeLibre texture: " + str(path))
+    with Image.open(path) as picture:
+        rgba = picture.convert("RGBA")
+    # Animated Luanti texture strips contain multiple square frames.
+    # Only the FIRST frame is currently rendered in the Lua GPU port.
+    if rgba.height > rgba.width:
+        rgba = rgba.crop((0, 0, rgba.width, rgba.width))
+    return rgba.resize((16, 16), Image.Resampling.NEAREST)
+
+
+def create_upstream(source: Path, game: Path) -> bytes:
+    """Make the first real-texture atlas; no silent fallback if assets are missing."""
+    from PIL import Image
     names = tile_names(source)
-    width = height = 64
+    atlas = Image.new("RGBA", (64, 16 * ((len(names) + 3) // 4)), (0, 0, 0, 0))
+    # The only non-upstream tile is our explicit magenta missing-texture slot.
+    fallback = Image.open(BytesIO(create_placeholder(source))).convert("RGBA")
+    for i, name in enumerate(names):
+        if i == 0:
+            piece = fallback.crop((0, 0, 16, 16))
+        elif name == "mcl_core_grass_block_side.png":
+            piece = _open_tile(game, "default_dirt.png")
+            shadow = _open_tile(game, "mcl_dirt_grass_shadow.png")
+            piece = Image.alpha_composite(piece, shadow)
+        else:
+            piece = _open_tile(game, name)
+        atlas.paste(piece, ((i % 4) * 16, (i // 4) * 16))
+    output = BytesIO()
+    atlas.save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+def create(source: Path, game: Path | None = None,
+           require_upstream: bool = False) -> bytes:
+    if game is not None and (game / "textures").is_dir():
+        return create_upstream(source, game)
+    if require_upstream:
+        raise FileNotFoundError(
+            "the pinned VoxeLibre submodule textures are required; "
+            "checkout with --recurse-submodules")
+    return create_placeholder(source)
+
+
+def create_placeholder(source: Path) -> bytes:
+    names = tile_names(source)
+    width, height = 64, 16 * ((len(names) + 3) // 4)
     pixels = bytearray(width * height * 4)
     for i, _ in enumerate(names):
-        base = BASE[i]
+        base = BASE[i % len(BASE)]
         for y in range(16):
             for x in range(16):
                 noise = (((x * 1103515245 + y * 12345 + (i + 1) * 7919) ^
@@ -78,6 +129,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--atlas", type=Path, default=Path("lua-engine/core/atlas.lua"))
     parser.add_argument("--output", type=Path, default=Path("dist/atlas.png"))
+    parser.add_argument("--game", type=Path, default=None)
+    parser.add_argument("--require-upstream", action="store_true")
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_bytes(create(args.atlas))
+    args.output.write_bytes(create(args.atlas, args.game, args.require_upstream))
