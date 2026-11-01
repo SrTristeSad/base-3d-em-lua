@@ -9,6 +9,7 @@ on:
       - 'tests/lua_engine_inventory_modloader.lua'
       - 'tests/lua_engine_crafting.lua'
       - 'tests/lua_engine_real_voxelibre.lua'
+      - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
@@ -29,6 +30,7 @@ on:
       - 'tests/lua_engine_inventory_modloader.lua'
       - 'tests/lua_engine_crafting.lua'
       - 'tests/lua_engine_real_voxelibre.lua'
+      - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
@@ -170,6 +172,10 @@ jobs:
           lua5.4 tests/lua_engine_real_voxelibre.lua games/voxelibre dist/VoxeLibre-Real-Mod-Boot.md
       - name: Boot same original mods under LuaJIT
         run: luajit tests/lua_engine_real_voxelibre.lua games/voxelibre
+      - name: Probe real doc and doc_items dependencies (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_doc_bootstrap.lua games/voxelibre dist/VoxeLibre-Doc-Bootstrap.md
+          luajit tests/lua_engine_doc_bootstrap.lua games/voxelibre
       - name: Report directly referenced VoxeLibre APIs not yet exported
         run: |
           mkdir -p dist
@@ -189,6 +195,7 @@ jobs:
           path: |
             dist/VoxeLibre-Lua-API-Audit.md
             dist/VoxeLibre-Real-Mod-Boot.md
+            dist/VoxeLibre-Doc-Bootstrap.md
             dist/VoxeLibre-mcl_core-Dependencies.md
           if-no-files-found: error
           retention-days: 30
