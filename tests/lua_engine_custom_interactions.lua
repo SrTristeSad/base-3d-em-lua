@@ -91,7 +91,7 @@ local site=p(1,3,2)
 api.set_node(site,{name='test:ore'})
 api.get_meta(site):set_string('id','ore-1')
 local ok,out=rt:digNodeAsPlayer(user,site)
-assert(ok and #out==1 and out[1]=='test:gem')
+assert(ok and out=='custom_handled')
 assert(api.get_node(site).name=='air')
 assert(#events==2 and events[1]=='custom_on_dig' and
  events[2]=='after_dig')
