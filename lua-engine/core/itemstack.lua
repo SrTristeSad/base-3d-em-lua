@@ -55,6 +55,13 @@ function methods:copy()
 end
 function methods:is_empty() return self.name=='' or self.count==0 end
 function methods:get_name() return self.name end
+function methods:get_definition()
+ return self.registry[self.name] or nil
+end
+function methods:get_tool_capabilities()
+ local def=self:get_definition()
+ return def and def.tool_capabilities or {}
+end
 function methods:get_count() return self.count end
 function methods:get_wear() return self.wear end
 function methods:set_name(name)
