@@ -64,11 +64,12 @@ a partir da raiz do repositório.
   básicos exigidos por mods originais;
 - executor de arquivos reais de mods em `core/modenvironment.lua`,
   com globais separadas e restrição aos caminhos registrados;
-- smoke test de 20 módulos reais: `mcl_init`, `mcl_util`,
+- smoke test de 24 módulos reais: `mcl_init`, `mcl_util`,
   `vl_unittests`, `mcl_colors`, `mcl_sounds`, `mcl_autogroup`,
   `tga_encoder`, `vl_tuning`, `flowlib`, `vl_legacy`, `controls`,
   `mcl_worlds`, `mcl_particles`, `mcl_stonecutter`, `doc`, `doc_items`,
-  `tt`, `walkover`, `mcl_luck` e `mcl_gamemode`;
+  `tt`, `walkover`, `mcl_luck`, `mcl_gamemode`,
+  `mcl_death_drop`, `mcl_experience`, `mcl_enchanting` e `mcl_core`;
 - `get_craft_result`, `get_craft_recipe` e `get_all_craft_recipes`;
 - receitas com formato, sem formato, grupos, forno, combustível e
   recipientes retornáveis (subconjunto da API original);
@@ -91,7 +92,7 @@ a partir da raiz do repositório.
 [Veja a matriz de compatibilidade e os limites](../docs/ENGINE_LUA_PORT.md).
 
 A CI também gera um **relatório estático de APIs do VoxeLibre**
-que ainda faltam. A CI executa **apenas vinte módulos selecionados**,
+que ainda faltam. A CI executa **apenas 24 módulos selecionados**,
 sem iniciar o jogo. O arquivo `VoxeLibre-Real-Mod-Boot.md`
 registra quais módulos e arquivos Lua foram carregados. A presença de uma API
 no relatório não significa compatibilidade semântica completa.
@@ -160,3 +161,25 @@ Essas APIs continuam parciais em relação ao Luanti completo.
 
 `mcl_core` continua interrompido na dependência de `mcl_enchanting`.
 Ainda não existe experiência 1:1 do VoxeLibre no executável LÖVR.
+
+### Inicialização integrada de mcl_core (Fase 13)
+
+O carregador de mods executa **24 módulos Lua originais e 52 arquivos
+fonte**, incluindo `mcl_death_drop`, `mcl_experience`,
+`mcl_enchanting` e `mcl_core`, em ordem de dependências. A inicialização
+de `mcl_core` agora ocorre **antes** dos callbacks de
+`on_mods_loaded`. Lua 5.4 e LuaJIT confirmaram 166 nós originais
+registrados e retorno sem erro do código de inicialização.
+
+O runtime recebeu o registro cancelável de
+`register_on_punchplayer`, suporte a localização de inventários
+`InvRef:get_location()`, consultas a inventários de jogadores realmente
+conectados, registro de nomes explícitos com `:`, serialização de
+tabelas de metadados sem executar código de entrada e receitas
+`toolrepair` que respeitam desgaste e `disable_repair`.
+
+**Carregar os 24 módulos não equivale a executar todo o jogo.**
+Ainda faltam entidades funcionais, HUD, física e combate completos,
+texturas dos nós originais, persistência integral, rede e a execução
+normal dos callbacks de jogabilidade. O executável LÖVR continua
+uma demonstração independente, não o VoxeLibre pronto para jogar.
