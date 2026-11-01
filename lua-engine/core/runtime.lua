@@ -895,8 +895,8 @@ function Runtime:bindPlayerPhysics(name,controller)
  assert(type(controller)=='table' and controller.api==self.api,
   'character controller belongs to a different runtime')
  local release=PlayerPhysics.attach(player,controller,
-  function(host_player,old_hp,new_hp,hp_max,reason)
-   return PlayerHP.set(self,host_player,old_hp,new_hp,hp_max,reason)
+  function(host_player,old_hp,new_hp,hp_max,reason,apply)
+   return PlayerHP.set(self,host_player,old_hp,new_hp,hp_max,reason,apply)
   end)
  local previous_provider=controller.object_colliders
  controller.object_colliders=function(swept)
