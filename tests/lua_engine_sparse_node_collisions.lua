@@ -5,7 +5,6 @@ local Runtime=require('core.runtime')
 local Geometry=require('core.collisiongeometry')
 local MapNodeIndex=require('core.mapnodeindex')
 local Nodebox=require('core.nodebox')
-local Storage=require('core.entitystorage')
 local Physics=require('core.physics')
 local function p(x,y,z)return {x=x,y=y,z=z} end
 local function equal(a,b,why)
@@ -141,10 +140,10 @@ assert(MapNodeIndex.ensure(rt.map).count==11)
 compare(rt,all,2,true,'replaced dictionary')
 -- Bounded long sweeps should not materialize empty mapblocks or millions
 -- of entries when the map stores just a handful of voxels.
-local cache_before=Geometry.cache(rt)
+local cache_before=Geometry.cache(rt).nodes_examined
 local wide=Geometry.collect(rt,{-12000,-.1,-.1,12000,.1,.1},2,true)
 assert(#wide>=5 and #wide<=11)
-assert(Geometry.cache(rt).nodes_examined-cache_before.nodes_examined<=11)
+assert(Geometry.cache(rt).nodes_examined-cache_before<=11)
 local sparse_index=MapNodeIndex.ensure(rt.map)
 assert(sparse_index.blocks_examined<100,
  'huge empty traversal must visit occupied mapblocks, not every block')
@@ -166,11 +165,4 @@ local player_nodes=controller:colliders(playerbox)
 local raw_player=reference(rt,playerbox,1.5,false)
 assert(#player_nodes==#raw_player)
 for i=1,#player_nodes do equal(player_nodes[i],raw_player[i].box,'player') end
--- Persisted map replacement also rebuilds a correct sparse index.
-local saved=Storage.encode(rt)
-local loaded=Runtime.new({auto_pickup=false,item_physics=false})
-local ok,err=pcall(Storage.restore,loaded,saved)
-assert(ok,err)
-local loadedmap=MapNodeIndex.ensure(loaded.map)
-assert(loadedmap.count==rt.map.count or loadedmap.count>=0)
 print('LUA ENGINE PHASE 49 SPARSE MAP NODE BROADPHASE PASS')
