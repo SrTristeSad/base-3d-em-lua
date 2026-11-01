@@ -88,6 +88,23 @@ local function clamp(x,a,b)return math.max(a,math.min(b,x))end
 local function within(x,y,c)
  return x>=c.x and y>=c.y and x<=c.x+c.w and y<=c.y+c.h
 end
+-- Clip on the *visible* bounds, not the full element rectangle.
+-- An element can be partly visible yet still participate in both drawing
+-- and hit testing. Preserve its original dimensions and sprite UVs.
+local function intersects(a,b)
+ return a.x<b.x+b.w and b.x<a.x+a.w and
+  a.y<b.y+b.h and b.y<a.y+a.h
+end
+local function scissor_rect(rect,width,height)
+ -- LÖVR 0.19 Pass:setScissor uses top-left canvas pixel coordinates.
+ -- Cover fractional boundaries without removing visible edge pixels.
+ local x0=clamp(floor(rect.x),0,width)
+ local y0=clamp(floor(rect.y),0,height)
+ local x1=clamp(math.ceil(rect.x+rect.w),0,width)
+ local y1=clamp(math.ceil(rect.y+rect.h),0,height)
+ if x1<=x0 or y1<=y0 then return nil end
+ return x0,y0,x1-x0,y1-y0
+end
 function View.new(runtime,playername)
  assert(runtime and type(runtime.getPlayerFormspec)=='function'
   and type(runtime.movePlayerInventoryStack)=='function')
@@ -166,10 +183,9 @@ function View:layout(width,height)
    ctl.y=ctl.y+active_scroll.y-(self.scrolls[active_scroll.name] or 0)*unit
    ctl.clip=active_scroll.clip
    active_scroll.bottom=math.max(active_scroll.bottom,y+h)
-   -- Render only complete cells in this supported initial renderer.
-   if ctl.x<ctl.clip.x-.01 or ctl.y<ctl.clip.y-.01 or
-    ctl.x+ctl.w>ctl.clip.x+ctl.clip.w+.01 or
-    ctl.y+ctl.h>ctl.clip.y+ctl.clip.h+.01 then return end
+   -- Preserve partially visible controls: the GPU scissor clips their
+   -- textures, text and colored backgrounds at the scroll viewport.
+   if not intersects(ctl,ctl.clip) then return end
   end
   controls[#controls+1]=ctl
  end
@@ -396,7 +412,8 @@ function View:click(width,height,x,y,mousebutton)
   local ctl=layout.controls[i]
   if (ctl.kind=='button' or ctl.kind=='slot' or
    ctl.kind=='field' or ctl.kind=='checkbox' or
-   ctl.kind=='dropdown') and within(x,y,ctl) then
+   ctl.kind=='dropdown') and within(x,y,ctl)
+    and (not ctl.clip or within(x,y,ctl.clip)) then
    if ctl.kind=='field' then
     if mousebutton~=1 then return false,'unsupported_button' end
     self.focus=ctl.field
@@ -606,13 +623,28 @@ function View:draw(pass,width,height)
    end
   end
  end
+ -- LÖVR 0.19 tracks Pass:setScissor per draw.  Apply it to each
+ -- individual scroll control and reset immediately afterwards so that
+ -- neither unrelated controls nor the next 3D frame inherit the clip.
+ -- Geometry and UVs stay unchanged, allowing exact partial tiles/text.
+ local function paint_clipped(ctl)
+  if ctl.clip then
+   local x,y,w,h=scissor_rect(ctl.clip,width,height)
+   if not x then return end
+   assert(type(pass.setScissor)=='function',
+    'LÖVR Pass:setScissor required for scrolling formspec')
+   pass:setScissor(x,y,w,h)
+  end
+  paint(ctl)
+  if ctl.clip then pass:setScissor() end
+ end
  -- Luanti attaches background[] to a separate background parent, so even
  -- a background tag following a button in formspec source draws BEHIND it.
  for _,ctl in ipairs(layout.controls) do
-  if ctl.background then paint(ctl) end
+  if ctl.background then paint_clipped(ctl) end
  end
  for _,ctl in ipairs(layout.controls) do
-  if not ctl.background then paint(ctl) end
+  if not ctl.background then paint_clipped(ctl) end
  end
  if sprites then sprites:endFrame() end
  pass:setColor(1,1,1,1)
