@@ -154,4 +154,29 @@ eq(inv:get_stack('main',2):get_name(),'game:bucket')
 -- Zero-width and irregular shaped crafting should not cause an infinite loop.
 assert(not pcall(api.get_craft_result,{method='invalid',width=2,items={}}))
 assert(not pcall(api.get_craft_result,{method='normal',width=-3,items={}}))
+-- Luanti toolrepair: two equal tools, fixed 65536 wear scale.
+api.register_tool('game:pick',{groups={}})
+api.register_tool('game:blocked_pick',{groups={disable_repair=1}})
+api.register_tool('game:axe',{groups={}})
+api.register_craft({type='toolrepair',additional_wear=-0.02})
+local function repair(a,b)
+ return api.get_craft_result({method='normal',width=2,items={a,b}})
+end
+local repaired,used=repair({name='game:pick',wear=50000},
+ {name='game:pick',wear=50000})
+eq(repaired.item:get_name(),'game:pick','toolrepair output')
+eq(repaired.item:get_wear(),33153,'toolrepair bonus and rounding')
+assert(used.items[1]:is_empty() and used.items[2]:is_empty())
+local no_repair=repair('game:pick','game:axe')
+assert(no_repair.item:is_empty(),'different tools cannot repair')
+no_repair=repair({name='game:blocked_pick',wear=50000},
+ {name='game:blocked_pick',wear=50000})
+assert(no_repair.item:is_empty(),'disable_repair must block recipe')
+no_repair=repair('game:oak','game:oak')
+assert(no_repair.item:is_empty(),'craftitems cannot use toolrepair')
+repaired=repair({name='game:pick',wear=100},
+ {name='game:pick',wear=500})
+eq(repaired.item:get_wear(),0,'repair wear clamped to zero')
+assert(not pcall(api.register_craft,{type='toolrepair',additional_wear=0/0}),
+ 'invalid tool repair bonus must be rejected')
 print('lua_engine_crafting: OK')
