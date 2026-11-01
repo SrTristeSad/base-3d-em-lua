@@ -77,7 +77,7 @@ assert(ok)
 rt:step(.15)
 local moving=api.get_falling_nodes()[1]
 local payload=Entities.encode(rt)
-assert(payload:sub(1,19)=='LUAENGINE OBJECTS 1\n')
+assert(payload:sub(1,#'LUAENGINE OBJECTS 1\n')=='LUAENGINE OBJECTS 1\n')
 local map_data=Storage.encode(rt.map)
 local fakefs={}
 function fakefs.write(path,data)fakefs[path]=data;return true end
