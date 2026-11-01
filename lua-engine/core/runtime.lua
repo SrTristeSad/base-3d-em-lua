@@ -293,6 +293,7 @@ function Runtime.new(options)
   assert(not self.registry.items[name],'item already registered: '..name)
   local def=opts_copy(definition)
   def.name=name
+  def.type=kind
   def.groups=opts_copy(def.groups)
   if kind=='node' then
    if def.stack_max==nil then def.stack_max=api.nodedef_default.stack_max end
