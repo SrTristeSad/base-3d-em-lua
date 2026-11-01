@@ -95,6 +95,15 @@ local function intersects(a,b)
  return a.x<b.x+b.w and b.x<a.x+a.w and
   a.y<b.y+b.h and b.y<a.y+a.h
 end
+-- Every nested viewport is clipped against ALL of its ancestors.
+-- A zero-area intersection is kept for layout but never drawn or hit.
+local function intersect_rect(a,b)
+ local x0=math.max(a.x,b.x)
+ local y0=math.max(a.y,b.y)
+ local x1=math.min(a.x+a.w,b.x+b.w)
+ local y1=math.min(a.y+a.h,b.y+b.h)
+ return {x=x0,y=y0,w=math.max(0,x1-x0),h=math.max(0,y1-y0)}
+end
 local function scissor_rect(rect,width,height)
  -- LÖVR 0.19 Pass:setScissor uses top-left canvas pixel coordinates.
  -- Cover fractional boundaries without removing visible edge pixels.
@@ -156,8 +165,12 @@ function View:layout(width,height)
  local unit=math.min((width-48)/fw,(height-64)/fh,55)
  local left,top=(width-fw*unit)/2,(height-fh*unit)/2
  local controls={}
- local active_scroll=nil
+ local scroll_stack={}
  local all_scrolls={}
+ local scroll_order={}
+ local function active_scroll()
+  return scroll_stack[#scroll_stack]
+ end
  local named_styles,type_styles={},{}
  local real_coordinates=form_version>=2
  local function register_style(store,selector,params)
@@ -178,19 +191,22 @@ function View:layout(width,height)
   local ctl=attrs or {}
   ctl.kind=kind;ctl.x=left+x*unit;ctl.y=top+y*unit
   ctl.w=w*unit;ctl.h=h*unit
-  if active_scroll then
-   ctl.x=ctl.x+active_scroll.x
-   ctl.y=ctl.y+active_scroll.y-(self.scrolls[active_scroll.name] or 0)*unit
-   ctl.clip=active_scroll.clip
-   active_scroll.bottom=math.max(active_scroll.bottom,y+h)
-   -- Preserve partially visible controls: the GPU scissor clips their
-   -- textures, text and colored backgrounds at the scroll viewport.
+  local scroll=active_scroll()
+  if scroll then
+   -- Child coordinates are relative to their immediate scroll mover.
+   -- That origin already includes every ancestor's scroll displacement.
+   ctl.x=ctl.x+scroll.origin_x
+   ctl.y=ctl.y+scroll.origin_y
+   ctl.clip=scroll.clip
+   scroll.right=math.max(scroll.right,x+w)
+   scroll.bottom=math.max(scroll.bottom,y+h)
+   -- Partially visible controls survive until the GPU clips them.
    if not intersects(ctl,ctl.clip) then return end
   end
   controls[#controls+1]=ctl
  end
- -- Coordinates of nested scroll containers are relative to the parent.
- -- The current supported subset handles one active scroll container.
+ -- Scroll containers form a stack of nested clipper/mover pairs, just
+ -- like GUIFormSpecMenu::parseScrollContainer in upstream Luanti.
  for _,e in ipairs(elements) do
   local t=e.name
   local p=parts(e.params)
@@ -204,15 +220,38 @@ function View:layout(width,height)
   elseif t=='scroll_container' then
    local x,y=pair(p[1])
    local w,h=pair(p[2])
-   if x and y and w and h and not active_scroll then
+   local axis=p[4]
+   local factor=number(p[5])
+   local padding=number(p[6]) or 0
+   if x and y and w and h and w>0 and h>0 and
+    (axis=='horizontal' or axis=='vertical') and
+    (not factor or factor>=0) and padding>=0 and
+    #scroll_stack<16 then
+    local parent=active_scroll()
+    if parent then
+     -- To the outer mover, the inner viewport is a single child.
+     parent.right=math.max(parent.right,x+w)
+     parent.bottom=math.max(parent.bottom,y+h)
+    end
     local name=p[3] or ''
-    active_scroll={name=name,x=x*unit,y=y*unit,
-     clip={x=left+x*unit,y=top+y*unit,w=w*unit,h=h*unit},
-     h=h,bottom=0,step=number(p[5]) or .875}
-    all_scrolls[name]=active_scroll
+    local vx=left+x*unit+(parent and parent.origin_x or 0)
+    local vy=top+y*unit+(parent and parent.origin_y or 0)
+    local viewport={x=vx,y=vy,w=w*unit,h=h*unit}
+    local clip=parent and intersect_rect(viewport,parent.clip) or viewport
+    local offset=self.scrolls[name] or 0
+    local scroll={name=name,axis=axis,depth=#scroll_stack+1,
+     clip=clip,viewport=viewport,w=w,h=h,right=0,bottom=0,
+     step=factor or .1,padding=padding}
+    scroll.origin_x=vx-left-(axis=='horizontal' and offset*unit or 0)
+    scroll.origin_y=vy-top-(axis=='vertical' and offset*unit or 0)
+    scroll_stack[#scroll_stack+1]=scroll
+    all_scrolls[name]=scroll
+    scroll_order[#scroll_order+1]=scroll
    end
   elseif t=='scroll_container_end' then
-   active_scroll=nil
+   if #scroll_stack>0 then
+    scroll_stack[#scroll_stack]=nil
+   end
   elseif t=='list' then
    local loc,list=p[1],p[2]
    if loc=='current_player' or loc=='player:'..self.playername then
@@ -313,11 +352,14 @@ function View:layout(width,height)
   end
  end
  for name,s in pairs(all_scrolls) do
-  s.max=math.max(0,s.bottom-s.h)
+  local extent=s.axis=='horizontal' and s.right or s.bottom
+  local size=s.axis=='horizontal' and s.w or s.h
+  s.max=math.max(0,extent+s.padding-size)
   self.scrolls[name]=clamp(self.scrolls[name] or 0,0,s.max)
  end
  return {controls=controls,x=left,y=top,w=fw*unit,h=fh*unit,
-  unit=unit,formname=session.formname,scrolls=all_scrolls}
+  unit=unit,formname=session.formname,scrolls=all_scrolls,
+  scroll_order=scroll_order}
 end
 -- Luanti submits currently edited fields on a button or close event.
 -- User-authored values are kept only for the currently active formspec.
@@ -487,12 +529,17 @@ function View:wheel(width,height,x,y,amount)
  if not number(amount) or amount==0 then return false end
  local layout=self:layout(width,height)
  if not layout then return false end
- for name,scroll in pairs(layout.scrolls) do
+ -- The deepest visible scroll container receives the wheel event.
+ -- If it has reached an edge, an enclosing scroll container may scroll.
+ for i=#layout.scroll_order,1,-1 do
+  local scroll=layout.scroll_order[i]
   if within(x,y,scroll.clip) then
-   local old=self.scrolls[name] or 0
+   local old=self.scrolls[scroll.name] or 0
    local new=clamp(old-amount*scroll.step,0,scroll.max)
-   self.scrolls[name]=new
-   return new~=old
+   if new~=old then
+    self.scrolls[scroll.name]=new
+    return true
+   end
   end
  end
  return false
