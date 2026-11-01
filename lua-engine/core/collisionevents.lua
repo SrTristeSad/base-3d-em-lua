@@ -1,6 +1,7 @@
 -- Event-assisted moving LuaEntity collisions. Fixed substeps stay as
 -- fallback; imminent opposing-body contacts add an exact TOI boundary.
 -- This is a bounded kinematic approximation, NOT an impulse/mass solver.
+local SpatialIndex=require('core.spatialindex')
 local M={}
 local abs,min,max,sqrt,ceil=math.abs,math.min,math.max,math.sqrt,math.ceil
 local EPS=1e-7
@@ -46,19 +47,54 @@ local function pair_event(a,b,dt)
 end
 -- Sorted time fractions, including fixed safe substeps and approaching
 -- pair events. Restrict quadratic discovery to modest local simulations.
-function M.schedule(objects,dt,base)
+-- With a runtime, use the same indexed collision broadphase to discover
+-- potential pairs even in worlds with hundreds of entities. Expanding each
+-- swept body by the greatest displacement of any other participant is a
+-- conservative filter: a second moving body cannot enter unnoticed.
+-- The legacy three-argument API stays unchanged for standalone callers.
+function M.schedule(objects,dt,base,rt)
  local times={}
  for i=1,base do times[#times+1]=i/base end
- if dt<=0 or #objects>128 then return times end
+ if dt<=0 or (not rt and #objects>128) then return times end
  local events={}
- for i=1,#objects-1 do
-  local a=objects[i]
-  if eligible(a) then
-   for j=i+1,#objects do
-    local b=objects[j]
-    if eligible(b) then
-     local at=pair_event(a,b,dt)
-     if at then events[#events+1]=at end
+ if rt then
+  local maxmove={x=0,y=0,z=0}
+  local members={}
+  for _,obj in ipairs(objects) do
+   members[obj]=true
+   if eligible(obj) then
+    for _,axis in ipairs(AXES) do
+     maxmove[axis]=max(maxmove[axis],abs(delta(obj,dt,axis)))
+    end
+   end
+  end
+  for _,a in ipairs(objects) do
+   if eligible(a) then
+    local b=bounds(a)
+    local range={}
+    for i,axis in ipairs(AXES) do
+     local d=delta(a,dt,axis)
+     range[i]=min(b[i],b[i]+d)-maxmove[axis]-EPS
+     range[i+3]=max(b[i+3],b[i+3]+d)+maxmove[axis]+EPS
+    end
+    for _,other in ipairs(SpatialIndex.query(rt,range,a)) do
+     if members[other] and other.id>a.id and eligible(other) then
+      local at=pair_event(a,other,dt)
+      if at then events[#events+1]=at end
+     end
+    end
+   end
+  end
+ else
+  for i=1,#objects-1 do
+   local a=objects[i]
+   if eligible(a) then
+    for j=i+1,#objects do
+     local b=objects[j]
+     if eligible(b) then
+      local at=pair_event(a,b,dt)
+      if at then events[#events+1]=at end
+     end
     end
    end
   end
@@ -111,8 +147,8 @@ end
 -- A pair arriving exactly at its shared face has no penetration and the
 -- per-object sweeps may report no hit. Stop BOTH closing normal velocities
 -- at the event and notify both LuaEntities once (not once per substep).
-function M.resolve(objects,results)
- if #objects>128 then return end
+function M.resolve(objects,results,rt)
+ if #objects>128 and not rt then return end
  -- Reflect observed object impacts to both participants. The sequential
  -- solver reports the mover's contact, but stationary creatures must also
  -- be told which neighbor actually struck them.
@@ -131,12 +167,24 @@ function M.resolve(objects,results)
    end
   end
  end
+ local participants={}
+ for _,obj in ipairs(objects) do participants[obj]=true end
  for i=1,#objects-1 do
   local a=objects[i]
   if eligible(a) then
-   for j=i+1,#objects do
-    local b=objects[j]
-    if eligible(b) then
+   local candidates
+   if rt then
+    local ab=bounds(a)
+    candidates=SpatialIndex.query(rt,{
+     ab[1]-1e-6,ab[2]-1e-6,ab[3]-1e-6,
+     ab[4]+1e-6,ab[5]+1e-6,ab[6]+1e-6},a)
+   else
+    candidates={}
+    for j=i+1,#objects do candidates[#candidates+1]=objects[j] end
+   end
+   for _,b in ipairs(candidates) do
+    if participants[b] and (not rt or b.id>a.id) and
+       results[a] and results[b] and eligible(b) then
      local ab,bb=bounds(a),bounds(b)
      for _,axis in ipairs(AXES) do
       local sign=adjacent(ab,bb,axis)

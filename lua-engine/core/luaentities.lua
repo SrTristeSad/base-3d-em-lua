@@ -308,7 +308,7 @@ function Entities.step(rt,dt)
   end
   return
  end
- local boundaries=CollisionEvents.schedule(snapshot,dt,slices)
+ local boundaries=CollisionEvents.schedule(snapshot,dt,slices,rt)
  local results={}
  for _,obj in ipairs(snapshot) do
   if active(rt,obj) then
@@ -328,7 +328,7 @@ function Entities.step(rt,dt)
   -- the SAME face in a substep, exactly at the impact time. The ordinary
   -- solver reports strict blocking before a face; this phase also reports
   -- and stops a head-on pair at the exact shared face.
-  CollisionEvents.resolve(snapshot,results)
+  CollisionEvents.resolve(snapshot,results,rt)
  end
  -- Preserve the Luanti lifecycle: exactly one on_step callback per
  -- Runtime:step, with the original dt rather than a microstep interval.
@@ -348,17 +348,7 @@ end
 function Entities.radius(rt,pos,radius)
  pos=vec(pos)
  assert(finite(radius) and radius>=0,'invalid object radius')
- local out={}
- for _,obj in ipairs(rt.luaEntities or {}) do
-  if active(rt,obj) then
-   local p=obj.pos
-   local dx,dy,dz=p.x-pos.x,p.y-pos.y,p.z-pos.z
-   if dx*dx+dy*dy+dz*dz<=radius*radius then
-    out[#out+1]=obj
-   end
-  end
- end
- return out
+ return SpatialIndex.nearby(rt,pos,radius)
 end
 function Entities.punch(rt,obj,puncher,interval,toolcaps,dir,damage)
  assert(active(rt,obj),'cannot punch absent Lua entity')
