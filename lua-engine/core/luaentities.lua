@@ -308,7 +308,7 @@ function Entities.step(rt,dt)
   end
   return
  end
- local boundaries=CollisionEvents.schedule(snapshot,dt,slices)
+ local boundaries=CollisionEvents.schedule(snapshot,dt,slices,rt)
  local results={}
  for _,obj in ipairs(snapshot) do
   if active(rt,obj) then
@@ -328,7 +328,7 @@ function Entities.step(rt,dt)
   -- the SAME face in a substep, exactly at the impact time. The ordinary
   -- solver reports strict blocking before a face; this phase also reports
   -- and stops a head-on pair at the exact shared face.
-  CollisionEvents.resolve(snapshot,results)
+  CollisionEvents.resolve(snapshot,results,rt)
  end
  -- Preserve the Luanti lifecycle: exactly one on_step callback per
  -- Runtime:step, with the original dt rather than a microstep interval.
