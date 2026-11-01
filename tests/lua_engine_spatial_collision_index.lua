@@ -66,6 +66,8 @@ assert(#Index.query(rt,box(16,3,0))==2)
 entities[1]:remove()
 assert(#Index.query(rt,box(16,3,0))==1)
 assert(Index.query(rt,box(16,3,0))[1]==entities[2])
+-- Move unrelated bodies out of the test lane before exercising sweeps.
+for i=4,7 do entities[i]:set_pos(p(i*8,3,100)) end
 -- ObjectRef updates from the physics solver also change the index.
 local moving=entities[3]
 moving:set_velocity(p(80,0,0))
@@ -105,7 +107,6 @@ local fresh,newapi=world()
 Storage.restore(fresh,saved)
 local fresh_index=Index.ensure(fresh)
 assert(fresh_index~=old)
-assert(#fresh_index.members>=0) -- members are intentionally a map
 assert(#Index.query(fresh,box(-16,3,-16))==1)
 local previous_list=fresh.luaEntities
 local count=select(3,Storage.restore(fresh,saved))
@@ -130,12 +131,13 @@ function player:get_player_name()return self.name end
 local controller=Physics.new(papi,p(0,2.7,0),{profile='luanti',stepheight=0})
 player_rt:connectPlayer(player,controller)
 local before_queries=Index.ensure(player_rt).queries
+local before_examined=Index.ensure(player_rt).candidates_examined
 local nearboxes=controller.object_colliders(box(2,3,0,1))
 assert(#nearboxes==1)
 near(nearboxes[1][1],1.7)
 assert(Index.ensure(player_rt).queries==before_queries+1)
 local stats=Index.ensure(player_rt)
-assert(stats.candidates_examined<=3)
+assert(stats.candidates_examined-before_examined==1)
 controller:update(.05,{x=1})
 player_rt:disconnectPlayer('Luna')
 assert(controller.object_colliders==nil)
