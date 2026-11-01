@@ -35,7 +35,7 @@ function Runtime.new(options)
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
     on_placenode={},on_dignode={},on_punchnode={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
-    on_craft={},on_item_eat={},
+    on_craft={},on_item_eat={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
   chatcommands={},privileges={},players={},particles=Particles.new()
@@ -365,6 +365,12 @@ function Runtime.new(options)
   local callbacks=self.callbacks.on_craft
   callbacks[#callbacks+1]=callback
  end
+ function api.register_on_liquid_transformed(callback)
+  assert(type(callback)=='function',
+   'liquid transformation callback must be callable')
+  local callbacks=self.callbacks.liquid_transformed
+  callbacks[#callbacks+1]=callback
+ end
  function api.register_on_item_eat(callback)
   assert(type(callback)=='function','eat callback must be callable')
   local callbacks=self.callbacks.on_item_eat
@@ -600,6 +606,18 @@ function Runtime:loadMod(name,path)
 end
 function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
+end
+-- Dispatch a batch of actual changed liquid nodes supplied by the host.
+-- The source and target nodes are managed by the liquid simulation, not
+-- mutated by merely registering this callback.
+function Runtime:liquidTransformed(positions)
+ assert(type(positions)=='table','liquid transformation needs positions')
+ local snapshot={}
+ for i,pos in ipairs(positions) do
+  assert(ispos(pos),'invalid transformed liquid position')
+  snapshot[i]=clone(pos)
+ end
+ return self:emit('liquid_transformed',snapshot)
 end
 -- Host-provided player objects only; this motor never invents a player.
 function Runtime:connectPlayer(player)
