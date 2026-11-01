@@ -887,6 +887,12 @@ end
 function Runtime:pickupItemsAsPlayer(player,radius)
  return Falling.pickup_player(self,player,radius)
 end
+-- Host-level object punch path. Unlike automatic proximity pickup, it
+-- verifies that the referenced object belongs to this world and is within
+-- reach of the player's collisionbox before invoking item callbacks.
+function Runtime:punchItemAsPlayer(player,item,reach)
+ return Falling.punch_item(self,player,item,reach)
+end
 -- Return true when a Lua mod cancels the incoming player punch.
 -- This is a policy/callback preflight; the host owns actual HP and physics.
 function Runtime:isPlayerPunchCancelled(player,hitter,interval,toolcaps,dir,damage)
