@@ -4,6 +4,7 @@
 -- This is a supported-element renderer, not Luanti's full GUI renderer.
 local Sprites=require('core.formspecsprites')
 local Background=require('core.formspecbackground')
+local Scrollbar=require('core.formspecscrollbar')
 local View={}
 View.__index=View
 -- Items use their registered inventory_image (or the node's first tile),
@@ -119,7 +120,8 @@ function View.new(runtime,playername)
   and type(runtime.movePlayerInventoryStack)=='function')
  assert(type(playername)=='string' and playername~='')
  return setmetatable({runtime=runtime,playername=playername,
-  selected=nil,scrolls={},last_formname=nil,last_formspec=nil,
+  selected=nil,scrolls={},scrollbar_values={},
+  last_formname=nil,last_formspec=nil,
   values={},focus=nil,field_enter_close={},message=''},View)
 end
 function View:session()
@@ -131,7 +133,7 @@ function View:layout(width,height)
  local session=self:session()
  if not session then
   self.last_formname=nil;self.last_formspec=nil
-  self.selected=nil;self.scrolls={};self.values={}
+  self.selected=nil;self.scrolls={};self.scrollbar_values={};self.values={}
   self.field_enter_close={};self.focus=nil
   return nil
  end
@@ -139,7 +141,7 @@ function View:layout(width,height)
   self.last_formspec~=session.formspec then
   self.last_formname=session.formname
   self.last_formspec=session.formspec
-  self.selected=nil;self.scrolls={};self.values={}
+  self.selected=nil;self.scrolls={};self.scrollbar_values={};self.values={}
   self.field_enter_close={};self.focus=nil
  end
  local elements=session.elements or {}
@@ -168,6 +170,29 @@ function View:layout(width,height)
  local scroll_stack={}
  local all_scrolls={}
  local scroll_order={}
+ -- Scrollbars may appear *after* their containers. Pre-read the declared
+ -- track and its preceding scrollbaroptions without modifying mod layouts.
+ local scrollbar_defs={}
+ local scrollbar_settings=Scrollbar.defaults()
+ for _,e in ipairs(elements) do
+  if e.name=='scrollbaroptions' then
+   scrollbar_settings=Scrollbar.options(scrollbar_settings,parts(e.params))
+  elseif e.name=='scrollbar' then
+   local a=parts(e.params)
+   local name=a[4]
+   if type(name)=='string' and name~='' then
+    local axis=a[3]=='vertical' and 'vertical' or 'horizontal'
+    local opts=Scrollbar.options(scrollbar_settings,{})
+    local initial=number(a[5]) or 0
+    scrollbar_defs[name]={name=name,axis=axis,options=opts,
+     min=opts.min,max=math.max(opts.min,opts.max),initial=initial}
+    if self.scrollbar_values[name]==nil then
+     self.scrollbar_values[name]=Scrollbar.clamp(initial,opts.min,
+      math.max(opts.min,opts.max))
+    end
+   end
+  end
+ end
  local function active_scroll()
   return scroll_stack[#scroll_stack]
  end
@@ -238,10 +263,14 @@ function View:layout(width,height)
     local vy=top+y*unit+(parent and parent.origin_y or 0)
     local viewport={x=vx,y=vy,w=w*unit,h=h*unit}
     local clip=parent and intersect_rect(viewport,parent.clip) or viewport
-    local offset=self.scrolls[name] or 0
+    local bar=scrollbar_defs[name]
+    local offset=bar and
+     (self.scrollbar_values[name] or 0)*(factor or .1)
+     or (self.scrolls[name] or 0)
     local scroll={name=name,axis=axis,depth=#scroll_stack+1,
      clip=clip,viewport=viewport,w=w,h=h,right=0,bottom=0,
-     step=factor or .1,padding=padding}
+     step=factor or .1,padding=padding,
+     has_padding=p[6]~=nil and p[6]~='',bar=bar}
     scroll.origin_x=vx-left-(axis=='horizontal' and offset*unit or 0)
     scroll.origin_y=vy-top-(axis=='vertical' and offset*unit or 0)
     scroll_stack[#scroll_stack+1]=scroll
@@ -251,6 +280,13 @@ function View:layout(width,height)
   elseif t=='scroll_container_end' then
    if #scroll_stack>0 then
     scroll_stack[#scroll_stack]=nil
+   end
+  elseif t=='scrollbar' then
+   local x,y=pair(p[1]);local w,h=pair(p[2])
+   local bar=scrollbar_defs[p[4]]
+   if bar and x and y and w and h then
+    add('scrollbar',x,y,w,h,{field=p[4],axis=bar.axis,
+     options=bar.options})
    end
   elseif t=='list' then
    local loc,list=p[1],p[2]
