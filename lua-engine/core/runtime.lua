@@ -35,7 +35,7 @@ function Runtime.new(options)
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
     on_placenode={},on_dignode={},on_punchnode={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
-    on_craft={},on_item_eat={},liquid_transformed={},
+    on_craft={},craft_predict={},on_item_eat={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
   chatcommands={},privileges={},players={},particles=Particles.new()
@@ -307,6 +307,15 @@ function Runtime.new(options)
   end
   self.registry.items[name]=def
  end
+ function api.override_item(name,overrides)
+  assert(type(name)=='string' and type(overrides)=='table',
+   'override_item requires an item name and override table')
+  local def=self.registry.items[name]
+  assert(def,'cannot override unknown item: '..name)
+  for key,value in pairs(overrides) do
+   if key~='name' then def[key]=value end
+  end
+ end
  function api.register_node(name,def) register('node',name,def) end
  function api.register_tool(name,def) register('tool',name,def) end
  function api.register_craftitem(name,def) register('craftitem',name,def) end
@@ -359,6 +368,11 @@ function Runtime.new(options)
  function api.register_on_placenode(callback)
   assert(type(callback)=='function')
   self.callbacks.on_placenode[#self.callbacks.on_placenode+1]=callback
+ end
+ function api.register_craft_predict(callback)
+  assert(type(callback)=='function','craft prediction callback must be callable')
+  local callbacks=self.callbacks.craft_predict
+  callbacks[#callbacks+1]=callback
  end
  function api.register_on_craft(callback)
   assert(type(callback)=='function','craft callback must be callable')
@@ -647,6 +661,17 @@ function Runtime:loadMod(name,path)
 end
 function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
+end
+-- Prediction is a separate lifecycle from taking a crafting result.
+-- The host supplies the item stack and actual crafting inventory.
+function Runtime:predictCraft(stack,player,old_grid,inventory)
+ assert(type(stack)=='table' and type(stack.get_name)=='function',
+  'craft prediction needs an ItemStack')
+ for _,callback in ipairs(self.callbacks.craft_predict) do
+  local changed=callback(stack,player,old_grid,inventory)
+  if changed~=nil then stack=changed end
+ end
+ return stack
 end
 -- Dispatch a batch of actual changed liquid nodes supplied by the host.
 -- The source and target nodes are managed by the liquid simulation, not

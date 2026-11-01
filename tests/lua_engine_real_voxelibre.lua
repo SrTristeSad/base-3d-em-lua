@@ -15,6 +15,10 @@ end
 local paths={
  doc='mods/HELP/doc/doc',
  doc_items='mods/HELP/doc/doc_items',
+ tt='mods/HELP/tt',
+ walkover='mods/CORE/walkover',
+ mcl_luck='mods/PLAYER/mcl_luck',
+ mcl_gamemode='mods/PLAYER/mcl_gamemode',
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
  mcl_util='mods/CORE/mcl_util',
@@ -69,6 +73,28 @@ assert(type(g.controls.register_on_press)=='function')
 assert(type(g.mcl_particles.add_node_particlespawner)=='function')
 assert(type(g.mcl_worlds.y_to_layer)=='function')
 assert(type(g.mcl_stonecutter.register_recipe)=='function')
+assert(type(g.walkover.register_global)=='function',
+ 'original walkover runtime did not load')
+assert(type(g.tt.register_snippet)=='function',
+ 'original tooltip module did not load')
+local tooltip_stack=rt.api.ItemStack('mcl_stonecutter:stonecutter')
+assert(tooltip_stack:get_definition()==
+ rt.api.registered_items['mcl_stonecutter:stonecutter'])
+assert(rt:predictCraft(tooltip_stack,nil,{},nil)==tooltip_stack)
+assert(tooltip_stack:get_name()=='mcl_stonecutter:stonecutter',
+ 'tooltip prediction must not change the source item name')
+rt.api.register_craftitem('test:tooltip',{
+ description='Tooltip probe',_tt_help='Genuine upstream snippet'})
+local item=rt.api.ItemStack('test:tooltip')
+rt:predictCraft(item,nil,{},nil)
+assert(item:get_meta():get_string('description'):find('Genuine upstream snippet',1,true),
+ 'original tooltip callback must populate itemstack metadata')
+rt.api.override_item('test:tooltip',{description='Updated tooltip probe'})
+assert(rt.api.registered_items['test:tooltip'].description=='Updated tooltip probe')
+assert(type(g.mcl_luck.get_luck)=='function',
+ 'original luck module did not load')
+assert(type(g.mcl_gamemode.get_gamemode)=='function',
+ 'original gamemode module did not load')
 assert(type(g.doc)=='table' and type(g.doc.sub.items.temp.build)=='string',
  'original doc_items must load before mcl_core')
 assert(rt.api.registered_nodes['mcl_stonecutter:stonecutter'],
@@ -171,7 +197,7 @@ end
 print(('MCL_CORE PROBE: %d original nodes registered; stone=%s; error=%s')
  :format(#core_nodes,tostring(stone~=nil),tostring(core_error):sub(1,180)))
 local report={
- '# VoxeLibre real Lua mod boot — Fase 11','',
+ '# VoxeLibre real Lua mod boot — Fase 12','',
  'Original VoxeLibre code from the pinned Git checkout was executed.',
  'Lua 5.4 and LuaJIT tests must both pass for this report to be published.','',
  ('- Real modules loaded: **%d**'):format(#results),
