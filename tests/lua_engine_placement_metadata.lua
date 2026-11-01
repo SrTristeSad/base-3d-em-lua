@@ -96,10 +96,15 @@ sneak=false
 -- An already occupied above cannot block placement INTO buildable_to under.
 local replace=p(15,1,1)
 api.set_node(replace,{name='test:replaceable'})
+api.get_meta(replace):set_string('old','leak')
+api.get_node_timer(replace):start(3)
 api.set_node(p(15,2,1),{name='test:marker'})
 remaining,placed=api.item_place_node(api.ItemStack('test:wall'),player,
  pointed(replace,p(15,2,1)))
 assert(placed and placed.y==1 and api.get_node(replace).name=='test:wall')
+assert(api.get_meta(replace):get_string('old')=='' and
+ not api.get_node_timer(replace):is_started(),
+ 'replacing buildable_to must clear the old metadata and timer')
 -- The host path supports the same under-position replacement.
 local replace2=p(16,1,1)
 api.set_node(replace2,{name='test:replaceable'})
