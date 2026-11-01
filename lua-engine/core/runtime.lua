@@ -42,7 +42,7 @@ function Runtime.new(options)
   callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
     on_placenode={},on_dignode={},on_punchnode={},on_punchplayer={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
-    on_craft={},craft_predict={},on_item_eat={},liquid_transformed={},
+    on_craft={},craft_predict={},on_item_eat={},on_item_pickup={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
   chatcommands={},privileges={},players={},playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new()
@@ -447,6 +447,17 @@ function Runtime.new(options)
   local callbacks=self.callbacks.on_item_eat
   callbacks[#callbacks+1]=callback
  end
+ -- Matches core.item_pickup's callback-first return convention:
+ -- return a leftover ItemStack to intercept; nil delegates.
+ function api.register_on_item_pickup(callback)
+  assert(type(callback)=='function','item pickup callback must be callable')
+  local callbacks=self.callbacks.on_item_pickup
+  callbacks[#callbacks+1]=callback
+ end
+ api.registered_on_item_pickups=self.callbacks.on_item_pickup
+ function api.item_pickup(itemstack,picker,pointed_thing)
+  return Falling.item_pickup(self,itemstack,picker,pointed_thing)
+ end
  function api.register_on_punchplayer(callback)
   assert(type(callback)=='function',
    'punch player callback must be callable')
@@ -718,6 +729,16 @@ function Runtime:step(dt)
  -- Falling object state advances before ABMs, with swept vertical collision
  -- to avoid tunneling through ground when the host supplies a large delta.
  Falling.step(self,dt)
+ -- When the host exposes a real player position, items can be collected
+ -- automatically. Iterate by player name for deterministic contention.
+ if self.opts.auto_pickup~=false then
+  local names={}
+  for name in pairs(self.players) do names[#names+1]=name end
+  table.sort(names)
+  for _,name in ipairs(names) do
+   Falling.pickup_player(self,self.players[name])
+  end
+ end
  -- ABMs operate only on edited/resident sparse nodes in this first phase.
  for i,def in ipairs(self.registry.abms) do
   self.abmClock[i]=(self.abmClock[i] or 0)+dt
@@ -860,6 +881,11 @@ function Runtime:digNodeAsPlayer(player,pos)
 end
 function Runtime:placeNodeAsPlayer(player,pos,pointed_thing)
  return require('core.playeractions').place(self,player,pos,pointed_thing)
+end
+-- Explicit host action for manual pickup tests and scripted magnet systems.
+-- Returns number of world-item units transferred or consumed by callbacks.
+function Runtime:pickupItemsAsPlayer(player,radius)
+ return Falling.pickup_player(self,player,radius)
 end
 -- Return true when a Lua mod cancels the incoming player punch.
 -- This is a policy/callback preflight; the host owns actual HP and physics.
