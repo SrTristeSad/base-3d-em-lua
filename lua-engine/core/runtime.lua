@@ -32,12 +32,13 @@ function Runtime.new(options)
   registry={nodes={},items={},tools={},craftitems={},
     entities={},aliases={},crafts={},abms={},lbms={},
     biomes={},ores={},decorations={}},
-  callbacks={globalstep={},generated={},mods_loaded={},
-    on_placenode={},on_dignode={},on_joinplayer={},
+  callbacks={globalstep={},generated={},mods_loaded={},shutdown={},
+    on_placenode={},on_dignode={},on_punchnode={},on_joinplayer={},
     on_dieplayer={},on_leaveplayer={},on_player_receive_fields={},
+    on_craft={},on_item_eat={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
-  chatcommands={},particles=Particles.new()
+  chatcommands={},privileges={},players={},particles=Particles.new()
  },Runtime)
  local api={}
  self.api=api
@@ -55,6 +56,18 @@ function Runtime.new(options)
  api.registered_biomes=self.registry.biomes
  api.registered_ores=self.registry.ores
  api.registered_decorations=self.registry.decorations
+ -- Engine-owned definitions exist before gameplay mods load.  Content IDs
+ -- 0 (air) and 127 (ignore) are reserved by Voxel.ContentIDs.
+ local air={name='air',description='Air',drawtype='airlike',
+  pointable=false,walkable=false,buildable_to=true,diggable=false,groups={}}
+ local ignore={name='ignore',description='Ignore',drawtype='airlike',
+  pointable=false,walkable=false,buildable_to=false,diggable=false,groups={}}
+ self.registry.nodes.air=air
+ self.registry.nodes.ignore=ignore
+ self.registry.items.air=air
+ self.registry.items.ignore=ignore
+ self.registry.items['']={name='',description='',type='none',
+  range=4,groups={}}
  api.CONTENT_AIR=0
  api.CONTENT_IGNORE=127
  local biomeIds,biomeNames,nextBiomeId={}, {},1
@@ -140,6 +153,17 @@ function Runtime.new(options)
   end
   return self.mod_storage[name]
  end
+ function api.get_connected_players()
+  local names={}
+  for name in pairs(self.players) do names[#names+1]=name end
+  table.sort(names)
+  local players={}
+  for _,name in ipairs(names) do players[#players+1]=self.players[name] end
+  return players
+ end
+ function api.get_player_by_name(name)
+  return self.players[name]
+ end
  function api.register_chatcommand(name,def)
   assert(type(name)=='string' and name~='' and type(def)=='table',
    'invalid chat command')
@@ -147,6 +171,13 @@ function Runtime.new(options)
   self.chatcommands[name]=opts_copy(def)
  end
  api.registered_chatcommands=self.chatcommands
+ api.registered_privileges=self.privileges
+ function api.register_privilege(name,def)
+  assert(type(name)=='string' and name~='' and type(def)=='table',
+   'invalid privilege registration')
+  assert(not self.privileges[name],'privilege already registered: '..name)
+  self.privileges[name]=opts_copy(def)
+ end
  function api.register_on_dieplayer(callback)
   assert(type(callback)=='function')
   self.callbacks.on_dieplayer[#self.callbacks.on_dieplayer+1]=callback
@@ -317,6 +348,10 @@ function Runtime.new(options)
   assert(type(callback)=='function')
   self.callbacks.generated[#self.callbacks.generated+1]=callback
  end
+ function api.register_on_shutdown(callback)
+  assert(type(callback)=='function','shutdown callback must be a function')
+  self.callbacks.shutdown[#self.callbacks.shutdown+1]=callback
+ end
  function api.register_on_mods_loaded(callback)
   assert(type(callback)=='function')
   self.callbacks.mods_loaded[#self.callbacks.mods_loaded+1]=callback
@@ -324,6 +359,70 @@ function Runtime.new(options)
  function api.register_on_placenode(callback)
   assert(type(callback)=='function')
   self.callbacks.on_placenode[#self.callbacks.on_placenode+1]=callback
+ end
+ function api.register_on_craft(callback)
+  assert(type(callback)=='function','craft callback must be callable')
+  local callbacks=self.callbacks.on_craft
+  callbacks[#callbacks+1]=callback
+ end
+ -- Headless subset of Luanti's builtin item-eating lifecycle.
+ -- Callback cancellation, item consumption, HP changes and replacements that
+ -- fit a stack or inventory are supported. Audible eat sounds and dropped
+ -- entity overflow remain unsupported until their respective systems exist.
+ function api.do_item_eat(hp_change,replace_with_item,itemstack,user,pointed_thing)
+  assert(type(hp_change)=='number','item_eat requires numeric HP change')
+  assert(type(itemstack)=='table' and type(itemstack.take_item)=='function',
+   'item_eat requires an ItemStack')
+  assert(type(user)=='table' and type(user.get_hp)=='function'
+   and type(user.set_hp)=='function','item_eat requires a player HP API')
+  for _,callback in ipairs(self.callbacks.on_item_eat) do
+   local result=callback(hp_change,replace_with_item,itemstack,user,pointed_thing)
+   if result then return result end
+  end
+  if itemstack:is_empty() then return itemstack end
+  local preview=itemstack:copy()
+  preview:take_item(1)
+  local overflow=preview:add_item(replace_with_item or '')
+  local inventory
+  if not overflow:is_empty() then
+   inventory=type(user.get_inventory)=='function' and user:get_inventory() or nil
+   assert(inventory and inventory:room_for_item('main',overflow),
+    'item entity overflow is not yet implemented')
+  end
+  itemstack:take_item(1)
+  local leftover=itemstack:add_item(replace_with_item or '')
+  if not leftover:is_empty() then
+   local still=inventory:add_item('main',leftover)
+   assert(still:is_empty(),'inventory changed during item_eat')
+  end
+  user:set_hp(user:get_hp()+hp_change,
+   {type='set_hp',custom_type='__builtin:item_eat'})
+  return nil
+ end
+ function api.item_eat(hp_change,replace_with_item)
+  assert(type(hp_change)=='number','item_eat HP must be numeric')
+  return function(itemstack,user,pointed_thing)
+   if user then
+    return api.do_item_eat(hp_change,replace_with_item,
+     itemstack,user,pointed_thing)
+   end
+  end
+ end
+ function api.register_on_liquid_transformed(callback)
+  assert(type(callback)=='function',
+   'liquid transformation callback must be callable')
+  local callbacks=self.callbacks.liquid_transformed
+  callbacks[#callbacks+1]=callback
+ end
+ function api.register_on_item_eat(callback)
+  assert(type(callback)=='function','eat callback must be callable')
+  local callbacks=self.callbacks.on_item_eat
+  callbacks[#callbacks+1]=callback
+ end
+ function api.register_on_punchnode(callback)
+  assert(type(callback)=='function','punch callback must be callable')
+  local callbacks=self.callbacks.on_punchnode
+  callbacks[#callbacks+1]=callback
  end
  function api.register_on_dignode(callback)
   assert(type(callback)=='function')
@@ -457,8 +556,6 @@ function Runtime.new(options)
  end
  function api.is_protected() return false end
  function api.get_objects_inside_radius() return {} end
- function api.get_connected_players() return {} end
- function api.get_player_by_name() return nil end
  -- Access to not-yet-ported APIs intentionally raises instead of returning
  -- plausible but false results. This is essential to track compatibility.
  return self
@@ -551,6 +648,44 @@ end
 function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
 end
+-- Dispatch a batch of actual changed liquid nodes supplied by the host.
+-- The source and target nodes are managed by the liquid simulation, not
+-- mutated by merely registering this callback.
+function Runtime:liquidTransformed(positions)
+ assert(type(positions)=='table','liquid transformation needs positions')
+ local snapshot={}
+ for i,pos in ipairs(positions) do
+  assert(ispos(pos),'invalid transformed liquid position')
+  snapshot[i]=clone(pos)
+ end
+ return self:emit('liquid_transformed',snapshot)
+end
+-- Host-provided player objects only; this motor never invents a player.
+function Runtime:connectPlayer(player)
+ assert(type(player)=='table' and type(player.get_player_name)=='function',
+  'connectPlayer requires a player object')
+ local name=player:get_player_name()
+ assert(type(name)=='string' and name~='', 'invalid player name')
+ assert(not self.players[name], 'player already connected: '..name)
+ self.players[name]=player
+ self:emit('on_joinplayer',player)
+ return player
+end
+function Runtime:disconnectPlayer(name)
+ local player=self.players[name]
+ if not player then return false end
+ self:emit('on_leaveplayer',player)
+ self.players[name]=nil
+ return true
+end
+-- A punch is distinct from digging a node: do not remove the node or
+-- simulate a player.  The host passes the actual puncher when available.
+function Runtime:punchNode(pos,puncher,pointed_thing)
+ assert(ispos(pos),'punch requires a node position')
+ local node=self.api.get_node(pos)
+ self:emit('on_punchnode',clone(pos),node,puncher,pointed_thing)
+ return node
+end
 -- Explicit event dispatch for tests and future player integration.
 -- Count-restrictions from upstream callbacks are combined conservatively.
 -- This checks permissions only: actual moving/taking must be performed by
@@ -570,6 +705,14 @@ function Runtime:allowedInventoryAction(player,action,inventory,info)
   end
  end
  return count
+end
+-- Called once by the host when the world/session closes.  Luanti's
+-- register_on_shutdown callbacks are not regular per-frame callbacks.
+function Runtime:shutdown()
+ if self.shut_down then return false end
+ self.shut_down=true
+ self:emit('shutdown')
+ return true
 end
 function Runtime:emit(event,...)
  local callbacks=self.callbacks[event]
