@@ -62,9 +62,16 @@ function Actions.dig(rt,player,where)
  if not drops_fit(inventory,drops,rt.registry.items) then
   return false,'inventory_full'
  end
+ local oldmetadata=api.get_meta(pos):to_table()
  if def.on_destruct then def.on_destruct(pos) end
  if not api.remove_node(pos) then return false,'remove_failed' end
+ -- Player mining clears old node inventory/fields to avoid leaking a
+ -- previous chest's data into another node at the same coordinates.
+ api.get_meta(pos):from_table({fields={},inventory={}})
  if def.after_destruct then def.after_destruct(pos,old) end
+ if def.after_dig_node then
+  def.after_dig_node(pos,old,oldmetadata,player)
+ end
  for _,drop in ipairs(drops) do
   local rest=inventory:add_item('main',drop)
   assert(rest:is_empty(),'inventory changed during drop transfer')
