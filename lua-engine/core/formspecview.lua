@@ -251,11 +251,11 @@ function View:layout(width,height)
   elseif t=='image' or t=='box' or
    t=='background' or t=='background9' then
    local x,y=pair(p[1]);local w,h=pair(p[2])
-   if (t=='background' or t=='background9') and p[6]=='true' then
+   if (t=='background' or t=='background9') and p[4]=='true' then
     w,h=fw,fh
    end
    local nine
-   if t=='background9' then nine=p[7]
+   if t=='background9' then nine=p[5]
    elseif t=='image' and form_version>=6 then nine=p[4] end
    add('decoration',x,y,w,h,{
     texture=t~='box' and p[3] or nil,
