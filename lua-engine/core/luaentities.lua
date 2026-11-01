@@ -348,17 +348,7 @@ end
 function Entities.radius(rt,pos,radius)
  pos=vec(pos)
  assert(finite(radius) and radius>=0,'invalid object radius')
- local out={}
- for _,obj in ipairs(rt.luaEntities or {}) do
-  if active(rt,obj) then
-   local p=obj.pos
-   local dx,dy,dz=p.x-pos.x,p.y-pos.y,p.z-pos.z
-   if dx*dx+dy*dy+dz*dz<=radius*radius then
-    out[#out+1]=obj
-   end
-  end
- end
- return out
+ return SpatialIndex.nearby(rt,pos,radius)
 end
 function Entities.punch(rt,obj,puncher,interval,toolcaps,dir,damage)
  assert(active(rt,obj),'cannot punch absent Lua entity')
