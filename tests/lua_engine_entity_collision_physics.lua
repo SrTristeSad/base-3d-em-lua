@@ -25,7 +25,8 @@ local function world()
    fixed={-.125,-.5,-.125,.125,.5,.125},
    connect_right={.125,-.1,-.125,.5,.1,.125}}})
  a.register_entity('test:physical',{
-  initial_properties={physical=true,collisionbox={-.3,-.3,-.3,.3,.3,.3}},
+  initial_properties={physical=true,collide_with_objects=false,
+   collisionbox={-.3,-.3,-.3,.3,.3,.3}},
   on_step=function(self,dt,moveresult)
    self.last=moveresult
   end,

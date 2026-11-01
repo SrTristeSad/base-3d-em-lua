@@ -39,6 +39,7 @@ on:
       - 'tests/lua_engine_registered_entities.lua'
       - 'tests/lua_engine_entity_persistence.lua'
       - 'tests/lua_engine_entity_collision_physics.lua'
+      - 'tests/lua_engine_entity_stepheight_objects.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -90,6 +91,7 @@ on:
       - 'tests/lua_engine_registered_entities.lua'
       - 'tests/lua_engine_entity_persistence.lua'
       - 'tests/lua_engine_entity_collision_physics.lua'
+      - 'tests/lua_engine_entity_stepheight_objects.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -203,6 +205,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_entity_collision_physics.lua
           luajit tests/lua_engine_entity_collision_physics.lua
+      - name: Entity stepheight, object collisions and persistence (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_entity_stepheight_objects.lua
+          luajit tests/lua_engine_entity_stepheight_objects.lua
       - name: Player inventory, wield and node interactions (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_player_gameplay.lua

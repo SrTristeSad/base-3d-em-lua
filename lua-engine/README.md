@@ -1306,3 +1306,48 @@ entidades ou com jogadores, stepheight, física completa em
 líquidos, detecção de penetração inicial, subpassos específicos
 para acelerações extremas, nem o algoritmo C++ exato do Luanti.
 É uma implementação incremental, não compatibilidade 1:1.
+
+
+### Fase 41 — subida automática de obstáculos e colisões entre objetos
+
+As entidades Lua físicas passam a reconhecer duas propriedades nativas:
+
+- `stepheight` (padrão **0**): altura máxima de um degrau
+  que a entidade tenta subir quando está apoiada no terreno.
+  O solver testa espaço livre acima da criatura, deslocamento horizontal,
+  pouso sobre uma superfície válida e melhoria real do deslocamento antes
+  de aceitar a manobra. Superfícies muito altas, tetos baixos ou
+  entidades suspensas sem apoio **não** podem fazer o objeto subir.
+  O intervalo aceito pelo protótipo é de 0 a 3 nós.
+- `collide_with_objects` (padrão **true**): com `physical=true`,
+  entidades registradas podem bloquear o deslocamento umas das outras.
+  O contato só acontece quando **ambas** são físicas e ambas mantêm a
+  opção habilitada. A propriedade não interfere em entidades
+  `physical=false`. No `moveresult.collisions`, contatos de objetos
+  têm `type='object'`, `object` (referência real), eixo, normal e
+  velocidades anterior/final. Contatos de terreno continuam com
+  `type='node'` e `node_pos`.
+
+O solver usa varreduras contínuas por eixo e atualiza as entidades na
+ordem de sua lista no runtime. Isso evita atravessar outras entidades
+paradas, mas **não** simula as forças/impulsos nativos de uma colisão
+dinâmica nem garante solução perfeitamente simétrica para dois corpos
+móveis. É uma aproximação determinística.
+
+O golem de demonstração criado por **F4** utiliza agora
+`stepheight=.6` e `collide_with_objects=true`; pode passar por
+lajes baixas e encontra obstáculos físicos em outros golems.
+O arquivo lateral da Fase 39 também preserva as novas propriedades.
+
+Regressões da Fase 41 em
+`tests/lua_engine_entity_stepheight_objects.lua`, executadas em
+Lua 5.4 e LuaJIT, verificam subida e pouso, teto baixo, movimento
+no ar, comportamento sem degrau, meio bloco, colisões com outros
+objetos, opção de desativação, objetos não físicos, direção e normal
+do contato, validação dos atributos e ida/volta do estado salvo.
+
+**Limitações:** a Fase 41 cobre LuaEntities registradas (não
+jogadores ou dropped items como obstáculos), não inclui empurrões ou
+massa física, resposta simétrica completa de colisão, recuperação
+de sobreposição inicial, stepheight nativo exato ou rede. O objetivo
+Luanti/VoxeLibre 1:1 ainda não foi alcançado.
