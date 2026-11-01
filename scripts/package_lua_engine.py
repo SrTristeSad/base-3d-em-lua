@@ -3,6 +3,7 @@
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import argparse
+from build_lua_engine_atlas import create as build_atlas
 
 REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/vector.lua", "core/runtime.lua", "core/storage.lua",
@@ -10,7 +11,8 @@ REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/modenvironment.lua", "core/modstorage.lua",
             "core/bitops.lua", "core/pcgrandom.lua", "core/voxel.lua",
             "core/worldgen.lua", "core/particles.lua",
-            "core/nodedrops.lua", "core/pseudorandom.lua")
+            "core/nodedrops.lua", "core/pseudorandom.lua",
+            "core/atlas.lua", "core/mesher.lua", "core/renderer.lua")
 
 
 def build(source: Path, output: Path) -> None:
@@ -25,8 +27,10 @@ def build(source: Path, output: Path) -> None:
         for file in sorted(source.rglob("*")):
             if file.is_file() and file.suffix == ".lua":
                 z.write(file, file.relative_to(source).as_posix())
+        z.writestr("visual/atlas.png", build_atlas(source / "core/atlas.lua"))
     with ZipFile(output) as z:
         assert all(name in z.namelist() for name in REQUIRED)
+        assert "visual/atlas.png" in z.namelist()
 
 
 if __name__ == "__main__":
