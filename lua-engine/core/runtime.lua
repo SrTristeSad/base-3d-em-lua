@@ -14,6 +14,7 @@ local Placement=require('core.placement')
 local Falling=require('core.falling')
 local Raycast=require('core.raycast')
 local LuaEntities=require('core.luaentities')
+local EntityPhysics=require('core.entityphysics')
 local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
@@ -842,7 +843,14 @@ function Runtime:bindPlayerPhysics(name,controller)
  assert(type(controller)=='table' and controller.api==self.api,
   'character controller belongs to a different runtime')
  local release=PlayerPhysics.attach(player,controller)
- self.playerPhysicsBindings[name]=release
+ local previous_provider=controller.object_colliders
+ controller.object_colliders=function()
+  return EntityPhysics.entity_boxes(self)
+ end
+ self.playerPhysicsBindings[name]=function()
+  controller.object_colliders=previous_provider
+  release()
+ end
  self.playerPhysicsControllers[name]=controller
  return player
 end
