@@ -165,7 +165,7 @@ function Actions.advance(rt,player,dt)
  end
  current.elapsed=current.elapsed+dt
  if current.elapsed+1e-8<current.time then
-  return false,'in_progress',min(1,current.elapsed/current.time)
+  return false,'in_progress',math.min(1,current.elapsed/current.time)
  end
  sessions(rt)[name]=nil
  local ok,drops=Actions.dig(rt,player,current.pos)
@@ -188,6 +188,6 @@ function Actions.progress(rt,player)
  local current=sessions(rt)[name]
  if not current then return nil end
  if current.time==0 then return 1 end
- return min(1,current.elapsed/current.time)
+ return math.min(1,current.elapsed/current.time)
 end
 return Actions
