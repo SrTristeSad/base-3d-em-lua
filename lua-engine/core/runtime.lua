@@ -513,8 +513,6 @@ function Runtime.new(options)
  end
  function api.is_protected() return false end
  function api.get_objects_inside_radius() return {} end
- function api.get_connected_players() return {} end
- function api.get_player_by_name() return nil end
  -- Access to not-yet-ported APIs intentionally raises instead of returning
  -- plausible but false results. This is essential to track compatibility.
  return self
