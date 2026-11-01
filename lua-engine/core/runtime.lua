@@ -9,6 +9,7 @@ local ModStorage=require('core.modstorage')
 local Voxel=require('core.voxel')
 local Particles=require('core.particles')
 local NodeDrops=require('core.nodedrops')
+local Serialization=require('core.serialization')
 local Runtime={}
 Runtime.__index=Runtime
 local floor=math.floor
@@ -42,6 +43,8 @@ function Runtime.new(options)
  },Runtime)
  local api={}
  self.api=api
+ api.serialize=Serialization.serialize
+ api.deserialize=Serialization.deserialize
  self.map.registry=self.registry.items
  self.crafting=Crafting.new(self.registry.items,self.registry.aliases)
  self.content=Voxel.ContentIDs.new()
