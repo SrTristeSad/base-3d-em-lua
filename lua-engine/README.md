@@ -1435,3 +1435,41 @@ não implementa resposta simétrica com massa, restituição, impulsos,
 subpassos contínuos para qualquer quantidade de movimento ou o
 solucionador C++ 1:1 do Luanti. A atualização do controlador de
 jogador continua gerenciada pelo host, fora do loop `Runtime:step`.
+
+
+### Fase 44 — eventos de impacto frontal e contatos com vários corpos
+
+O módulo `core.collisionevents` complementa o movimento por
+subpassos da Fase 43. Ele calcula o **tempo de primeiro contato
+(TOI)** entre duas caixas AABB em movimento oposto, usando as
+velocidades relativas por eixo, e insere esse instante nos limites
+dos subpassos. Desse modo, dois objetos se aproximando a alta
+velocidade podem encontrar-se exatamente na superfície de contato,
+sem o viés de parar somente perto da posição inicial do vizinho.
+O movimento continua sendo resolvido pelos mesmos varredores de
+nós e objetos, para preservar as regras anteriores.
+
+Quando um par alcança o contato frontal, o solucionador interrompe
+os componentes de velocidade que estão se fechando e registra o
+contato em **ambos** os objetos, com referência real, eixo, normal
+e velocidades. Além disso, impactos sequenciais registrados em
+uma das entidades são refletidos ao outro participante: uma criatura
+parada entre dois oponentes pode receber dois registros de impacto
+distintos no mesmo `on_step`. Os eventos são deduplicados pelo
+alvo/eixo/normal, e o callback de cada entidade continua executado
+**apenas uma vez por atualização**.
+
+A busca de instantes exatos aceita no máximo 128 objetos candidatos,
+insere no máximo 24 eventos adicionais e utiliza subpassos regulares
+como fallback para grandes grupos. Isso impede que o planejamento de
+eventos cresça sem limites à medida que mais criaturas são criadas.
+O arquivo `tests/lua_engine_multibody_contact_events.lua`
+verifica o encontro simétrico em alta velocidade, grupos de três
+criaturas, contatos recíprocos, não repetição em repouso, objetos
+não físicos, limites e persistência.
+
+**Limitações:** colisões apenas de corpos AABB, eventos exatos
+adicionados principalmente para movimentos frontais em sentidos
+opostos. O solucionador continua cinemático, com resolução sequencial
+de blocos e subpassos; não reproduz impulsos, massa, restituição,
+solução simultânea de grandes grupos ou o motor C++ Luanti 1:1.
