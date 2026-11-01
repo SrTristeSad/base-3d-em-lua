@@ -15,7 +15,7 @@ api.register_node('lua:stone',{tiles={'default_stone.png'},description='Stone',g
 api.register_node('lua:wood',{tiles={'default_tree.png'},description='Wood',groups={choppy=2}})
 api.register_node('lua:leaves',{tiles={'default_leaves.png'},description='Leaves',groups={snappy=3}})
 api.register_node('lua:sand',{tiles={'default_sand.png'},description='Sand',groups={crumbly=3}})
-api.register_node('lua:water',{tiles={'default_water.png'},description='Water',groups={water=1,liquid=1},
+api.register_node('lua:water',{tiles={'mcl_core_water_source_animation.png'},description='Water',groups={water=1,liquid=1},
  walkable=false})
 api.register_node('lua:coal_ore',{tiles={'mcl_core_coal_ore.png'},description='Coal Ore',groups={cracky=2}})
 local generator=Worldgen.new(engine,{seed=42})
