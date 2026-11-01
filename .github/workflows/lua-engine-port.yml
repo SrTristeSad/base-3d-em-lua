@@ -15,6 +15,7 @@ on:
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
       - 'tests/lua_engine_meshing.lua'
+      - 'tests/lua_engine_nodebox.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -42,6 +43,7 @@ on:
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
       - 'tests/lua_engine_meshing.lua'
+      - 'tests/lua_engine_nodebox.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -95,6 +97,10 @@ jobs:
         run: lua5.4 tests/lua_engine_worldgen.lua
       - name: Same worldgen tests on LuaJIT
         run: luajit tests/lua_engine_worldgen.lua
+      - name: Nodebox and 24 facedir orientations (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_nodebox.lua
+          luajit tests/lua_engine_nodebox.lua
       - name: Visible-face meshing and cached LÖVR buffers (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_meshing.lua

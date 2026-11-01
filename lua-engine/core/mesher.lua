@@ -2,6 +2,7 @@
 -- Cube, simple liquid/glass and crossed plantlike meshes. Source node definitions
 -- (including mcl_core) provide tiles and drawtype; no name-based geometry.
 local Atlas=require('core.atlas')
+local Nodebox=require('core.nodebox')
 local M={}
 local floor=math.floor
 M.size=16
@@ -61,7 +62,7 @@ function M.build(map,registry,cx,cy,cz)
   type(cz)=='number' and cz==floor(cz),'invalid mapblock coordinates')
  assert(map and type(map.get_node)=='function','map required')
  local vertices={}
- local metrics={faces=0,cubes=0,plants=0,liquids=0,skipped=0}
+ local metrics={faces=0,cubes=0,nodeboxes=0,plants=0,liquids=0,skipped=0}
  local sx,sy,sz=cx*16,cy*16,cz*16
  local function emit(x,y,z,face,def)
   local u0,v0,u1,v1=Atlas.uv(tile_for(def,face.tile))
@@ -101,6 +102,32 @@ function M.build(map,registry,cx,cy,cz)
       not (transparent and adjacent.name==node.name) then
       emit(x,y,z,face,def)
      end
+    end
+   elseif def and def.drawtype=='nodebox' then
+    local parts=Nodebox.faces(def,node)
+    if parts then
+     metrics.nodeboxes=metrics.nodeboxes+1
+     for _,face in ipairs(parts) do
+      local axis=face.n[1]~=0 and 1 or face.n[2]~=0 and 2 or 3
+      -- A solid neighboring cube only hides an exposed face when
+      -- that face lies directly on the shared map-cell boundary.
+      local boundary=true
+      for _,p in ipairs(face.corners) do
+       if math.abs(p[axis]-face.n[axis]*.5)>1e-8 then
+        boundary=false
+        break
+       end
+      end
+      local hidden=false
+      if boundary then
+       local adjacent=map:get_node({
+        x=x+face.n[1],y=y+face.n[2],z=z+face.n[3]})
+       hidden=occludes(definition(registry,adjacent.name))
+      end
+      if not hidden then emit(x,y,z,face,def) end
+     end
+    else
+     metrics.skipped=metrics.skipped+1
     end
    elseif def and def.drawtype=='plantlike' then
     -- Two diagonal crossed quads; both sides are wound outwards.
