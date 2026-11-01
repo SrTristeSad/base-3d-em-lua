@@ -411,3 +411,30 @@ considerado um dos módulos integrados.**
 - Limitações: `background9` com auto_clip ainda não aplica scissor real;
   opções mais complexas de estilos e modificadores de textura permanecem
   pendentes, e a apresentação completa 1:1 não foi atingida.
+
+### Fase 66 — auto_clip dos fundos e ordem de composição visual
+
+- Implementado `lua-engine/core/formspecbackground.lua` com a geometria
+  original de `GUIBackgroundImage::draw()` do Luanti: o retângulo
+  com `auto_clip=true` parte dos limites do formulário e aplica
+  deslocamentos a **ambas as bordas**, sem depender dos valores W/H.
+  Em coordenadas modernas (formspec_version >= 2), deslocamentos
+  positivos restringem o retângulo; nas coordenadas legadas, offsets
+  numéricos atuam em pixels e expandem o retângulo.
+- `real_coordinates[true/false]` altera a interpretação dos
+  elementos seguintes. Os retângulos vazios e coordenadas não finitas
+  são rejeitados defensivamente antes de gerar geometria.
+- Os fundos `background[]` e `background9[]` agora são desenhados
+  **atrás dos demais controles**, independentemente de sua posição
+  na sequência de elementos do formulário, seguindo o parent de
+  background do renderer Luanti original.
+- Testes `tests/lua_engine_formspec_background_clip.lua` exercitam
+  coordenadas atuais/legadas, offsets negativos, W/H=0 com auto_clip,
+  sobreposição visual, 9-slice, eventos de clique e retângulos inválidos,
+  tanto no Lua 5.4 quanto no LuaJIT.
+- **Limites:** o host ainda usa a aproximação de escala baseada no
+  tamanho de tela e não reproduz todos os pixels de padding e métricas
+  da GUI C++ do Luanti. `auto_clip` específico do plano de fundo foi
+  reproduzido; scissor real dos `scroll_container` e os modificadores
+  gerais de textura ainda requerem implementação. O objetivo 1:1
+  continua não concluído.
