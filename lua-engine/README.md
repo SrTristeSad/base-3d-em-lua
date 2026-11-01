@@ -20,9 +20,9 @@ Baixe o pacote `Motor-Lua-Experimental-Windows-x64` na
 [workflow de builds](../.github/workflows/lua-engine-port.yml),
 extraia os arquivos e execute `Motor-Lua-Demo.exe`.
 
-**Controles:** mouse para olhar, WASD para caminhar, Espaço pula
+**Controles:** **barra de 9 itens visível, teclas 1–9 ou roda do mouse para selecionar**; mouse para olhar, WASD para caminhar, Espaço pula
 (e sobe escadas/nada), Ctrl agacha no solo e desce escadas/água, Shift corre, botão esquerdo quebra bloco,
-direito coloca pedra, F6 salva o mapa, **F7 gera o chunk 16×16 sob a câmera**; Escape libera o cursor.
+direito coloca o **bloco do slot selecionado**, F6 salva o mapa, objetos e perfil do jogador, **F7 gera o chunk 16×16 sob a câmera**; Escape libera o cursor.
 
 O motor 3D usa o runtime **LÖVR 0.19** como camada nativa de
 renderização, entrada e janela. Todo o mapa, registro de blocos,
@@ -1837,3 +1837,56 @@ invalidadas, não são medidas de FPS.
 do projeto; esta fase otimiza a atualização de geometria
 em mundo ativo, mas não implementa toda a física nativa
 em C++ do Luanti nem demonstra equivalência 1:1.
+
+
+### Fase 53 — sessão jogável, barra de itens e salvamento do jogador
+
+O executável LÖVR ganhou uma **barra de nove slots visível na
+tela**, alimentada diretamente pelo inventário `main` da sessão
+local, não por um estado gráfico separado. Teclas `1`–`9`
+e a **roda do mouse** alteram o item ativo pelo ObjectRef real.
+A barra mostra o nome, a quantidade e o slot selecionado.
+A mineração usa a ferramenta selecionada e o botão direito
+coloca o bloco efetivamente selecionado, conforme as APIs
+de interação existentes.
+
+A primeira sessão da demo recebe um pequeno conjunto de
+blocos e a picareta de teste para poder experimentar
+construção imediatamente. Nas sessões seguintes, a demo
+**não repõe o inventário** quando encontra um perfil salvo.
+O novo `core.playerstorage` conserva os 32 slots do inventário
+`main`, o desgaste e os metadados dos itens, o slot ativo,
+a posição do personagem e a orientação da câmera.
+`F6` e a saída normal salvam esses dados em
+`lua-engine-world.player`, ao lado de
+`lua-engine-world.map` e `lua-engine-world.objects`.
+O perfil é gravado antes do desligamento e da retirada do
+ObjectRef da sessão.
+
+O arquivo separado usa o cabeçalho versionado
+`LUAENGINE PLAYER 1` e `core.serialization`, que
+**não executa código** ao ler o save. A leitura verifica
+limites de tamanho, posições, ângulos, slots e metadados
+antes de alterar a sessão. Perfil ausente ou inválido
+não impede iniciar a demo com os itens de teste; um
+arquivo inválido não sobrescreve a sessão já iniciada.
+
+Foi corrigida também a substituição do mapa carregado:
+`Runtime:replaceMap` reinstala a notificação das edições
+para a física após reabrir o mundo. Isso evita perder
+a invalidação localizada das colisões implementada na
+Fase 52. A nova suíte
+`tests/lua_engine_player_profile_hotbar.lua` verifica
+salvamento e restauração, metadados, rejeição de saves
+malformados, seleção/ciclo da hotbar, comandos gráficos
+mockados e edição de nós após a leitura de um mundo.
+
+**Limitações:** a barra de itens é específica da demo
+desktop; ainda não implementa o HUD completo nem o
+inventário/crafting gráfico do Luanti. Os arquivos de
+mapa, entidades e perfil são sidecars separados, não
+um sistema transacional de saves multiusuário. O teste
+automático valida os comandos de desenho com mocks,
+mas a janela ainda requer teste visual manual no Windows.
+O executável continua uma demo independente; não
+inicia todo o jogo VoxeLibre.
