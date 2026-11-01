@@ -2,6 +2,7 @@
 -- NAO carrega VoxeLibre nesta fase: o conjunto da API ainda e parcial.
 local Runtime=require('core.runtime')
 local Storage=require('core.storage')
+local EntityStorage=require('core.entitystorage')
 local Worldgen=require('core.worldgen')
 local Renderer=require('core.renderer')
 local Physics=require('core.physics')
@@ -38,6 +39,7 @@ api.register_tool('lua:pickaxe',{description='Demo pickaxe',stack_max=1,
 local generator=Worldgen.new(engine,{seed=42})
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
+local objectpath='lua-engine-world.objects'
 local renderer
 local character
 local digging_target
@@ -98,7 +100,13 @@ local function target()
 end
 function lovr.load()
  local map=Storage.load(savepath,lovr.filesystem)
- if map then engine.map=map;engine.map.registry=engine.registry.items
+ if map then
+  engine.map=map
+  engine.map.registry=engine.registry.items
+  local loaded,reason=EntityStorage.load(engine,objectpath,lovr.filesystem)
+  if not loaded and reason~='not found' then
+   print('object save could not be loaded:',reason)
+  end
  else createWorld() end
  renderer=Renderer.new(lovr.graphics)
  -- Feet start below the first-person eye; gravity handles spawn settling.
@@ -207,6 +215,8 @@ function lovr.keypressed(key)
    else print('falling node demo blocked at',spawn.x,spawn.y,spawn.z) end
   else print('look at a block before pressing F8') end
  elseif key=='f6' then
+  local objects,why=EntityStorage.save(engine,objectpath,lovr.filesystem)
+  if not objects then print('object save failed',why) end
   local ok,err=Storage.save(engine.map,savepath,lovr.filesystem)
   if not ok then print('save failed',err) end
  elseif key=='escape' then
@@ -220,7 +230,12 @@ function lovr.quit()
  end
  local ok,err=pcall(engine.shutdown,engine)
  if not ok then print('shutdown callback failed:',err) end
- if lovr.filesystem then Storage.save(engine.map,savepath,lovr.filesystem) end
+ if lovr.filesystem then
+  local ok,err=EntityStorage.save(engine,objectpath,lovr.filesystem)
+  if not ok then print('object save failed',err) end
+  local saved,why=Storage.save(engine.map,savepath,lovr.filesystem)
+  if not saved then print('map save failed',why) end
+ end
 end
 function lovr.draw(pass)
  pass:setClear(.52,.72,.91,1)
