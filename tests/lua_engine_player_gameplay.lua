@@ -16,7 +16,10 @@ api.register_node('test:locked',{can_dig=function(pos,player)
  return false
 end})
 api.register_node('test:unbreakable',{diggable=false})
-api.register_node('test:custom',{on_dig=function()error('must not be called')end})
+api.register_node('test:custom',{on_dig=function(pos,node,player)
+ assert(player:get_player_name()=='Alice' and node.name=='test:custom')
+ return false
+end})
 api.register_node('test:ore',{drop={items={{items={'test:gem 2'},
  tools={'test:pick'}}}}})
 api.register_craftitem('test:gem',{})
@@ -89,7 +92,7 @@ assert(not notnode and reason=='not_placeable_node')
 -- Every destructive rejection must leave the block in place.
 for name,expected in pairs({
  ['test:locked']='can_dig',['test:unbreakable']='not_diggable',
- ['test:custom']='custom_on_dig_unsupported'
+ ['test:custom']='custom_dig_rejected'
 }) do
  local location=p(10,4,0)
  api.set_node(location,{name=name})
