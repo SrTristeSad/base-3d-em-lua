@@ -3,6 +3,8 @@
 local Runtime=require('core.runtime')
 local Storage=require('core.storage')
 local EntityStorage=require('core.entitystorage')
+local PlayerStorage=require('core.playerstorage')
+local DemoHUD=require('core.demohud')
 local Worldgen=require('core.worldgen')
 local Renderer=require('core.renderer')
 local Physics=require('core.physics')
@@ -83,6 +85,7 @@ local generator=Worldgen.new(engine,{seed=42})
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
 local objectpath='lua-engine-world.objects'
+local playerpath='lua-engine-world.player'
 local renderer
 local character
 local digging_target
@@ -142,8 +145,7 @@ end
 function lovr.load()
  local map=Storage.load(savepath,lovr.filesystem)
  if map then
-  engine.map=map
-  engine.map.registry=engine.registry.items
+  engine:replaceMap(map)
   local loaded,reason=EntityStorage.load(engine,objectpath,lovr.filesystem)
   if not loaded and reason~='not found' then
    print('object save could not be loaded:',reason)
@@ -160,6 +162,23 @@ function lovr.load()
  inv:set_stack('main',1,'lua:stone 64')
  inv:set_stack('main',2,'lua:pickaxe')
  inv:set_stack('main',3,'lua:sand 64')
+ inv:set_stack('main',4,'lua:wood 64')
+ inv:set_stack('main',5,'lua:glass 64')
+ inv:set_stack('main',6,'lua:slab 64')
+ inv:set_stack('main',7,'lua:ladder 64')
+ inv:set_stack('main',8,'lua:grass 64')
+ inv:set_stack('main',9,'lua:dirt 64')
+ -- Existing profile replaces starter items rather than duplicating them.
+ -- A corrupt profile is ignored without changing the starter inventory.
+ local profile,why=PlayerStorage.load(
+  demo_player,character,playerpath,lovr.filesystem)
+ if profile then
+  camera.yaw,camera.pitch=profile.yaw,profile.pitch
+  local eye=character:eye()
+  camera.x,camera.y,camera.z=eye.x,eye.y,eye.z
+ elseif why~='not found' then
+  print('player profile could not be loaded:',why)
+ end
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
@@ -231,12 +250,29 @@ function lovr.mousereleased(x,y,button)
   digging_target=nil
  end
 end
+-- Mousewheel cycles the active gameplay item, not an isolated UI slot.
+function lovr.wheelmoved(x,y)
+ if y~=0 and demo_player.get_wielded_item then
+  DemoHUD.scroll(demo_player,y)
+ end
+end
+local function saveSession()
+ local objects,why=EntityStorage.save(engine,objectpath,lovr.filesystem)
+ if not objects then print('object save failed',why) end
+ local ok,err=Storage.save(engine.map,savepath,lovr.filesystem)
+ if not ok then print('map save failed',err) end
+ if character and demo_player.get_inventory then
+  local saved,reason=PlayerStorage.save(demo_player,character,
+   camera.yaw,camera.pitch,playerpath,lovr.filesystem)
+  if not saved then print('player save failed',reason) end
+ end
+end
 function lovr.keypressed(key)
  -- Number keys select the actual player's wielded slot.
  local hotbar=tonumber(key)
  if hotbar and hotbar>=1 and hotbar<=9 and
   hotbar==math.floor(hotbar) then
-  demo_player:set_wield_index(hotbar)
+  DemoHUD.select(demo_player,hotbar)
   local stack=demo_player:get_wielded_item()
   print('selected slot',hotbar,stack:get_name(),stack:get_count())
  elseif key=='f7' then
@@ -298,27 +334,23 @@ function lovr.keypressed(key)
    else print('falling node demo blocked at',spawn.x,spawn.y,spawn.z) end
   else print('look at a block before pressing F8') end
  elseif key=='f6' then
-  local objects,why=EntityStorage.save(engine,objectpath,lovr.filesystem)
-  if not objects then print('object save failed',why) end
-  local ok,err=Storage.save(engine.map,savepath,lovr.filesystem)
-  if not ok then print('save failed',err) end
+  saveSession()
  elseif key=='escape' then
   lovr.system.setMouseMode('normal')
  end
 end
 function lovr.quit()
+ -- Save profile BEFORE disconnect: disconnect detaches Player ObjectRef
+ -- inventory and wield methods, so saving afterwards loses those data.
+ if lovr.filesystem and demo_player.get_inventory then
+  saveSession()
+ end
  if engine.api.get_player_by_name('singleplayer') then
   local left,leave_err=pcall(engine.disconnectPlayer,engine,'singleplayer')
   if not left then print('player disconnect callback failed:',leave_err) end
  end
  local ok,err=pcall(engine.shutdown,engine)
  if not ok then print('shutdown callback failed:',err) end
- if lovr.filesystem then
-  local ok,err=EntityStorage.save(engine,objectpath,lovr.filesystem)
-  if not ok then print('object save failed',err) end
-  local saved,why=Storage.save(engine.map,savepath,lovr.filesystem)
-  if not saved then print('map save failed',why) end
- end
  local closed,close_err=pcall(engine.deactivateLuaEntities,engine)
  if not closed then print('LuaEntity unload callback failed:',close_err) end
 end
@@ -333,4 +365,6 @@ function lovr.draw(pass)
  renderer:draw(pass,engine.map,engine.registry.nodes,camera,20)
  -- Moving blocks and loose items are absent from the static map mesh.
  renderer:draw_dynamic(pass,engine,camera,20)
+ local w,h=lovr.system.getWindowDimensions()
+ DemoHUD.draw(pass,demo_player,engine.registry.items,w,h)
 end
