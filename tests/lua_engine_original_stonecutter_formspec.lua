@@ -65,7 +65,8 @@ g.mcl_stonecutter.show_stonecutter_form(player)
 local current=rt:getPlayerFormspec('TestPlayer')
 assert(current and current.formname=='mcl_stonecutter:stonecutter')
 assert(current.formspec:find('list[current_player;stonecutter_input;',1,true))
-assert(current.formspec:find('item_image_button[',1,true))
+assert(not current.formspec:find('item_image_button[',1,true),
+ 'empty stonecutter should not offer recipes before player inserts input')
 assert(#current.elements>10,'genuine stonecutter uses nested rich formspec elements')
 -- The original mod receives a real player InvRef on_move event and redraws
 -- its source list instead of accepting fabricated direct inventory edits.
