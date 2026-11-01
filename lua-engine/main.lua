@@ -29,12 +29,18 @@ api.register_node('lua:flower',{description='Flower',drawtype='plantlike',
  tiles={'flowers_dandelion_yellow.png'},walkable=false})
 api.register_node('lua:coal_ore',{tiles={'mcl_core_coal_ore.png'},description='Coal Ore',groups={cracky=2}})
 api.register_tool('lua:pickaxe',{description='Demo pickaxe',stack_max=1,
- tool_capabilities={groupcaps={cracky={times={[1]=2,[2]=3,[3]=5},uses=30,maxlevel=1}}}})
+ tool_capabilities={groupcaps={
+ cracky={times={[1]=2,[2]=3,[3]=5},uses=30,maxlevel=1},
+ crumbly={times={[1]=.6,[2]=.4,[3]=.25},uses=30,maxlevel=1},
+ choppy={times={[1]=1,[2]=.6,[3]=.35},uses=30,maxlevel=1},
+ snappy={times={[1]=.6,[2]=.35,[3]=.2},uses=30,maxlevel=1},
+}}})
 local generator=Worldgen.new(engine,{seed=42})
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
 local renderer
 local character
+local digging_target
 -- The LÖVR demo is the session host. This object is NOT a complete Luanti
 -- ObjectRef; it only supplies a stable local identity for the physics bridge.
 local demo_player={get_player_name=function() return 'singleplayer' end}
@@ -129,6 +135,20 @@ function lovr.update(dt)
  })
  local eye=character:eye()
  camera.x,camera.y,camera.z=eye.x,eye.y,eye.z
+ if digging_target then
+  local hit=target()
+  if not hit or hit.x~=digging_target.x or
+     hit.y~=digging_target.y or hit.z~=digging_target.z then
+   engine:cancelDigNodeAsPlayer(demo_player)
+   digging_target=nil
+  else
+   local ok,reason=engine:advanceDigNodeAsPlayer(demo_player,dt)
+   if ok or reason~='in_progress' then
+    if not ok then print('dig stopped:',reason) end
+    digging_target=nil
+   end
+  end
+ end
 end
 function lovr.mousemoved(x,y,dx,dy)
  camera.yaw=camera.y+dx*.002
@@ -137,11 +157,18 @@ end
 function lovr.mousepressed(x,y,button)
  local hit,previous=target()
  if button==1 and hit then
-  local ok,reason=engine:digNodeAsPlayer(demo_player,hit)
-  if not ok then print('dig rejected:',reason) end
+  local ok,reason=engine:beginDigNodeAsPlayer(demo_player,hit)
+  if ok then digging_target=hit
+  else print('dig rejected:',reason) end
  elseif button==2 and previous then
   local ok,reason=engine:placeNodeAsPlayer(demo_player,previous)
   if not ok then print('place rejected:',reason) end
+ end
+end
+function lovr.mousereleased(x,y,button)
+ if button==1 and digging_target then
+  engine:cancelDigNodeAsPlayer(demo_player)
+  digging_target=nil
  end
 end
 function lovr.keypressed(key)

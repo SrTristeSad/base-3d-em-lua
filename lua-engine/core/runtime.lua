@@ -757,7 +757,8 @@ function Runtime:connectPlayer(player,controller)
   local release=self.playerPhysicsBindings[name]
   if release then release();self.playerPhysicsBindings[name]=nil end
   self.playerPhysicsControllers[name]=nil
-  self.players[name]=nil
+  if self.playerDigSessions then self.playerDigSessions[name]=nil end
+ self.players[name]=nil
   error(err,0)
  end
  return player
@@ -770,12 +771,26 @@ function Runtime:disconnectPlayer(name)
  local release=self.playerPhysicsBindings[name]
  if release then release();self.playerPhysicsBindings[name]=nil end
   self.playerPhysicsControllers[name]=nil
+ if self.playerDigSessions then self.playerDigSessions[name]=nil end
  self.players[name]=nil
  if not ok then error(err,0) end
  return true
 end
 -- Host-driven player node actions. Unlike core.dig_node/place_node, these
 -- pass the actual connected player, wielded stack, and real drop inventory.
+-- Timed player mining; player and tool belong to this runtime.
+function Runtime:beginDigNodeAsPlayer(player,pos)
+ return require('core.playeractions').begin(self,player,pos)
+end
+function Runtime:advanceDigNodeAsPlayer(player,dt)
+ return require('core.playeractions').advance(self,player,dt)
+end
+function Runtime:cancelDigNodeAsPlayer(player)
+ return require('core.playeractions').cancel(self,player)
+end
+function Runtime:getDigProgress(player)
+ return require('core.playeractions').progress(self,player)
+end
 function Runtime:digNodeAsPlayer(player,pos)
  return require('core.playeractions').dig(self,player,pos)
 end
