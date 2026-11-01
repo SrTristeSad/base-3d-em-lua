@@ -10,9 +10,9 @@ Na Fase 8, executamos três módulos originais adicionais de utilitários e iten
 terreno determinístico por semente, areia, florestas, árvores, pequenas
 cavernas e minérios. Não é o gerador do Minecraft nem do VoxeLibre.
 A marcação de chunks gerados é salva para preservar construções e
-remoções de blocos quando o mundo é reaberto. A cadeia de dependências
-reais do módulo `mcl_core` é auditada, mas ele ainda não executa.
-A versão atual roda apenas uma demonstração independente.
+remoções de blocos quando o mundo é reaberto. Desde a Fase 13, os 24 módulos Lua selecionados, incluindo `mcl_core`,
+inicializam no teste de integração. A demo gráfica continua independente
+e **não inicializa o jogo VoxeLibre**.
 
 ## Experimentar
 
@@ -183,3 +183,35 @@ Ainda faltam entidades funcionais, HUD, física e combate completos,
 texturas dos nós originais, persistência integral, rede e a execução
 normal dos callbacks de jogabilidade. O executável LÖVR continua
 uma demonstração independente, não o VoxeLibre pronto para jogar.
+
+### Renderização de faces visíveis (Fase 14)
+
+O arquivo `core/mesher.lua` cria, em Lua puro, triângulos para apenas
+as faces expostas dos cubos com `drawtype=normal` ou `allfaces`.
+A consulta utiliza as definições reais dos nós registrados, inclusive
+`tiles` de `mcl_core`, com mapeamento UV e normals por face.
+Faces escondidas por cubos opacos são descartadas até quando os cubos
+estão em mapblocks vizinhos. Alterações nas revisões do bloco ou de
+seus seis vizinhos invalidam a malha correspondente.
+
+O arquivo `core/renderer.lua` integra essas malhas ao LÖVR 0.19
+por meio de buffers de vértices e `Pass:mesh`, substituindo a chamada
+`pass:box` por nó. Os buffers são reutilizados até que o mapa seja
+modificado ou um novo mundo seja carregado.
+
+A distribuição gera automaticamente `visual/atlas.png`, um atlas
+4×4 de texturas **procedurais provisórias** criado pelo script
+`scripts/build_lua_engine_atlas.py`. Os nomes de textura seguem
+identificadores usados pelo VoxeLibre, mas os pixels do atlas
+**não são os arquivos gráficos originais do VoxeLibre**.
+O atlas também não compõe arbitrariamente modificadores de textura;
+a lateral de grama usa um substituto combinado.
+
+Os testes de geometria rodam no Lua 5.4 e LuaJIT sem GPU. A compilação
+do executável verifica o pacote, mas a nova renderização ainda exige
+inspeção visual num PC Windows com LÖVR 0.19.
+
+**Limites:** `nodebox`, `mesh`, `plantlike`, líquidos e transparências
+corretas, colorização de `param2`, iluminação Luanti e shaders de
+materiais continuam por implementar. O objetivo de compatibilidade
+1:1 permanece; esta etapa não o conclui.

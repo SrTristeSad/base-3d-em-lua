@@ -3,32 +3,25 @@
 local Runtime=require('core.runtime')
 local Storage=require('core.storage')
 local Worldgen=require('core.worldgen')
+local Renderer=require('core.renderer')
 local engine=Runtime.new()
 engine:installGlobals()
 local api=engine.api
 api.register_node('lua:grass',{description='Grass',groups={crumbly=1},
-  light_source=0})
-api.register_node('lua:dirt',{description='Dirt',groups={crumbly=3}})
-api.register_node('lua:stone',{description='Stone',groups={cracky=3}})
-api.register_node('lua:wood',{description='Wood',groups={choppy=2}})
-api.register_node('lua:leaves',{description='Leaves',groups={snappy=3}})
-api.register_node('lua:sand',{description='Sand',groups={crumbly=3}})
-api.register_node('lua:water',{description='Water',groups={water=1,liquid=1},
+  light_source=0,tiles={'mcl_core_grass_block_top.png',
+  'default_dirt.png','mcl_core_grass_block_side.png'}})
+api.register_node('lua:dirt',{tiles={'default_dirt.png'},description='Dirt',groups={crumbly=3}})
+api.register_node('lua:stone',{tiles={'default_stone.png'},description='Stone',groups={cracky=3}})
+api.register_node('lua:wood',{tiles={'default_tree.png'},description='Wood',groups={choppy=2}})
+api.register_node('lua:leaves',{tiles={'default_leaves.png'},description='Leaves',groups={snappy=3}})
+api.register_node('lua:sand',{tiles={'default_sand.png'},description='Sand',groups={crumbly=3}})
+api.register_node('lua:water',{tiles={'default_water.png'},description='Water',groups={water=1,liquid=1},
  walkable=false})
-api.register_node('lua:coal_ore',{description='Coal Ore',groups={cracky=2}})
+api.register_node('lua:coal_ore',{tiles={'mcl_core_coal_ore.png'},description='Coal Ore',groups={cracky=2}})
 local generator=Worldgen.new(engine,{seed=42})
-local palette={
- ['lua:grass']={.35,.66,.27},
- ['lua:dirt']={.47,.31,.19},
- ['lua:stone']={.48,.49,.51},
- ['lua:wood']={.65,.46,.24},
- ['lua:leaves']={.19,.51,.24},
- ['lua:sand']={.83,.73,.43},
- ['lua:water']={.17,.37,.81},
- ['lua:coal_ore']={.24,.27,.31}
-}
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
+local renderer
 -- Terrain is now constructed through the Lua VoxelManip buffer.
 -- This is STILL a deliberately simple demo terrain, not Luanti mapgen.
 local function createWorld()
@@ -76,6 +69,7 @@ function lovr.load()
  local map=Storage.load(savepath,lovr.filesystem)
  if map then engine.map=map;engine.map.registry=engine.registry.items
  else createWorld() end
+ renderer=Renderer.new(lovr.graphics)
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
@@ -134,15 +128,6 @@ function lovr.draw(pass)
   vec3(camera.x,camera.y,camera.z),
   vec3(camera.x+dx,camera.y+dy,camera.z+dz)),true)
  pass:setProjection('perspective',math.rad(75))
- pass:setColor(1,1,1)
- for k,node in pairs(engine.map.nodes) do
-  local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-  x,y,z=tonumber(x),tonumber(y),tonumber(z)
-  if math.abs(x-camera.x)<20 and math.abs(y-camera.y)<12 and
-    math.abs(z-camera.z)<20 then
-   local c=palette[node.name] or {1,.1,1}
-   pass:setColor(c[1],c[2],c[3])
-   pass:box(x,y,z,1,1,1)
-  end
- end
+ -- GPU draws batched exposed faces, not one box for every saved node.
+ renderer:draw(pass,engine.map,engine.registry.nodes,camera,20)
 end

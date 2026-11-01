@@ -14,6 +14,7 @@ on:
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
+      - 'tests/lua_engine_meshing.lua'
       - 'tests/lua_engine_particles_inventory.lua'
       - 'tests/lua_engine_nodedrops.lua'
       - 'tests/lua_engine_pseudorandom.lua'
@@ -21,6 +22,7 @@ on:
       - 'scripts/audit_voxelibre_api.py'
       - 'scripts/export_lua_engine_api.lua'
       - 'scripts/package_lua_engine.py'
+      - 'scripts/build_lua_engine_atlas.py'
       - '.github/workflows/lua-engine-port.yml'
       - 'docs/ENGINE_LUA_PORT.md'
   pull_request:
@@ -36,11 +38,13 @@ on:
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
+      - 'tests/lua_engine_meshing.lua'
       - 'tests/lua_engine_particles_inventory.lua'
       - 'scripts/mcl_core_dependencies.py'
       - 'scripts/audit_voxelibre_api.py'
       - 'scripts/export_lua_engine_api.lua'
       - 'scripts/package_lua_engine.py'
+      - 'scripts/build_lua_engine_atlas.py'
       - '.github/workflows/lua-engine-port.yml'
       - 'docs/ENGINE_LUA_PORT.md'
   workflow_dispatch:
@@ -81,6 +85,10 @@ jobs:
         run: lua5.4 tests/lua_engine_worldgen.lua
       - name: Same worldgen tests on LuaJIT
         run: luajit tests/lua_engine_worldgen.lua
+      - name: Visible-face meshing and cached LÖVR buffers (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_meshing.lua
+          luajit tests/lua_engine_meshing.lua
       - name: Particle registry and player inventory permissions (Lua 5.4)
         run: lua5.4 tests/lua_engine_particles_inventory.lua
       - name: Same particle and permission tests on LuaJIT
@@ -148,7 +156,9 @@ jobs:
 
           IMPORTANT: Does not run VoxeLibre yet.
           Not a complete or 1:1 Luanti engine.
-          Only a basic render and tested Lua API prototype.
+          Uses visible-face mapblock meshes with temporary procedural textures.
+          It does not package original VoxeLibre artwork or a playable game.
+          Visual behavior on a real Windows GPU has not been verified.
           Windows 64-bit and Vulkan-capable graphics are required.
           '@ | Set-Content -Path 'dist/LEIA-ME.txt' -Encoding UTF8
       - uses: actions/upload-artifact@v4
@@ -172,7 +182,7 @@ jobs:
           persist-credentials: false
       - name: Install Lua for API export
         run: sudo apt-get update -qq && sudo apt-get install -y lua5.4 luajit
-      - name: Boot fourteen original VoxeLibre mods under Lua 5.4
+      - name: Boot original VoxeLibre mods under Lua 5.4
         run: |
           mkdir -p dist
           lua5.4 tests/lua_engine_real_voxelibre.lua games/voxelibre dist/VoxeLibre-Real-Mod-Boot.md

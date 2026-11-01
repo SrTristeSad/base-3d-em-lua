@@ -221,6 +221,18 @@ local stone=rt.api.registered_nodes['mcl_core:stone']
 assert(#core_nodes>=166,
  'regression: at least 166 original mcl_core nodes must register')
 assert(stone,'upstream mcl_core:stone definition not registered')
+local Mesher=require('core.mesher')
+local Atlas=require('core.atlas')
+assert(Atlas.index(stone.tiles[1])==4,
+ 'original stone tile must resolve to stone atlas slot')
+local original_grass=rt.api.registered_nodes['mcl_core:dirt_with_grass']
+assert(original_grass and Atlas.index(original_grass.tiles[1])==2,
+ 'original grass top tile must resolve')
+assert(Atlas.index(original_grass.tiles[3])==9,
+ 'original grass side overlay must be selected')
+local current_mesh,mesh_stat=Mesher.build(rt.map,rt.api.registered_nodes,0,0,0)
+assert(mesh_stat.faces>0 and #current_mesh==mesh_stat.faces*6,
+ 'original mcl_core registered cubes must produce visible faces')
 if stone then
  assert(stone.description=='Stone')
  assert(stone.groups.pickaxey==1)
