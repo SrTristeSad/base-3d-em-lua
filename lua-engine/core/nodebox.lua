@@ -99,7 +99,7 @@ function N.faces(def,node)
    if area>0 then
     local corners={}
     for _,indices in ipairs(shape.corners) do
-     corners[#corners]=N.rotate({v[indices[1]],v[indices[2]],
+     corners[#corners+1]=N.rotate({v[indices[1]],v[indices[2]],
                                    v[indices[3]]},def.paramtype2,param2)
     end
     local norm=N.rotate(shape.n,def.paramtype2,param2)
