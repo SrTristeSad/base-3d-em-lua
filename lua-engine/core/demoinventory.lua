@@ -3,6 +3,25 @@
 -- This screen is not a replacement for the full Luanti formspec API.
 local M={}
 M.__index=M
+-- Personal 2x2 and workbench 3x3 grids use distinct genuine InvRef lists.
+local function active(self)
+ if self.workbench then return 'craft_table',3,9 end
+ return 'craft',2,4
+end
+function M:openWorkbench()
+ local inv=self.player:get_inventory()
+ if inv:get_size('craft_table')==0 then
+  inv:set_size('craft_table',9)
+  inv:set_width('craft_table',3)
+ end
+ assert(inv:get_size('craft_table')==9 and
+  inv:get_width('craft_table')==3,'invalid 3x3 workbench grid')
+ self.workbench=true
+ self.selectedCraft=1
+ self.open=true
+ self.message=''
+ return true
+end
 local function finite(n)
  return type(n)=='number' and n==n and n~=math.huge and n~=-math.huge
 end
@@ -29,7 +48,7 @@ function M.new(player,api)
  assert(inv:get_size('craft')==4 and inv:get_width('craft')==2,
   'demo 2x2 crafting grid required')
  return setmetatable({player=player,api=api,selected=1,
-  selectedCraft=1,message='',open=false},M)
+  selectedCraft=1,message='',open=false,workbench=false},M)
 end
 function M:main_slots()
  local inv=self.player:get_inventory()
@@ -41,16 +60,18 @@ function M:main_slots()
 end
 function M:craft_slots()
  local inv=self.player:get_inventory()
+ local list,_,count=active(self)
  local result={}
- for i=1,4 do
-  result[i]=slot_info(inv:get_stack('craft',i),self.api.registered_items,i)
+ for i=1,count do
+  result[i]=slot_info(inv:get_stack(list,i),self.api.registered_items,i)
  end
  return result
 end
 function M:preview()
  local inv=self.player:get_inventory()
+ local list,width=active(self)
  local result=self.api.get_craft_result({
-  method='normal',width=2,items=inv:get_list('craft')})
+  method='normal',width=width,items=inv:get_list(list)})
  return result.item
 end
 function M:select(index)
@@ -63,11 +84,12 @@ end
 -- Move exactly one item from the selected main slot into a 2x2 cell.
 -- All preconditions are checked before mutating either inventory list.
 function M:put(slot)
+ local list,_,count=active(self)
  if not finite(slot) or slot~=math.floor(slot) or
-  slot<1 or slot>4 then return false,'invalid craft cell' end
+  slot<1 or slot>count then return false,'invalid craft cell' end
  local inv=self.player:get_inventory()
  local source=inv:get_stack('main',self.selected)
- local target=inv:get_stack('craft',slot)
+ local target=inv:get_stack(list,slot)
  if source:is_empty() then return false,'select an item first' end
  if not target:is_empty() and not target:stackable(source) then
   return false,'craft cell contains a different item'
@@ -82,7 +104,7 @@ function M:put(slot)
   if not left:is_empty() then return false,'craft cell full' end
  end
  source:take_item(1)
- assert(inv:set_stack('craft',slot,next_target))
+ assert(inv:set_stack(list,slot,next_target))
  assert(inv:set_stack('main',self.selected,source))
  self.selectedCraft=slot
  return true,next_target
@@ -90,10 +112,11 @@ end
 -- Return one item from a crafting cell to the player's main inventory.
 -- Return may fail when main inventory is full, without losing ingredients.
 function M:take(slot)
+ local list,_,count=active(self)
  if not finite(slot) or slot~=math.floor(slot) or
-  slot<1 or slot>4 then return false,'invalid craft cell' end
+  slot<1 or slot>count then return false,'invalid craft cell' end
  local inv=self.player:get_inventory()
- local source=inv:get_stack('craft',slot)
+ local source=inv:get_stack(list,slot)
  if source:is_empty() then return false,'empty craft cell' end
  local one=source:peek_item(1)
  if not inv:room_for_item('main',one) then
@@ -102,18 +125,21 @@ function M:take(slot)
  local left=inv:add_item('main',one)
  assert(left:is_empty(),'prechecked main inventory changed')
  source:take_item(1)
- assert(inv:set_stack('craft',slot,source))
+ assert(inv:set_stack(list,slot,source))
  self.selectedCraft=slot
  return true,one
 end
 function M:craft()
+ local list=active(self)
  local ok,result=self.api.lua_engine_craft_inventory(
-  self.player:get_inventory(),'craft','main')
+  self.player:get_inventory(),list,'main')
  if not ok then return false,result end
  return true,result
 end
 function M:toggle()
  self.open=not self.open
+ self.workbench=false
+ self.selectedCraft=1
  self.message=''
  return self.open
 end
@@ -123,13 +149,14 @@ function M:layout(width,height)
  local tile=clamp(math.min((width-80)/8,(height-155)/7),34,65)
  local cx=width/2
  local top=height*.20
- local mainTop=top+3.25*tile
+ local mainTop=top+(self.workbench and 4.25 or 3.25)*tile
  local mainLeft=cx-4*tile
- local craftLeft=cx-1.75*tile
+ local craftLeft=cx-(self.workbench and 2.1 or 1.75)*tile
  return {tile=tile,center=cx,top=top,
   mainLeft=mainLeft,mainTop=mainTop,
   craftLeft=craftLeft,craftTop=top+.55*tile,
-  resultX=cx+2.0*tile,resultY=top+1.05*tile}
+  resultX=cx+(self.workbench and 2.35 or 2.0)*tile,
+  resultY=top+(self.workbench and 1.55 or 1.05)*tile}
 end
 local function inside(x,y,cx,cy,half)
  return x>=cx-half and x<=cx+half and
@@ -142,9 +169,10 @@ function M:hit(width,height,x,y)
  if inside(x,y,l.resultX,l.resultY,t*.45) then
   return 'result',1
  end
- for i=1,4 do
-  local col=(i-1)%2
-  local row=math.floor((i-1)/2)
+ local _,width,count=active(self)
+ for i=1,count do
+  local col=(i-1)%width
+  local row=math.floor((i-1)/width)
   local sx=l.craftLeft+(col+.5)*t
   local sy=l.craftTop+(row+.5)*t
   if inside(x,y,sx,sy,t*.45) then return 'craft',i end
@@ -200,7 +228,8 @@ function M:key(key)
   return ok,result
  end
  local n=tonumber(key)
- if n and n==math.floor(n) and n>=1 and n<=4 then
+ local _,_,count=active(self)
+ if n and n==math.floor(n) and n>=1 and n<=count then
   local ok,result=self:put(n)
   self.message=ok and 'Ingredient added' or result
   return ok,result
@@ -226,9 +255,13 @@ function M:draw(pass,width,height)
  pass:setColor(.08,.11,.16,.94)
  pass:plane(l.center,l.top+3.2*t,0,8.7*t,7.6*t)
  pass:setColor(1,1,1,1)
- pass:text('INVENTORY  -  E / ESC to close',
+ pass:text(self.workbench and
+  'CRAFTING TABLE  -  E / ESC to close' or
+  'INVENTORY  -  E / ESC to close',
   l.center,l.top-.45*t,.1,math.max(12,t*.24))
- pass:text('2x2 CRAFTING',l.craftLeft+t,l.top+.15*t,.1,math.max(11,t*.22))
+ local _,width,count=active(self)
+ pass:text(self.workbench and '3x3 CRAFTING' or '2x2 CRAFTING',
+  l.craftLeft+width*t/2,l.top+.15*t,.1,math.max(11,t*.22))
  local function drawslot(x,y,slot,selected)
   if selected then pass:setColor(.98,.79,.30,.98)
   else pass:setColor(.23,.29,.38,.97) end
@@ -240,9 +273,9 @@ function M:draw(pass,width,height)
    pass:text(tostring(slot.count),x,y+t*.24,.1,clamp(t*.20,10,14))
   end
  end
- for i=1,4 do
-  local x=l.craftLeft+((i-1)%2+.5)*t
-  local y=l.craftTop+(math.floor((i-1)/2)+.5)*t
+ for i=1,count do
+  local x=l.craftLeft+((i-1)%width+.5)*t
+  local y=l.craftTop+(math.floor((i-1)/width)+.5)*t
   drawslot(x,y,craft[i],i==self.selectedCraft)
  end
  drawslot(l.resultX,l.resultY,
@@ -256,7 +289,9 @@ function M:draw(pass,width,height)
  pass:setColor(1,1,1,1)
  pass:text('Click item to select; click craft cell to add 1; right-click cell returns 1',
   l.center,l.mainTop+4.25*t,.1,clamp(t*.19,10,13))
- pass:text('Click result or press C to craft; keys 1-4 add; R returns',
+ pass:text(self.workbench and
+  'Click result / C craft; 1-9 add; R returns' or
+  'Click result or press C to craft; keys 1-4 add; R returns',
   l.center,l.mainTop+4.55*t,.1,clamp(t*.19,10,13))
  if self.message~='' then
   pass:text(self.message,l.center,l.mainTop+4.85*t,.1,
