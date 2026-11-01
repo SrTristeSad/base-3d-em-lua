@@ -44,7 +44,8 @@ api.register_tool('lua:pickaxe',{description='Demo pickaxe',stack_max=1,
 -- callbacks; not part of VoxeLibre's registered game entities.
 api.register_entity('lua:demo_golem',{
  initial_properties={visual='cube',textures={'default_stone.png'},
-  visual_size={x=1,y=1},physical=true,
+  visual_size={x=1,y=1},physical=true,stepheight=.6,
+  collide_with_objects=true,
   collisionbox={-.3,-.3,-.3,.3,.3,.3},
   selectionbox={-.35,-.35,-.35,.35,.35,.35},hp_max=5,pointable=true},
  on_activate=function(self,staticdata)
