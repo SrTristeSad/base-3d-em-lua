@@ -175,6 +175,10 @@ function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_
  local oriented=Placement.param2(def,stack,player,hit,param2)
  if not api.set_node(dest,{name=stack:get_name(),param1=0,
    param2=oriented}) then return stack,nil end
+ -- Replacing a buildable_to node must never leak its former metadata.
+ -- Reset the old node's timer before callbacks can start a fresh one.
+ api.get_node_timer(dest):stop()
+ api.get_meta(dest):from_table({fields={},inventory={}})
  if def.on_construct then def.on_construct(dest) end
  local dont_take=false
  if not prevent_after_place and def.after_place_node then
