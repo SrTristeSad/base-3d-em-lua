@@ -4,6 +4,7 @@ local Runtime=require('core.runtime')
 local Storage=require('core.storage')
 local Worldgen=require('core.worldgen')
 local Renderer=require('core.renderer')
+local Physics=require('core.physics')
 local engine=Runtime.new()
 engine:installGlobals()
 local api=engine.api
@@ -29,6 +30,7 @@ local generator=Worldgen.new(engine,{seed=42})
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
 local renderer
+local character
 -- Terrain is now constructed through the Lua VoxelManip buffer.
 -- This is STILL a deliberately simple demo terrain, not Luanti mapgen.
 local function createWorld()
@@ -81,6 +83,8 @@ function lovr.load()
  if map then engine.map=map;engine.map.registry=engine.registry.items
  else createWorld() end
  renderer=Renderer.new(lovr.graphics)
+ -- Feet start below the first-person eye; gravity handles spawn settling.
+ character=Physics.new(api,{x=camera.x,y=camera.y-1.62,z=camera.z})
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
@@ -88,18 +92,17 @@ function lovr.update(dt)
  engine:step(dt)
  local down=lovr.system.isKeyDown
  local dx,dz=0,0
- local speed=down('lshift','rshift') and 12 or 6
  if down('w','up') then dx=dx+math.sin(camera.yaw);dz=dz-math.cos(camera.yaw) end
  if down('s','down') then dx=dx-math.sin(camera.yaw);dz=dz+math.cos(camera.yaw) end
  if down('a','left') then dx=dx-math.cos(camera.yaw);dz=dz-math.sin(camera.yaw) end
  if down('d','right') then dx=dx+math.cos(camera.yaw);dz=dz+math.sin(camera.yaw) end
- local len=math.sqrt(dx*dx+dz*dz)
- if len>0 then
-  camera.x=camera.x+dx/len*speed*dt
-  camera.z=camera.z+dz/len*speed*dt
- end
- if down('space') then camera.y=camera.y+speed*dt end
- if down('lctrl','rctrl') then camera.y=camera.y-speed*dt end
+ character:update(dt,{
+  x=dx,z=dz,
+  jump=down('space'),
+  sprint=down('lshift','rshift')
+ })
+ local eye=character:eye()
+ camera.x,camera.y,camera.z=eye.x,eye.y,eye.z
 end
 function lovr.mousemoved(x,y,dx,dy)
  camera.yaw=camera.y+dx*.002

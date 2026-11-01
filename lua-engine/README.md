@@ -342,3 +342,39 @@ entre caixas complexas, a equivalência entre `node_box` visível e
 `collision_box`/`selection_box`, os modelos `mesh`, as cores
 de `param2` e a execução completa do VoxeLibre pelo LÖVR.
 A compatibilidade 1:1 permanece a meta, não uma condição alcançada.
+
+### Física inicial do personagem (Fase 19)
+
+`core/physics.lua` implementa um controlador AABB em Lua puro,
+independente da renderização. A posição do personagem corresponde
+aos **pés**; `eyeheight` determina a altura da câmera. O controlador
+aplica gravidade, velocidade terminal, salto, sprint, movimento
+horizontal e subpassos físicos limitados a 50 ms.
+
+As colisões usam `core.get_node_boxes('collision_box', pos, node)`
+e consultam a geometria verdadeira dos nós: cubos, nodeboxes
+parciais, formas conectadas e orientações de `param2`.
+As distâncias percorridas por eixo são **varridas** antes da
+movimentação, evitando atravessar paredes quando o personagem
+se move rapidamente. Nós com `walkable=false` não bloqueiam
+a movimentação. Obstáculos baixos podem ser superados com
+`stepheight`, desde que haja espaço livre acima; cercas altas
+e tetos impedem subir.
+
+A demo LÖVR passa a usar WASD para caminhar, Shift para correr e
+Espaço para saltar; não usa mais câmera com voo livre. A câmera
+acompanha o personagem que cai e colide com o mundo.
+
+A regressão `tests/lua_engine_physics.lua` executa em Lua 5.4
+e LuaJIT: aterrissagem, salto, paredes, prevenção de atravessamento
+em velocidade alta, plantas/líquidos não sólidos, lajes, degraus
+altos, teto, cercas com `collision_box` próprio e `4dir`.
+A auditoria original também faz o personagem caminhar sobre
+`mcl_core:snow_2` (a primeira camada `mcl_core:snow` é
+atravessável no original) e testa a colisão de `mcl_fences:fence`.
+
+**Ainda não é a física 1:1 de Luanti:** faltam aceleração e atrito
+fieis, sneak nas bordas, escadas, nado, líquidos com arrasto,
+colisões entre entidades, movimentação em rede, dano de queda,
+escala de propriedades dos jogadores e vários efeitos de nós.
+A compilação Windows não substitui um teste visual em máquina real.

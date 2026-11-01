@@ -17,6 +17,7 @@ on:
       - 'tests/lua_engine_meshing.lua'
       - 'tests/lua_engine_nodebox.lua'
       - 'tests/lua_engine_nodebox_dynamic.lua'
+      - 'tests/lua_engine_physics.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -46,6 +47,7 @@ on:
       - 'tests/lua_engine_meshing.lua'
       - 'tests/lua_engine_nodebox.lua'
       - 'tests/lua_engine_nodebox_dynamic.lua'
+      - 'tests/lua_engine_physics.lua'
       - 'tests/lua_engine_atlas_manifest.lua'
       - 'tests/lua_engine_materials.lua'
       - 'tests/test_lua_engine_upstream_atlas.py'
@@ -99,6 +101,10 @@ jobs:
         run: lua5.4 tests/lua_engine_worldgen.lua
       - name: Same worldgen tests on LuaJIT
         run: luajit tests/lua_engine_worldgen.lua
+      - name: Character physics against real node collision boxes (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_physics.lua
+          luajit tests/lua_engine_physics.lua
       - name: Dynamic connected, leveled and wallmounted geometry (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_nodebox_dynamic.lua
