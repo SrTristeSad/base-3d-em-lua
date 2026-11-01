@@ -3,7 +3,7 @@ package.path='./lua-engine/?.lua;./lua-engine/?/init.lua;'..package.path
 local Runtime=require('core.runtime')
 local Physics=require('core.physics')
 local function p(x,y,z) return {x=x,y=y,z=z} end
-local rt=Runtime.new()
+local rt=Runtime.new({item_physics=false})
 local api=rt.api
 api.register_craftitem('test:gem',{})
 api.register_craftitem('test:filler',{})
@@ -116,7 +116,7 @@ local picked=api.item_pickup(api.ItemStack('test:gem 2'),alice,{
 assert(picked:is_empty() and inv:contains_item('main','test:gem 7'))
 
 -- When automatic pickup is disabled, the host can invoke a manual action.
-local rt2=Runtime.new({auto_pickup=false,pickup_delay=0,pickup_radius=.7})
+local rt2=Runtime.new({auto_pickup=false,item_physics=false,pickup_delay=0,pickup_radius=.7})
 local a=rt2.api
 a.register_craftitem('test:gem',{})
 local bob={name='Bob'}
@@ -133,7 +133,7 @@ assert(not pcall(rt2.pickupItemsAsPlayer,rt2,alice,.7),
 rt2:disconnectPlayer('Bob')
 
 -- Multiple connected players compete deterministically, never duplicate.
-local rt3=Runtime.new({pickup_delay=0})
+local rt3=Runtime.new({pickup_delay=0,item_physics=false})
 local a3=rt3.api
 a3.register_craftitem('test:gem',{})
 local z={name='Zed'}

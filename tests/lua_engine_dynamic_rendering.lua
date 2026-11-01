@@ -5,7 +5,7 @@ local Runtime=require('core.runtime')
 local Mesher=require('core.mesher')
 local Atlas=require('core.atlas')
 local Renderer=require('core.renderer')
-local rt=Runtime.new()
+local rt=Runtime.new({item_physics=false})
 local api=rt.api
 local function p(x,y,z)return {x=x,y=y,z=z}end
 api.register_node('test:stone',{tiles={'default_stone.png'}})

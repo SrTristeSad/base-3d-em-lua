@@ -2,10 +2,20 @@
 -- and dropped items. The host still owns rendering and object pickup.
 local Attached=require('core.attached')
 local Stack=require('core.itemstack')
+local ItemPhysics=require('core.itemphysics')
 local Falling={}
 local floor=math.floor
 local gravity=9.81
 local function copy(p) return {x=p.x,y=p.y,z=p.z} end
+local function finite(n)
+ return type(n)=='number' and n==n and
+  n~=math.huge and n~=-math.huge
+end
+local function vector(p)
+ assert(type(p)=='table' and finite(p.x) and finite(p.y) and
+  finite(p.z),'item position/velocity must be finite coordinates')
+ return copy(p)
+end
 local function integer_position(p)
  assert(type(p)=='table' and type(p.x)=='number' and
   type(p.y)=='number' and type(p.z)=='number' and
@@ -41,14 +51,19 @@ end
 -- Records drops as host-visible objects. Never serialize metadata to a
 -- lossy itemstring; ItemStack.to_string rejects metadata-bearing stacks.
 function Falling.add_item(rt,pos,item)
- assert(type(pos)=='table' and type(pos.x)=='number' and
-  type(pos.y)=='number' and type(pos.z)=='number',
-  'dropped item requires position')
+ pos=vector(pos)
  local stack=Stack.new(item,rt.registry.items)
  if stack:is_empty() then return nil end
  rt.droppedItems=rt.droppedItems or {}
- local obj={pos=copy(pos),stack=stack,removed=false,age=0}
+ local obj={pos=copy(pos),velocity={x=0,y=0,z=0},
+  stack=stack,removed=false,age=0}
  function obj:get_pos() return copy(self.pos) end
+ function obj:get_velocity() return copy(self.velocity) end
+ function obj:set_velocity(v)
+  if self.removed then return false end
+  self.velocity=vector(v)
+  return true
+ end
  function obj:get_item() return self.stack:copy() end
  function obj:set_item(itemstack)
   if self.removed then return false end
@@ -70,7 +85,8 @@ end
 function Falling.get_dropped_items(rt)
  local out={}
  for _,obj in ipairs(rt.droppedItems or {}) do
-  out[#out+1]={pos=obj:get_pos(),stack=obj:get_item(),age=obj.age}
+  out[#out+1]={pos=obj:get_pos(),velocity=obj:get_velocity(),
+   stack=obj:get_item(),age=obj.age}
  end
  return out
 end
@@ -284,6 +300,7 @@ function Falling.step(rt,dt)
  for _,obj in ipairs(rt.droppedItems or {}) do
   obj.age=obj.age+dt
  end
+ ItemPhysics.step(rt,dt)
  local pending=rt.fallingNodes or {}
  for i=#pending,1,-1 do
   local obj=pending[i]

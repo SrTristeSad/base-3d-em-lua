@@ -961,3 +961,49 @@ controle manual e disputa entre dois jogadores.
 efeitos de magnetismo/animações, áudio de coleta, redes/multiplayer
 real, persistência de entidades nem equivalência exata ao ciclo
 de `__builtin:item` do Luanti. A demo permanece experimental.
+
+
+### Fase 34 — física dos itens soltos e persistência de objetos
+
+Itens criados por `core.add_item` agora possuem `obj:get_velocity()` e
+`obj:set_velocity({x,y,z})`, além de `obj:get_pos()`. O módulo
+`core.itemphysics` integra gravidade com detecção de colisão por
+varredura de voxels nas três direções, inclusive quando o `dt` é
+grande. No chão, a velocidade vertical para e há atrito horizontal.
+Objetos permanecem distintos do terreno e do jogador: não há
+ainda colisão entre objetos, rotação visual nativa ou física detalhada
+de `node_box`. O host pode desativar a física com
+`Runtime.new({item_physics=false})`. A consulta
+`core.get_dropped_items()` agora inclui também `velocity`.
+
+O módulo `core.entitystorage` salva um arquivo lateral versionado
+`LUAENGINE OBJECTS 1` usando um serializador de dados puro:
+`EntityStorage.save(runtime,path,filesystem)` e
+`EntityStorage.load(runtime,path,filesystem)`. Nele são guardados
+itens soltos (pilhas, desgaste, metadados, idade, posição e velocidade)
+e blocos em queda (posição, velocidade, nome, `param1`, `param2`,
+inventário, metadados e temporizador). O leitor valida o documento
+inteiro **antes** de substituir objetos da sessão. Ele não executa
+código do arquivo carregado. Há limites de tamanho, contagem e valores.
+
+A demonstração LÖVR agora utiliza dois arquivos:
+`lua-engine-world.map` continua o formato do mapa estático da
+Fase 1, enquanto `lua-engine-world.objects` armazena drops e
+objetos em queda. Ambos são gravados por **F6** e ao sair e
+restaurados ao iniciar o mundo salvo. Mundos mais antigos, sem
+arquivo de objetos, continuam carregando normalmente.
+
+Os testes `tests/lua_engine_item_physics_persistence.lua` cobrem
+colisão vertical/horizontal, prevenção de atravessar o chão em
+passos grandes, estados de velocidade, snapshots independentes,
+retorno ao mundo de itens com metadados, blocos em queda com
+inventário e temporizador e rejeição de conteúdo inválido sem
+alterar a sessão. O CI executa Lua 5.4 e LuaJIT.
+
+**Limites:** este é um formato de persistência de objetos separado,
+não compatível com arquivos nativos do Luanti. O salvamento em dois
+arquivos ainda não é transacional/atômico; um erro de disco entre
+as gravações pode deixar versões diferentes. Ainda faltam
+física de objetos contra jogadores, líquidos, geometria
+detalhada de `node_box`, áudio, coleta visual animada e
+compatibilidade 1:1 com Luanti/VoxeLibre.
