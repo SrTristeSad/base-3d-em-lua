@@ -63,6 +63,14 @@ rt.api.register_on_item_eat(function() eaten=eaten+1 end)
 rt:emit('on_craft')
 rt:emit('on_item_eat')
 assert(crafted==1 and eaten==1)
+-- Liquid callbacks receive the changed-node list without inventing flow.
+local transformed
+rt.api.register_on_liquid_transformed(function(list) transformed=list end)
+local changed={{x=4,y=5,z=6}}
+rt:liquidTransformed(changed)
+assert(transformed and transformed[1].x==4 and transformed[1].y==5)
+changed[1].x=99
+assert(transformed[1].x==4,'liquid callback must receive an independent snapshot')
 local runner=Environment.new(rt)
 local split=runner.globals.string.split
 local parts=split('pickaxey,shovely,axey',',')
