@@ -555,4 +555,10 @@ function View:draw(pass,width,height)
  pass:pop('state')
  return true
 end
+function View:release()
+ if self.sprites then
+  self.sprites:release()
+  self.sprites=nil
+ end
+end
 return View
