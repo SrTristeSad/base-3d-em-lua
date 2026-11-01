@@ -38,7 +38,7 @@ function Runtime.new(options)
     on_craft={},on_item_eat={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
-  chatcommands={},privileges={},particles=Particles.new()
+  chatcommands={},privileges={},players={},particles=Particles.new()
  },Runtime)
  local api={}
  self.api=api
@@ -140,6 +140,17 @@ function Runtime.new(options)
    self.mod_storage[name]=ModStorage.new()
   end
   return self.mod_storage[name]
+ end
+ function api.get_connected_players()
+  local names={}
+  for name in pairs(self.players) do names[#names+1]=name end
+  table.sort(names)
+  local players={}
+  for _,name in ipairs(names) do players[#players+1]=self.players[name] end
+  return players
+ end
+ function api.get_player_by_name(name)
+  return self.players[name]
  end
  function api.register_chatcommand(name,def)
   assert(type(name)=='string' and name~='' and type(def)=='table',
@@ -577,6 +588,24 @@ function Runtime:loadMod(name,path)
 end
 function Runtime:finishMods()
  for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
+end
+-- Host-provided player objects only; this motor never invents a player.
+function Runtime:connectPlayer(player)
+ assert(type(player)=='table' and type(player.get_player_name)=='function',
+  'connectPlayer requires a player object')
+ local name=player:get_player_name()
+ assert(type(name)=='string' and name~='', 'invalid player name')
+ assert(not self.players[name], 'player already connected: '..name)
+ self.players[name]=player
+ self:emit('on_joinplayer',player)
+ return player
+end
+function Runtime:disconnectPlayer(name)
+ local player=self.players[name]
+ if not player then return false end
+ self:emit('on_leaveplayer',player)
+ self.players[name]=nil
+ return true
 end
 -- A punch is distinct from digging a node: do not remove the node or
 -- simulate a player.  The host passes the actual puncher when available.
