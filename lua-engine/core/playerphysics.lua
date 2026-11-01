@@ -15,7 +15,7 @@ local function validate(player,controller)
   player.get_physics_override==nil,
   'host already implements player physics overrides; refusing to replace')
 end
-function Bridge.attach(player,controller)
+function Bridge.attach(player,controller,hp_set)
  validate(player,controller)
  local detached=false
  local function check(self)
@@ -32,6 +32,7 @@ function Bridge.attach(player,controller)
   owned_inventory:set_size('main',32)
  end
  local wield_index=1
+ local hp=math.min(20,controller.hp_max or 20)
  local function inventory()
   if owned_inventory then return owned_inventory end
   local inv=player:get_inventory()
@@ -111,9 +112,26 @@ function Bridge.attach(player,controller)
   end,
   set_properties=function(self,properties)
    check(self)
-   return controller:set_properties(properties)
+   local result=controller:set_properties(properties)
+   hp=math.min(hp,controller.hp_max or 20)
+   return result
   end,
  }
+ -- Preserve native health methods. An incomplete native pair is not
+ -- replaced with a different Lua-owned HP state.
+ if player.get_hp==nil and player.set_hp==nil then
+  assert(type(hp_set)=='function','Lua HP requires a runtime dispatcher')
+  functions.get_hp=function(self)
+   check(self)
+   hp=math.min(hp,controller.hp_max or 20)
+   return hp
+  end
+  functions.set_hp=function(self,requested,reason)
+   check(self)
+   hp_set(self,hp,requested,controller.hp_max or 20,reason,
+    function(next_hp) hp=next_hp end)
+  end
+ end
  local installed={}
  -- Methods provided by a real host remain authoritative. Only supply the
  -- missing methods; do not manufacture any unrelated ObjectRef capabilities.
