@@ -40,6 +40,36 @@ api.register_tool('lua:pickaxe',{description='Demo pickaxe',stack_max=1,
  choppy={times={[1]=1,[2]=.6,[3]=.35},uses=30,maxlevel=1},
  snappy={times={[1]=.6,[2]=.35,[3]=.2},uses=30,maxlevel=1},
 }}})
+-- Demonstration-only scripted entity: independent instance state and
+-- callbacks; not part of VoxeLibre's registered game entities.
+api.register_entity('lua:demo_golem',{
+ initial_properties={visual='cube',textures={'default_stone.png'},
+  visual_size={x=1,y=1},collisionbox={-.3,-.3,-.3,.3,.3,.3},
+  selectionbox={-.35,-.35,-.35,.35,.35,.35},hp_max=5,pointable=true},
+ on_activate=function(self,staticdata)
+  self.age=tonumber(staticdata) or 0
+  self.object:set_velocity({x=.3,y=0,z=0})
+ end,
+ on_step=function(self,dt)
+  self.age=self.age+dt
+  if self.age>3 then
+   self.age=0
+   local v=self.object:get_velocity()
+   self.object:set_velocity({x=-v.x,y=0,z=0})
+  end
+ end,
+ on_punch=function(self,puncher)
+  self.object:set_hp(self.object:get_hp()-1)
+  if self.object:get_hp()<=0 then
+   local position=self.object:get_pos()
+   self.object:remove()
+   api.add_item(position,'lua:sand')
+  end
+ end,
+ on_rightclick=function(self,clicker)
+  print('demo golem greeted by',clicker:get_player_name())
+ end,
+})
 local generator=Worldgen.new(engine,{seed=42})
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
@@ -169,12 +199,17 @@ function lovr.mousepressed(x,y,button)
  local from,dir=view_ray()
  local pointed=engine:raycast(from,dir,6,{objects=true,liquids=false})
  if button==1 and pointed and pointed.type=='object' then
-  local ok,reason=engine:punchItemAlongRay(demo_player,from,dir,4)
-  if not ok then print('item interaction rejected:',reason) end
+  local ok,reason=engine:interactObjectAlongRay(
+   demo_player,from,dir,4,'punch')
+  if not ok then print('object interaction rejected:',reason) end
  elseif button==1 and pointed and pointed.type=='node' then
   local ok,reason=engine:beginDigNodeAsPlayer(demo_player,pointed.under)
   if ok then digging_target=pointed.under
   else print('dig rejected:',reason) end
+ elseif button==2 and pointed and pointed.type=='object' then
+  local ok,reason=engine:interactObjectAlongRay(
+   demo_player,from,dir,4,'rightclick')
+  if not ok then print('object interaction rejected:',reason) end
  elseif button==2 and pointed and pointed.type=='node' then
   local ok,reason=engine:placeNodeAsPlayer(demo_player,pointed.above,
    {type='node',under=pointed.under,above=pointed.above})
@@ -201,6 +236,15 @@ function lovr.keypressed(key)
   local ok,generated,writes=pcall(generator.generate,generator,cx,cz)
   if not ok then print('chunk generation failed:',generated)
   else print('chunk',cx,cz,generated and 'generated' or 'already generated',writes) end
+ elseif key=='f4' then
+  -- Spawns a visible scripted LuaEntity, whose callbacks can be triggered
+  -- by mouse. The F4 spawn location stays outside the pointed solid node.
+  local hit=target()
+  if hit then
+   local ref=api.add_entity({x=hit.x,y=hit.y+2,z=hit.z},
+    'lua:demo_golem')
+   print('scripted golem spawned',ref and ref:get_id())
+  else print('look at terrain before F4') end
  elseif key=='f11' then
   -- Visual QA: the item must escape the actual collision boxes of the
   -- pointed solid node without duplicating or deleting the drop.
