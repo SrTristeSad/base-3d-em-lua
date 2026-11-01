@@ -812,3 +812,51 @@ implementada. Faltam ainda overflow de drops como entidades,
 modo criativo em inventário/colocação, sincronização de
 cliente/servidor e outras regras do jogo completo. Não é uma
 implementação 1:1 do Luanti nem do VoxeLibre.
+
+
+### Fase 31 — física inicial de blocos que caem e nós sem apoio
+
+O runtime implementa uma versão inicial dos pontos de entrada do
+`builtin/game/falling.lua`:
+
+- `core.check_single_for_falling(pos)`: converte nós com
+  `groups.falling_node` em objetos de queda quando o bloco abaixo
+  permite atravessá-lo; detecta `attached_node` sem sustentação.
+- `core.check_for_falling(pos)`: percorre os 11 vizinhos na mesma
+  ordem básica do Luanti e reavalia nós afetados em cascata, com
+  limite de segurança para evitar propagação infinita.
+- `core.spawn_falling_node(pos)`: converte um nó existente em
+  objeto de queda, preservando `param1`, `param2`, metadados,
+  inventário e estado do temporizador.
+- `core.add_item(pos,itemstack)`: registra drops como itens do
+  runtime, sem serializar `ItemStack` com metadados para uma string
+  que perderia informação.
+
+`Runtime:step(dt)` atualiza os objetos de queda com gravidade e
+verifica cada célula vertical atravessada para não atravessar um
+bloco sólido mesmo com um `dt` grande. Ao pousar, o nó original
+é reconstruído e seus metadados/temporizador são restaurados.
+A consulta `core.get_falling_nodes()` fornece cópias do estado
+dos objetos em movimento para integração com o renderer, e
+`core.get_dropped_items()` retorna cópias dos drops registrados.
+
+A propagação de queda passa a ocorrer depois dos callbacks de
+mineração, colocação e soco, incluindo os caminhos de jogador
+`digNodeAsPlayer` e `placeNodeAsPlayer`. O acesso de baixo
+nível `set_node`, `swap_node` e `remove_node` permanece
+sem propagação automática, em conformidade com a distinção entre
+alterações brutas do mapa e eventos de interação.
+
+Teste de regressão: `tests/lua_engine_falling_nodes.lua` em
+Lua 5.4 e LuaJIT. O teste cobre perda de apoio lateral e vertical,
+drops de `attached_node` com `preserve_metadata`, atualização
+em cadeia, transporte de metadados e temporizadores durante quedas
+e colisão vertical sem atravessar o chão.
+
+**Limitações intencionais:** o runtime ainda não apresenta entidades
+3D animadas na demonstração, nem coleta automática de itens,
+colisão com jogadores/objetos, mesclagem de nós de nível
+(`leveled`) ou toda a física de líquidos. Os drops ficam
+registrados em memória no runtime para o host; ainda não têm
+persistência própria em disco. Portanto, esta fase não promete
+compatibilidade 1:1 com o Luanti nem com o VoxeLibre.
