@@ -52,6 +52,18 @@ function M.encode(player,controller,yaw,pitch)
  local state={pos=pos(controller:get_pos()),yaw=yaw,pitch=pitch,
   wield=player:get_wield_index(),size=size,items=items}
  assert(integer(state.wield,1,math.min(9,size)),'invalid saved wield slot')
+ -- Craft grid is real inventory state. Without this optional field older
+ -- saves remain valid, while unconsumed ingredients survive quitting.
+ local craft_size=inv:get_size('craft')
+ if craft_size~=0 then
+  assert(craft_size==4 and inv:get_width('craft')==2,
+   'invalid saved 2x2 crafting inventory')
+  state.craft={}
+  for i=1,4 do
+   local item=inv:get_stack('craft',i):to_table()
+   state.craft[i]=item and stack(item) or false
+  end
+ end
  local data=HEADER..Serialization.serialize(state)
  assert(#data<=MAX_BYTES,'player profile save too large')
  return data
@@ -71,6 +83,17 @@ function M.decode(data)
  clean.size=state.size
  clean.wield=state.wield
  clean.items={}
+ if state.craft~=nil then
+  assert(type(state.craft)=='table','invalid saved crafting grid')
+  clean.craft={}
+  for k in pairs(state.craft) do
+   assert(integer(k,1,4),'invalid craft grid index')
+  end
+  for i=1,4 do
+   assert(state.craft[i]~=nil,'missing craft grid item slot')
+   clean.craft[i]=stack(state.craft[i])
+  end
+ end
  for k in pairs(state.items) do
   assert(integer(k,1,state.size),'invalid persisted inventory index')
  end
@@ -95,9 +118,24 @@ function M.restore(player,controller,data)
  for i=1,state.size do
   candidates[i]=Stack.new(state.items[i],controller.api.registered_items)
  end
+ local craft_items={}
+ if state.craft then
+  for i=1,4 do
+   craft_items[i]=Stack.new(state.craft[i],
+    controller.api.registered_items)
+  end
+ end
  inv:set_size('main',state.size)
  for i=1,state.size do
   assert(inv:set_stack('main',i,candidates[i]),'failed to restore slot')
+ end
+ if state.craft then
+  inv:set_size('craft',4)
+  inv:set_width('craft',2)
+  for i=1,4 do
+   assert(inv:set_stack('craft',i,craft_items[i]),
+    'failed to restore crafting ingredient')
+  end
  end
  player:set_wield_index(state.wield)
  controller:set_pos(state.pos)
