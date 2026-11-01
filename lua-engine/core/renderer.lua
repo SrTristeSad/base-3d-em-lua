@@ -179,6 +179,34 @@ function R:draw_dynamic(pass,runtime,camera,radius)
    end
   end
  end
+ -- LuaEntity cube/wielditem fallback. This is an intentionally simple
+ -- textured geometry proxy: sprites, animated meshes, bone rigs and native
+ -- render properties still require a dedicated graphics implementation.
+ for _,obj in ipairs(runtime.api.get_active_lua_entities()) do
+  local pos=obj:get_pos()
+  local prop=obj:get_properties()
+  if pos and in_range(pos,camera,radius) and
+    (prop.visual=='cube' or prop.visual=='wielditem') and
+    prop.is_visible~=false then
+   local tile=type(prop.textures)=='table' and prop.textures[1]
+    or 'missing.png'
+   if type(tile)~='string' or tile=='' then tile='missing.png' end
+   local scale=type(prop.visual_size)=='table' and prop.visual_size.x
+    or 1
+   if type(scale)~='number' or scale<=0 or scale>16 then scale=1 end
+   local width=.65*scale
+   local key='entity:'..tile..':'..tostring(width)
+   local entry=self.dynamic_cache[key]
+   local buffer=entry and entry.buffer or nil
+   if not entry then
+    buffer=cache_mesh(self,key,Mesher.item_cube(tile,width))
+   else entry.seen=self.frame end
+   if buffer then
+    pass:mesh(buffer,pos.x,pos.y,pos.z)
+    self.dynamic_drawcalls=self.dynamic_drawcalls+1
+   end
+  end
+ end
  -- Never grow GPU buffers forever when mods introduce many transient items.
  for id,entry in pairs(self.dynamic_cache) do
   if self.frame-entry.seen>600 then
