@@ -10,6 +10,7 @@ local Voxel=require('core.voxel')
 local Particles=require('core.particles')
 local NodeDrops=require('core.nodedrops')
 local Digging=require('core.digging')
+local Placement=require('core.placement')
 local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
 local Runtime={}
@@ -610,10 +611,17 @@ function Runtime.new(options)
   return require('core.playeractions').dig(self,digger,pos,true)
  end
  function api.item_place_node(itemstack,placer,pointed_thing,param2,prevent_after_place)
-  if not placer then return api.ItemStack(itemstack),false end
+  if not placer then return api.ItemStack(itemstack),nil end
   return require('core.playeractions').default_place(self,
    itemstack,placer,pointed_thing,param2,prevent_after_place)
  end
+ function api.item_place(itemstack,placer,pointed_thing,param2)
+  return require('core.playeractions').item_place(
+   self,itemstack,placer,pointed_thing,param2)
+ end
+ api.dir_to_wallmounted=Placement.dir_to_wallmounted
+ api.dir_to_facedir=Placement.dir_to_facedir
+ api.dir_to_fourdir=Placement.dir_to_fourdir
  function api.get_node_light(pos)
   local n=api.get_node(pos)
   local d=self.registry.nodes[n.name]
