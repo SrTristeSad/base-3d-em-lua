@@ -2,6 +2,7 @@
 -- remain deliberately limited: callbacks run, velocity/acceleration integrate,
 -- but collisions, attachments and native serialization are not implemented.
 local Entities={}
+local MAX_STATICDATA=65536
 local floor,sqrt=math.floor,math.sqrt
 local function finite(n)
  return type(n)=='number' and n==n and n~=math.huge and n~=-math.huge
@@ -129,12 +130,18 @@ local function methods(rt,obj)
   for i,v in ipairs(rt.luaEntities) do
    if v==self then table.remove(rt.luaEntities,i);break end
   end
+  -- Luanti on_deactivate(self, removal): true means explicitly removed.
+  -- The ObjectRef is already invalid when the callback runs.
+  if type(self.luaentity.on_deactivate)=='function' then
+   self.luaentity:on_deactivate(true)
+  end
  end
 end
-function Entities.add(rt,pos,name,staticdata)
+function Entities.add(rt,pos,name,staticdata,restored)
  assert(type(name)=='string','entity name must be a string')
  if staticdata==nil then staticdata='' end
- assert(type(staticdata)=='string','staticdata must be a string')
+ assert(type(staticdata)=='string' and #staticdata<=MAX_STATICDATA,
+  'entity staticdata must be a string of at most 64 KiB')
  local def=rt.registry.entities[name]
  if not def then return nil end
  rt.luaEntities=rt.luaEntities or {}
@@ -161,7 +168,56 @@ function Entities.add(rt,pos,name,staticdata)
   local ok,err=pcall(instance.on_activate,instance,staticdata,0)
   if not ok then obj:remove();error(err,0) end
  end
+ -- The engine-owned motion and mutable properties are applied after
+ -- activation; script-owned state is supplied via get_staticdata.
+ if restored then
+  assert(type(restored)=='table','invalid restoration state')
+  obj:set_velocity(restored.velocity)
+  obj:set_acceleration(restored.acceleration)
+  obj:set_yaw(restored.yaw)
+  obj:set_properties(restored.properties)
+  obj:set_hp(restored.hp)
+ end
  return obj
+end
+-- LuaEntity application state must be explicitly provided by the mod.
+-- Do not serialize the entire live self table (contains methods/cycles).
+function Entities.snapshot(rt)
+ local output={}
+ for _,obj in ipairs(rt.luaEntities or {}) do
+  if active(rt,obj) then
+   local entity=obj.luaentity
+   local state=''
+   if type(entity.get_staticdata)=='function' then
+    state=entity:get_staticdata()
+    assert(type(state)=='string' and #state<=MAX_STATICDATA,
+     'get_staticdata must return a string at most 64 KiB')
+   end
+   output[#output+1]={
+    name=entity.name,pos=obj:get_pos(),
+    velocity=obj:get_velocity(),acceleration=obj:get_acceleration(),
+    yaw=obj:get_yaw(),hp=obj:get_hp(),
+    properties=obj:get_properties(),staticdata=state}
+  end
+ end
+ return output
+end
+function Entities.validate_properties(properties)
+ return props({initial_properties=properties})
+end
+-- Called when an active world is unloaded, or before replacing objects on
+-- a successful load. Unlike remove(), this passes removal=false.
+function Entities.deactivate_all(rt)
+ local old=rt.luaEntities or {}
+ rt.luaEntities={}
+ for _,obj in ipairs(old) do
+  if active(rt,obj) then
+   obj.removed=true
+   if type(obj.luaentity.on_deactivate)=='function' then
+    obj.luaentity:on_deactivate(false)
+   end
+  end
+ end
 end
 function Entities.step(rt,dt)
  assert(finite(dt) and dt>=0,'invalid Lua entity timestep')
