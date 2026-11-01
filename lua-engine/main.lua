@@ -123,6 +123,8 @@ function lovr.keypressed(key)
  end
 end
 function lovr.quit()
+ local ok,err=pcall(engine.shutdown,engine)
+ if not ok then print('shutdown callback failed:',err) end
  if lovr.filesystem then Storage.save(engine.map,savepath,lovr.filesystem) end
 end
 function lovr.draw(pass)
