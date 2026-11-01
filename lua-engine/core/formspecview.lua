@@ -391,11 +391,32 @@ function View:layout(width,height)
   local extent=s.axis=='horizontal' and s.right or s.bottom
   local size=s.axis=='horizontal' and s.w or s.h
   s.max=math.max(0,extent+s.padding-size)
-  self.scrolls[name]=clamp(self.scrolls[name] or 0,0,s.max)
+  local bar=s.bar
+  if bar then
+   -- The original C++ auto-range is enabled by content padding, not
+   -- merely by the existence of a scroll container.
+   bar.min,bar.max=Scrollbar.range(bar.options,extent,size,
+    s.has_padding and s.padding or nil,s.step)
+   self.scrollbar_values[name]=Scrollbar.clamp(
+    self.scrollbar_values[name],bar.min,bar.max)
+  else
+   self.scrolls[name]=clamp(self.scrolls[name] or 0,0,s.max)
+  end
+ end
+ for name,bar in pairs(scrollbar_defs) do
+  self.scrollbar_values[name]=Scrollbar.clamp(
+   self.scrollbar_values[name],bar.min,bar.max)
+ end
+ for _,ctl in ipairs(controls) do
+  if ctl.kind=='scrollbar' then
+   local bar=scrollbar_defs[ctl.field]
+   ctl.min,ctl.max=bar.min,bar.max
+   ctl.value=self.scrollbar_values[ctl.field]
+  end
  end
  return {controls=controls,x=left,y=top,w=fw*unit,h=fh*unit,
   unit=unit,formname=session.formname,scrolls=all_scrolls,
-  scroll_order=scroll_order}
+  scrollbars=scrollbar_defs,scroll_order=scroll_order}
 end
 -- Luanti submits currently edited fields on a button or close event.
 -- User-authored values are kept only for the currently active formspec.
@@ -415,6 +436,11 @@ function View:form_values()
    local field=p[2]
    if field and field~='' and self.values[field]~=nil then
     fields[field]=self.values[field]
+   end
+  elseif e.name=='scrollbar' then
+   local field=p[4]
+   if field and field~='' and self.scrollbar_values[field]~=nil then
+    fields[field]=Scrollbar.event(self.scrollbar_values[field],false)
    end
   elseif e.name=='dropdown' then
    local field=p[3]
