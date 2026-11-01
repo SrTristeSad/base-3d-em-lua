@@ -1,68 +1,111 @@
--- Item entity motion. Axis-aligned swept voxel checks prevent tunneling
--- through full solid nodes, even with large delta times. This remains a
--- subset of Luanti's physics: no moving objects/player collision or liquid
--- buoyancy, and nodeboxes use their enclosing map cell.
+-- Swept AABB item physics against the SAME collision boxes as the player
+-- controller. Handles oriented, connected, leveled and wall-mounted nodeboxes.
+-- Water introduces damping and lower effective gravity; this is an explicit
+-- engine approximation, NOT a port of native Luanti liquid ObjectRef physics.
+local Nodebox=require('core.nodebox')
 local Physics={}
-local floor=math.floor
-local abs=math.abs
+local floor,min,max,abs,exp=math.floor,math.min,math.max,math.abs,math.exp
 local HALF=.16
 local GRAVITY=9.81
 local DRAG=4
+local EPS=1e-8
+local min_world,max_world=-30999,30999
 local function finite(n)
  return type(n)=='number' and n==n and n~=math.huge and n~=-math.huge
 end
-local function node_blocks(rt,x,y,z)
- if abs(x)>31000 or abs(y)>31000 or abs(z)>31000 then return true end
- local node=rt.map:get_node({x=x,y=y,z=z})
- local def=rt.registry.nodes[node.name]
- if not def then return true end
- return def.walkable~=false and not def.buildable_to
+local indexes={x={1,4},y={2,5},z={3,6}}
+local other_axes={x={'y','z'},y={'x','z'},z={'x','y'}}
+local function intersect(a0,a1,b0,b1)
+ return a0 < b1-EPS and b0 < a1-EPS
 end
-local function axis_collision(rt,pos,axis,index,direction)
- local a,b
- if axis=='x' then a,b='y','z'
- elseif axis=='y' then a,b='x','z'
- else a,b='x','y' end
- local loA,hiA=floor(pos[a]-HALF+.5),floor(pos[a]+HALF+.5)
- local loB,hiB=floor(pos[b]-HALF+.5),floor(pos[b]+HALF+.5)
- for v=loA,hiA do
-  for w=loB,hiB do
-   local x,y,z
-   if axis=='x' then x,y,z=index,v,w
-   elseif axis=='y' then x,y,z=v,index,w
-   else x,y,z=v,w,index end
-   if node_blocks(rt,x,y,z) then return true end
+local function solid_boxes(rt,x,y,z)
+ if abs(x)>31000 or abs(y)>31000 or abs(z)>31000 then
+  return {{-.5,-.5,-.5,.5,.5,.5}}
+ end
+ local p={x=x,y=y,z=z}
+ local node=rt.map:get_node(p)
+ local def=rt.registry.nodes[node.name]
+ if not def then return {{-.5,-.5,-.5,.5,.5,.5}} end
+ if def.walkable==false or def.buildable_to then return nil end
+ -- get_node_boxes resolves rotation, connected neighbors and leveled height
+ -- in pure Lua. Empty boxes must not become an unintended solid cube.
+ return Nodebox.boxes(def,node,rt.map,p,rt.registry.nodes,'collision_box')
+end
+local function sweep(rt,pos,axis,delta)
+ if delta==0 then return false,nil end
+ local current=pos[axis]
+ local target=max(min_world,min(max_world,current+delta))
+ local positive=target>current
+ if current==target then return false,nil end
+ local aa,bb=other_axes[axis][1],other_axes[axis][2]
+ local i=indexes[axis]
+ local j,k=indexes[aa],indexes[bb]
+ -- Luanti nodeboxes can protrude 1.45 nodes outside their own cell.
+ -- The broadphase includes a two-node halo so thin fence arms and panels
+ -- protruding from adjacent nodes are never missed by a long movement.
+ local range={}
+ for _,coord in ipairs({'x','y','z'}) do
+  local start,finish
+  if coord==axis then
+   start=min(current,target)-HALF
+   finish=max(current,target)+HALF
+  else
+   start=pos[coord]-HALF
+   finish=pos[coord]+HALF
+  end
+  range[coord]={max(-31000,floor(start-2)),
+   min(31000,floor(finish+2))}
+ end
+ local contact=nil
+ local hit_node=nil
+ for x=range.x[1],range.x[2] do
+  for y=range.y[1],range.y[2] do
+   for z=range.z[1],range.z[2] do
+    local center={x=x,y=y,z=z}
+    local boxes=solid_boxes(rt,x,y,z)
+    if boxes then
+     for _,b in ipairs(boxes) do
+      if intersect(pos[aa]-HALF,pos[aa]+HALF,
+        center[aa]+b[j[1]],center[aa]+b[j[2]]) and
+       intersect(pos[bb]-HALF,pos[bb]+HALF,
+        center[bb]+b[k[1]],center[bb]+b[k[2]]) then
+       local boundary=positive and
+        (center[axis]+b[i[1]]-HALF) or
+        (center[axis]+b[i[2]]+HALF)
+       local crosses=positive and
+        (current<=boundary+EPS and target>=boundary-EPS) or
+        (current>=boundary-EPS and target<=boundary+EPS)
+       if crosses and (contact==nil or
+         (positive and boundary<contact) or
+         (not positive and boundary>contact)) then
+        contact=boundary
+        hit_node=rt.registry.nodes[rt.map:get_node(center).name]
+       end
+      end
+     end
+    end
+   end
   end
  end
- return false
-end
--- Sweeps the front face of a small AABB through every crossed voxel.
-local function sweep(rt,pos,axis,delta)
- if delta==0 then return false end
- local current=pos[axis]
- local target=math.max(-30999,math.min(30999,current+delta))
- local direction=target>current and 1 or -1
- local front=current+direction*HALF
- local nextfront=target+direction*HALF
- local start=floor(front+.5)
- local finish=floor(nextfront+.5)
- if direction==1 then
-  for cell=start+1,finish do
-   if axis_collision(rt,pos,axis,cell,direction) then
-    pos[axis]=cell-.5-HALF
-    return true
-   end
-  end
- else
-  for cell=start-1,finish,-1 do
-   if axis_collision(rt,pos,axis,cell,direction) then
-    pos[axis]=cell+.5+HALF
-    return true
-   end
-  end
+ if contact~=nil then
+  pos[axis]=contact
+  return true,hit_node
  end
  pos[axis]=target
- return false
+ return false,nil
+end
+local function in_liquid(rt,pos)
+ local p={x=floor(pos.x+.5),y=floor(pos.y+.5),
+  z=floor(pos.z+.5)}
+ local n=rt.map:get_node(p)
+ local def=rt.registry.nodes[n.name]
+ return def and def.liquidtype and def.liquidtype~='none'
+end
+local function damping(rt,dt)
+ local rate=rt.opts.item_liquid_drag
+ if rate==nil then rate=3 end
+ assert(finite(rate) and rate>=0,'invalid item liquid drag')
+ return exp(-rate*dt)
 end
 function Physics.step(rt,dt)
  assert(finite(dt) and dt>=0,'item physics timestep must be finite')
@@ -72,22 +115,31 @@ function Physics.step(rt,dt)
  for _,item in ipairs(rt.droppedItems or {}) do
   local v=item.velocity
   if v then
-   -- Motion is integrated before pickup; the rendered position and
-   -- interaction target always refer to the same physical object.
-   local dy=v.y*dt-.5*g*dt*dt
+   local wet=in_liquid(rt,item.pos)
+   local effective_g=g
+   if wet then
+    local k=damping(rt,dt)
+    v.x,v.y,v.z=v.x*k,v.y*k,v.z*k
+    -- Approximate submerged resistance while retaining downward gravity.
+    effective_g=g*.25
+   end
+   local dy=v.y*dt-.5*effective_g*dt*dt
    local dx,dz=v.x*dt,v.z*dt
    if sweep(rt,item.pos,'x',dx) then v.x=0 end
    if sweep(rt,item.pos,'z',dz) then v.z=0 end
-   local grounded=sweep(rt,item.pos,'y',dy)
+   local grounded,grounddef=sweep(rt,item.pos,'y',dy)
    if grounded then
     v.y=0
-    -- Friction only when resting against walkable ground.
-    local attenuation=math.exp(-DRAG*dt)
+    local slipperiness=tonumber(grounddef and
+     (grounddef.groups or {}).slippery) or 0
+    if slipperiness<0 then slipperiness=0 end
+    local friction=DRAG/(slipperiness+4)*4
+    local attenuation=exp(-friction*dt)
     v.x,v.z=v.x*attenuation,v.z*attenuation
     if abs(v.x)<.005 then v.x=0 end
     if abs(v.z)<.005 then v.z=0 end
    else
-    v.y=v.y-g*dt
+    v.y=v.y-effective_g*dt
    end
   end
  end
