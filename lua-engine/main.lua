@@ -28,6 +28,8 @@ api.register_node('lua:ladder',{description='Ladder (experimental)',drawtype='pl
 api.register_node('lua:flower',{description='Flower',drawtype='plantlike',
  tiles={'flowers_dandelion_yellow.png'},walkable=false})
 api.register_node('lua:coal_ore',{tiles={'mcl_core_coal_ore.png'},description='Coal Ore',groups={cracky=2}})
+api.register_tool('lua:pickaxe',{description='Demo pickaxe',stack_max=1,
+ tool_capabilities={groupcaps={cracky={times={[1]=2,[2]=3,[3]=5},uses=30,maxlevel=1}}}})
 local generator=Worldgen.new(engine,{seed=42})
 local camera={x=0,y=5,z=11,yaw=0,pitch=0}
 local savepath='lua-engine-world.map'
@@ -96,6 +98,12 @@ function lovr.load()
  -- Feet start below the first-person eye; gravity handles spawn settling.
  character=Physics.new(api,{x=camera.x,y=camera.y-1.62,z=camera.z},
   {profile='luanti'})
+ -- A real local session must be connected before physics input or node
+ -- interactions; previous demos had no connectPlayer call at startup.
+ engine:connectPlayer(demo_player,character)
+ local inv=demo_player:get_inventory()
+ inv:set_stack('main',1,'lua:stone 64')
+ inv:set_stack('main',2,'lua:pickaxe')
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
@@ -128,14 +136,23 @@ function lovr.mousemoved(x,y,dx,dy)
 end
 function lovr.mousepressed(x,y,button)
  local hit,previous=target()
- if button==1 and hit then api.dig_node(hit)
- elseif button==2 and previous and
-   api.get_node(previous).name=='air' then
-  api.place_node(previous,{name='lua:stone'})
+ if button==1 and hit then
+  local ok,reason=engine:digNodeAsPlayer(demo_player,hit)
+  if not ok then print('dig rejected:',reason) end
+ elseif button==2 and previous then
+  local ok,reason=engine:placeNodeAsPlayer(demo_player,previous)
+  if not ok then print('place rejected:',reason) end
  end
 end
 function lovr.keypressed(key)
- if key=='f7' then
+ -- Number keys select the actual player's wielded slot.
+ local hotbar=tonumber(key)
+ if hotbar and hotbar>=1 and hotbar<=9 and
+  hotbar==math.floor(hotbar) then
+  demo_player:set_wield_index(hotbar)
+  local stack=demo_player:get_wielded_item()
+  print('selected slot',hotbar,stack:get_name(),stack:get_count())
+ elseif key=='f7' then
   local cx=math.floor(camera.x/16)
   local cz=math.floor(camera.z/16)
   local ok,generated,writes=pcall(generator.generate,generator,cx,cz)
