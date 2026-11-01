@@ -23,6 +23,8 @@ CASES = {
     "node_wide_linear",
     "node_dense_adaptive",
     "node_dense_linear",
+    "node_mixed_cached",
+    "node_mixed_linear",
 }
 FIELDS = {
     "name", "entities", "iterations", "unit", "cpu_seconds_median",
@@ -93,6 +95,13 @@ def validate(path: Path):
         assert a["iterations"] == b["iterations"]
         assert a["checksum"] == b["checksum"], (
             path, n, "adaptive dense scan differs from original geometry"
+        )
+    for n in expected_sizes:
+        a = seen[("node_mixed_cached", n)]
+        b = seen[("node_mixed_linear", n)]
+        assert a["iterations"] == b["iterations"]
+        assert a["checksum"] == b["checksum"], (
+            path, n, "mixed terrain collision boxes diverged from raw geometry"
         )
     print(
         f"VALID BENCHMARK {path}: {data['runtime']}, "
