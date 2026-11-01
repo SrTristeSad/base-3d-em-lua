@@ -26,6 +26,7 @@ assert(v0>row/46 and v1<(row+1)/46)
 assert(atlas.index('default_dirt.png^mcl_dirt_grass_shadow.png')==9)
 -- A malformed packaged index must fail loudly; never show unrelated textures.
 package.loaded['core.atlas']=nil
+package.loaded['core.atlas_manifest']=nil
 package.preload['core.atlas_manifest']=function()
  return {columns=64,tiles={'wrong.png'}}
 end
