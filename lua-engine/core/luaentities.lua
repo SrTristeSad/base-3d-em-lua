@@ -2,6 +2,7 @@
 -- remain deliberately limited: callbacks run, velocity/acceleration integrate,
 -- but entity-to-entity collisions, attachments and native serialization are not implemented.
 local EntityPhysics=require('core.entityphysics')
+local CollisionEvents=require('core.collisionevents')
 local Entities={}
 local MAX_STATICDATA=65536
 local floor,sqrt=math.floor,math.sqrt
@@ -301,19 +302,27 @@ function Entities.step(rt,dt)
   end
   return
  end
- local elapsed=dt/slices
+ local boundaries=CollisionEvents.schedule(snapshot,dt,slices)
  local results={}
  for _,obj in ipairs(snapshot) do
   if active(rt,obj) then
    results[obj]={touching_ground=false,collides=false,collisions={}}
   end
  end
- for _=1,slices do
+ local last=0
+ for _,boundary in ipairs(boundaries) do
+  local elapsed=dt*(boundary-last)
+  last=boundary
   for _,obj in ipairs(snapshot) do
    if active(rt,obj) then
     combine(results[obj],EntityPhysics.move(rt,obj,elapsed))
    end
   end
+  -- Distinct entities may finish their continuous swept motion against
+  -- the SAME face in a substep, exactly at the impact time. The ordinary
+  -- solver reports strict blocking before a face; this phase also reports
+  -- and stops a head-on pair at the exact shared face.
+  CollisionEvents.resolve(snapshot,results)
  end
  -- Preserve the Luanti lifecycle: exactly one on_step callback per
  -- Runtime:step, with the original dt rather than a microstep interval.
