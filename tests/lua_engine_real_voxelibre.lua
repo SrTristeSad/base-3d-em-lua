@@ -266,6 +266,45 @@ assert(g.vl_tuning.registered_settings['gamerule:keepInventory'])
 assert(rt.chatcommands.gamerule and rt.chatcommands.settings)
 assert(rt.api.get_modpath('mcl_colors')==root..'/mods/CORE/mcl_colors')
 assert(rt.mod_storage.vl_tuning,'mod storage not attached to source mod')
+-- An ORIGINAL VoxeLibre mod acquired this private StorageRef during its
+-- actual init.lua execution. Persist it per world and verify that a fresh
+-- runtime exposes the saved fields before any game mods initialize.
+local ModStorage=require('core.modstorage')
+local tuning_storage=rt.mod_storage.vl_tuning
+tuning_storage:set_string('__lua_engine_persistence_probe',
+ 'loaded by original VoxeLibre mod')
+local world_mod_data=ModStorage.encode(rt.mod_storage)
+local world_fs={
+ read=function(path)
+  if path=='worlds/voxelibre/mod_storage.dat' then
+   return world_mod_data
+  end
+ end,
+ write=function(path,data)
+  if path=='worlds/voxelibre/mod_storage.dat' then
+   world_mod_data=data
+   return true
+  end
+  return false,'wrong world path'
+ end
+}
+local new_world=Engine.new({
+ mod_storage_path='worlds/voxelibre/mod_storage.dat',
+ mod_storage_fs=world_fs
+})
+assert(new_world.mod_storage.vl_tuning and
+ new_world.mod_storage.vl_tuning:get_string(
+  '__lua_engine_persistence_probe')=='loaded by original VoxeLibre mod',
+ 'original VoxeLibre vl_tuning StorageRef must survive world restart')
+assert(new_world.mod_storage.vl_tuning~=
+ tuning_storage,'different runtime must use independent StorageRef')
+new_world.current_mod='vl_tuning'
+assert(new_world.api.get_mod_storage()==new_world.mod_storage.vl_tuning)
+new_world.current_mod=nil
+assert(new_world:shutdown(),'world mod metadata should save after callbacks')
+assert(ModStorage.decode(world_mod_data).vl_tuning
+ .__lua_engine_persistence_probe=='loaded by original VoxeLibre mod')
+
 assert(#rt.callbacks.on_dieplayer>=2,
  'original death-drop callback must be registered')
 assert(#rt.callbacks.on_joinplayer>=1)
