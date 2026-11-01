@@ -22,6 +22,7 @@ local paths={
  mcl_death_drop='mods/PLAYER/mcl_death_drop',
  mcl_experience='mods/HUD/mcl_experience',
  mcl_enchanting='mods/ITEMS/mcl_enchanting',
+ mcl_core='mods/ITEMS/mcl_core',
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
  mcl_util='mods/CORE/mcl_util',
@@ -189,12 +190,12 @@ for _ in pairs(rt.chatcommands) do count=count+1 end
 print(('VOXELIBRE REAL MODS PASS: %d modules, %d source files, %d registered commands')
  :format(#results,runner.read_count,count))
 
--- Diagnostic only: try the real mcl_core source without disguising missing
--- gameplay dependencies. A partial failure must not count as a loaded mod.
-local path_core=root..'/mods/ITEMS/mcl_core'
-rt.opts.modpaths.mcl_core=path_core
-local core_ok,core_error=pcall(rt.loadMod,rt,'mcl_core',path_core)
-assert(rt.current_mod==nil,'mod context leaked after probe')
+-- The original mcl_core is now loaded in the normal dependency-ordered
+-- mod pass, BEFORE on_mods_loaded. Do not reexecute its init script here.
+local core_ok,core_error=true,nil
+assert(rt.current_mod==nil,'mod context leaked after real mod boot')
+assert(type(g.mcl_enchanting.enchantments.sharpness)=='table',
+ 'original enchantments must be registered alongside mcl_core')
 local core_nodes={}
 for name in pairs(rt.api.registered_nodes) do
  if name:sub(1,9)=='mcl_core:' then core_nodes[#core_nodes+1]=name end
@@ -216,7 +217,7 @@ if stone then
  assert(rt.api.get_node({x=8,y=2,z=3}).name=='mcl_core:stone',
   'real mcl_core stone must be placeable in the Lua map')
 end
-print(('MCL_CORE PROBE: %d original nodes registered; stone=%s; error=%s')
+print(('MCL_CORE BOOT: %d original nodes registered; stone=%s; error=%s')
  :format(#core_nodes,tostring(stone~=nil),tostring(core_error):sub(1,180)))
 local report={
  '# VoxeLibre real Lua mod boot — Fase 13','',
@@ -241,7 +242,7 @@ local report={
  '- Original mcl_worlds dimension coordinate conversion verified.',
  '- The actual player GUI and visual particle renderer are not implemented.',
  '',
- '## mcl_core original source probe', '',
+ '## mcl_core dependency-ordered original source boot', '',
  ('- Init source execution: **%s**'):format(core_ok and
   'returned (not a verified game)' or 'blocked'),
  ('- First issue: %s'):format(tostring(core_error or
@@ -250,8 +251,8 @@ local report={
  ('- Real mcl_core nodes registered before failure: **%d**'):format(#core_nodes),
  ('- Original stone registered and its drops evaluated: **%s**')
   :format(tostring(stone~=nil)),
- '- The original doc and doc_items source is included in the loaded module count.',
- '- This is a diagnostic; mcl_core is not counted as a loaded module.',
+ '- The original doc, doc_items and mcl_core sources are included in the loaded module count.',
+ '- mcl_core Lua initialization is not proof of a playable or 1:1 game.',
  '- The original files remain unchanged.',
  '',
  '## Pending', '',
