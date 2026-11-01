@@ -190,7 +190,7 @@ function Ray.iterator(rt,from,to,objects,liquids)
   'raycast endpoint distance must be at most 64')
  if distance==0 then return function() return nil end end
  local hits=trace(rt,from,unit(delta),distance,
-  objects==true,liquids==true)
+  objects~=false,liquids==true)
  local index=0
  return function()
   index=index+1
