@@ -91,7 +91,8 @@ function lovr.load()
  else createWorld() end
  renderer=Renderer.new(lovr.graphics)
  -- Feet start below the first-person eye; gravity handles spawn settling.
- character=Physics.new(api,{x=camera.x,y=camera.y-1.62,z=camera.z})
+ character=Physics.new(api,{x=camera.x,y=camera.y-1.62,z=camera.z},
+  {profile='luanti'})
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)

@@ -442,3 +442,39 @@ incluindo pendurar-se nas bordas, colisão exata com
 faces irregulares, animação corporal e movimentação em rede.
 Os números da física são provisórios, não calibrados
 como a física 1:1 do Luanti.
+
+### Propriedades físicas e contato com nodeboxes (Fase 22)
+
+O controlador `core/physics.lua` oferece agora o perfil
+`Physics.new(api, pos, {profile='luanti'})`, com valores-base de
+movimento documentados pelo Luanti: caminhada 4 nós/s,
+agachamento 1,35 nós/s, velocidade fast 20 nós/s,
+salto inicial 6,5 nós/s, gravidade 9,81 nós/s²,
+aceleração no solo 3 nós/s² e aceleração aérea 2 nós/s².
+A demo LÖVR usa esse perfil. A opção sem `profile` conserva
+os valores de testes e demonstrações anteriores.
+
+O controlador também implementa os métodos
+`set_physics_override(override)` e `get_physics_override()`.
+Os campos numéricos de velocidade, salto, gravidade,
+aceleração e líquidos usam **multiplicadores por personagem**,
+enquanto `sneak`, `sneak_glitch` e `new_move` são campos
+booleanos. Atualizações parciais preservam os campos omitidos,
+são validadas antes da aplicação e a consulta retorna uma cópia.
+A definição `sneak=false` desativa a proteção de bordas.
+
+O reconhecimento de material sob os pés usa agora as
+`collision_box` de suporte, incluindo nodeboxes parciais e
+objetos que ocupam uma fração da célula. A aderência ao piso é
+selecionada pela interseção do corpo com a superfície real
+de colisão, e não pela simples consulta ao centro do nó
+arredondado. Assim o grupo `slippery` pode afetar o jogador
+mesmo sobre lajes ou placas estreitas.
+
+**Limites atuais:** a interface de overrides pertence ao controlador
+local de física, ainda não aos `ObjectRef` de todos os módulos
+originais. As equações de frenagem, nado, escalada e detecção
+do suporte ainda são aproximações do motor Luanti, e velocidade
+fast não inclui a verificação de privilégio original. O teste
+automatizado não substitui a execução visual em Windows.
+A paridade 1:1 permanece a meta.
