@@ -106,3 +106,13 @@ A demonstração gráfica precisa de hardware Vulkan e teste manual.
 O VoxeLibre integral continua disponível em `games/voxelibre/`
 através de submódulo Git. **Não removemos o pacote funcional
 Luanti + VoxeLibre** enquanto o novo motor não executar esse jogo.
+
+### Primeiro conjunto real de blocos VoxeLibre (Fase 9)
+
+O teste de integração carrega parcialmente `mcl_core/init.lua`
+original e exige pelo menos nove definições reais, incluindo
+`mcl_core:stone` e o minério de ferro. Valida os drops da pedra
+(`mcl_core:cobble`) e do minério (`mcl_raw_ores:raw_iron`), seus
+IDs e colocação no mapa. A execução ainda é interrompida por uma
+referência ao módulo de documentação `doc_items`, que requer sua
+própria cadeia de carregamento. **Não inicia o jogo completo.**

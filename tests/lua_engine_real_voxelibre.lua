@@ -149,12 +149,20 @@ for name in pairs(rt.api.registered_nodes) do
 end
 table.sort(core_nodes)
 local stone=rt.api.registered_nodes['mcl_core:stone']
+assert(#core_nodes>=9,
+ 'regression: initial nine real mcl_core nodes must register before doc blocker')
+assert(stone,'upstream mcl_core:stone definition not registered')
 if stone then
  assert(stone.description=='Stone')
  assert(stone.groups.pickaxey==1)
  assert(rt.api.get_node_drops('mcl_core:stone')[1]=='mcl_core:cobble')
  assert(rt.api.get_node_drops('mcl_core:stone_with_iron')[1]==
   'mcl_raw_ores:raw_iron')
+ assert(rt.api.get_content_id('mcl_core:stone')~=rt.api.CONTENT_IGNORE,
+  'real stone content ID must be available to VoxelManip')
+ rt.api.set_node({x=8,y=2,z=3},{name='mcl_core:stone'})
+ assert(rt.api.get_node({x=8,y=2,z=3}).name=='mcl_core:stone',
+  'real mcl_core stone must be placeable in the Lua map')
 end
 print(('MCL_CORE PROBE: %d original nodes registered; stone=%s; error=%s')
  :format(#core_nodes,tostring(stone~=nil),tostring(core_error):sub(1,180)))

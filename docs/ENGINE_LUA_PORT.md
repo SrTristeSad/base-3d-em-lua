@@ -215,3 +215,13 @@ Luanti (LCG 32-bit, com divisão assinada), com vetores determinísticos
 para várias sementes e testes em Lua 5.4/LuaJIT. O número de nós
 originais registrados após o porte é relatado pela CI, **sem contar
 carregamento parcial como sucesso integral do módulo**.
+
+**Resultado confirmado na CI da Fase 9:** o `mcl_core/init.lua` real
+executa `functions.lua` até o final e inicia `nodes_base.lua`.
+Registra pelo menos **9 nós originais**, inclusive `mcl_core:stone` e
+`mcl_core:stone_with_iron`. Foram testados os drops originais e o
+registro de IDs e colocação no mapa do protótipo. O carregamento para
+no arquivo `nodes_base.lua:235` porque usa
+`doc.sub.items.temp.build` do módulo upstream `doc_items`, ainda não
+carregado neste ambiente. **mcl_core segue incompleto e não deve ser
+considerado um dos módulos integrados.**
