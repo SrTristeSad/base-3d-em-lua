@@ -141,6 +141,19 @@ local function trace(rt,origin,dir,distance,objects,liquids)
     end
    end
   end
+  for _,obj in ipairs(rt.luaEntities or {}) do
+   if not obj.removed and obj.properties.pointable~=false then
+    local pos=obj:get_pos()
+    local box=obj.properties.selectionbox
+    local lo,hi=center_box(pos,box)
+    local d=intersect(origin,dir,lo,hi,distance)
+    if d then
+     hits[#hits+1]={type='object',ref=obj,distance=d,
+      intersection_point={x=origin.x+d*dir.x,
+       y=origin.y+d*dir.y,z=origin.z+d*dir.z}}
+    end
+   end
+  end
   for _,obj in ipairs(rt.fallingNodes or {}) do
    local pos=obj.pos
    local lo,hi=center_box(pos,{-.5,-.5,-.5,.5,.5,.5})
