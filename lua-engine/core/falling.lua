@@ -151,7 +151,7 @@ end
 -- raw set_node/remove_node do not implicitly trigger this lifecycle.
 function Falling.check(rt,where)
  local center=integer_position(where)
- local work={},pending={},head=1
+ local work,pending,head={},{},1
  local function enqueue(pos)
   if not accessible(pos) then return end
   local k=key(pos)
