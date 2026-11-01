@@ -20,8 +20,9 @@ local rt=Engine.new({settings={},mapgen={seed=42,mg_name='v7'},
 local fired=0
 rt.api.register_on_shutdown(function() fired=fired+1 end)
 assert(#rt.callbacks.shutdown==1)
-rt:emit('shutdown')
-assert(fired==1,'shutdown event must fire registered callbacks')
+assert(rt:shutdown()==true)
+assert(rt:shutdown()==false)
+assert(fired==1,'shutdown callbacks must execute exactly once')
 rt.api.register_privilege('test:example',{
  description='Example privilege',give_to_singleplayer=false})
 assert(rt.api.registered_privileges['test:example'].description=='Example privilege')
