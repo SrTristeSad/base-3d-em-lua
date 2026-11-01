@@ -61,8 +61,8 @@ function Actions.dig(rt,player,where,default_only)
   if result==false then return false,'custom_dig_rejected' end
   return true,'custom_handled'
  end
- local tool=player:get_wielded_item():get_name()
- local drops=api.get_node_drops(old.name,tool)
+ local wield=player:get_wielded_item()
+ local drops=api.get_node_drops(old.name,wield:get_name())
  if not drops_fit(inventory,drops,rt.registry.items) then
   return false,'inventory_full'
  end
@@ -82,6 +82,30 @@ function Actions.dig(rt,player,where,default_only)
  end
  for _,callback in ipairs(rt.callbacks.on_dignode) do
   callback(pos,old,player)
+ end
+ -- The builtin node_dig path owns tool wear. A custom on_dig that calls
+ -- core.node_dig reaches this path once; staged digging must not wear twice.
+ -- Keep inventory changes made by callbacks instead of overwriting them.
+ if not wield:is_empty() then
+  local before=player:get_wielded_item()
+  if before:equals(wield) then
+   local params=Digging.params(def,wield)
+   local tooldef=rt.registry.items[wield:get_name()]
+   if tooldef and type(tooldef.after_use)=='function' then
+    local mutated=wield:copy()
+    local returned=tooldef.after_use(mutated,player,old,params) or mutated
+    if player:get_wielded_item():equals(wield) then
+     assert(player:set_wielded_item(Stack.new(returned,rt.registry.items)),
+      'failed to commit custom after_use stack')
+    end
+   elseif params.wear>0 then
+    local updated=wield:copy()
+    local wear=updated:get_wear()+params.wear
+    if wear>=65536 then updated:clear()
+    else updated:set_wear(wear) end
+    assert(player:set_wielded_item(updated),'failed to apply tool wear')
+   end
+  end
  end
  return true,drops
 end
@@ -117,12 +141,18 @@ function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_
  local _,name=player_inventory(rt,player)
  assert(type(pointed)=='table' and pointed.type=='node',
   'item_place_node requires a pointed node')
- local dest=position(pointed.above)
- local hit=pointed_for(dest,pointed)
+ local above=position(pointed.above)
+ local hit=pointed_for(above,pointed)
  local stack=Stack.new(itemstack,rt.registry.items)
  local def=rt.registry.nodes[stack:get_name()]
  if not def or stack:is_empty() then return stack,false end
  local api=rt.api
+ local under=api.get_node(hit.under)
+ local underdef=rt.registry.nodes[under.name]
+ -- Luanti replaces the pointed node itself when it is buildable_to
+ -- (snow/grass), instead of always placing at pointed_thing.above.
+ local dest=(under.name~='air' and underdef and underdef.buildable_to)
+  and hit.under or above
  if api.is_protected(dest,name) then return stack,false end
  local old=api.get_node(dest)
  local olddef=rt.registry.nodes[old.name]
@@ -136,10 +166,12 @@ function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_
  if not prevent_after_place and def.after_place_node then
   dont_take=def.after_place_node(dest,player,stack:copy(),hit)==true
  end
- if not dont_take then stack:take_item(1) end
  for _,callback in ipairs(rt.callbacks.on_placenode) do
-  callback(dest,api.get_node(dest),player,old,stack:copy(),hit)
+  if callback(dest,api.get_node(dest),player,old,stack:copy(),hit) then
+   dont_take=true
+  end
  end
+ if not dont_take then stack:take_item(1) end
  return stack,true
 end
 function Actions.place(rt,player,where,pointed)
@@ -155,7 +187,9 @@ function Actions.place(rt,player,where,pointed)
  -- item's on_place, just as Luanti's default item_place does.
  local undernode=api.get_node(hit.under)
  local underdef=rt.registry.nodes[undernode.name]
- if underdef and underdef.on_rightclick then
+ local controls=type(player.get_player_control)=='function'
+  and player:get_player_control() or {}
+ if underdef and underdef.on_rightclick and not controls.sneak then
   if api.is_protected(hit.under,name) then return false,'protected' end
   local outcome=underdef.on_rightclick(hit.under,undernode,
    player,wield:copy(),hit)
@@ -210,8 +244,7 @@ function Actions.begin(rt,player,where)
  local params=Digging.params(def,tool,rt.registry)
  if not params.diggable then return false,params.reason end
  sessions(rt)[name]={
-  pos=pos,node=node,tool=tool,elapsed=0,time=params.time,
-  wear=params.wear
+  pos=pos,node=node,tool=tool,elapsed=0,time=params.time
  }
  return true,params.time
 end
@@ -241,17 +274,7 @@ function Actions.advance(rt,player,dt)
  sessions(rt)[name]=nil
  local ok,drops=Actions.dig(rt,player,current.pos)
  if not ok then return false,drops end
- if current.wear>0 then
-  -- Only registered tools receive wear.  Clear the stack at 65535.
-  local remaining=player:get_wielded_item()
-  if remaining:equals(current.tool) then
-   local wear=remaining:get_wear()+current.wear
-   if wear>=65535 then remaining:clear()
-   else remaining:set_wear(wear) end
-   assert(player:set_wielded_item(remaining),
-    'wield slot changed while applying wear')
-  end
- end
+
  return true,drops,1
 end
 function Actions.progress(rt,player)

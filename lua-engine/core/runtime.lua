@@ -9,6 +9,7 @@ local ModStorage=require('core.modstorage')
 local Voxel=require('core.voxel')
 local Particles=require('core.particles')
 local NodeDrops=require('core.nodedrops')
+local Digging=require('core.digging')
 local PlayerPhysics=require('core.playerphysics')
 local Serialization=require('core.serialization')
 local Runtime={}
@@ -546,6 +547,10 @@ function Runtime.new(options)
  function api.get_node_group(name,group)
   local def=self.registry.nodes[resolve(name)]
   return (def and def.groups and def.groups[group]) or 0
+ end
+ -- Match Luanti's core.get_dig_params(groups, toolcaps, initial_wear).
+ function api.get_dig_params(groups,tool_capabilities,initial_wear)
+  return Digging.get_params(groups,tool_capabilities,initial_wear)
  end
  -- Small supported subset of Luanti node drops. No fortune/silk-touch or
  -- automatic item entities: the caller must consume returned item strings.
