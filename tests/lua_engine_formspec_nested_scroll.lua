@@ -103,7 +103,7 @@ for _,method in ipairs({'push','pop','setViewPose','setProjection',
 end
 function pass:setScissor(...)
  local a={...}
- self.clip=#a==0 and nil or a
+ if #a==0 then self.clip=nil else self.clip=a end
  scissors[#scissors+1]=self.clip or false
 end
 _G.lovr={math={newMat4=function()return {} end},graphics=graphics}
