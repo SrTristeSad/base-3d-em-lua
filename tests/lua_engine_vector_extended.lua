@@ -1,0 +1,20 @@
+-- Regression checks for additional upstream-compatible vector helpers.
+package.path='./lua-engine/?.lua;./lua-engine/?/init.lua;'..package.path
+local V=require('core.vector')
+local function near(a,b) assert(math.abs(a-b)<1e-9,('%g ~= %g'):format(a,b)) end
+assert(V.check({x=1,y=2,z=3}))
+assert(not V.check({x=1,y=2}))
+assert(not V.check(nil))
+near(V.angle(V.new(1,0,0),V.new(0,1,0)),math.pi/2)
+near(V.angle(V.zero(),V.new(1,0,0)),0)
+local a=V.new(1,0,0)
+local axis=V.new(0,0,4)
+local r=V.rotate(a,axis,math.pi/2)
+near(r.x,0);near(r.y,1);near(r.z,0)
+assert(V.equals(a,V.new(1,0,0)) and V.equals(axis,V.new(0,0,4)))
+assert(V.equals(V.rotate(a,V.zero(),math.pi/2),a))
+assert(V.equals(V.from_string(' (-1.5, 2, 3e1) '),V.new(-1.5,2,30)))
+assert(V.from_string('invalid')==nil)
+assert(V.in_area(V.new(0,2,0),V.new(-1,0,-1),V.new(1,2,1)))
+assert(not V.in_area(V.new(2,0,0),V.new(-1,-1,-1),V.new(1,1,1)))
+print('LUA ENGINE VECTOR EXTENSIONS PASS')
