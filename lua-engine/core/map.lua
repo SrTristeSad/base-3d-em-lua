@@ -20,7 +20,8 @@ local function bk(x,y,z)
 end
 function Map.new(registry)
  return setmetatable({nodes={},metadata={},timers={},registry=registry,
-  revisions={},modified={},generatedChunks={},count=0},Map)
+  revisions={},modified={},generatedChunks={},count=0,
+  geometry_revision=0},Map)
 end
 function Map.key(p)
  local x,y,z=coord(p)
@@ -57,6 +58,9 @@ function Map:set_node(p,node)
   self.nodes[k]={name=name,param1=p1,param2=p2}
  end
  if oldname~=name or (old and (old.param1~=p1 or old.param2~=p2)) then
+  -- Collision nodeboxes (including connected neighbors) may depend on
+  -- any changed cell. A single monotonic stamp invalidates cached shapes.
+  self.geometry_revision=self.geometry_revision+1
   local block=bk(x,y,z)
   self.revisions[block]=(self.revisions[block] or 0)+1
   self.modified[block]=true
