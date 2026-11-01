@@ -196,6 +196,12 @@ local core_ok,core_error=true,nil
 assert(rt.current_mod==nil,'mod context leaked after real mod boot')
 assert(type(g.mcl_enchanting.enchantments.sharpness)=='table',
  'original enchantments must be registered alongside mcl_core')
+local enchanted_book=rt.api.ItemStack('mcl_enchanting:book_enchanted')
+enchanted_book:get_meta():set_string('mcl_enchanting:enchantments',
+ rt.api.serialize({sharpness=3,unbreaking=2}))
+assert(g.mcl_enchanting.get_enchantment(enchanted_book,'sharpness')==3)
+assert(g.mcl_enchanting.get_enchantments(enchanted_book).unbreaking==2,
+ 'real enchanting metadata must round-trip through core.deserialize')
 assert(type(rt.api.registered_craftitems['mcl_core:apple_gold_enchanted'])=='table',
  'original enchanted golden apple must register after mcl_enchanting')
 assert(rt.api.registered_craftitems['mcl_core:apple_gold_enchanted']
