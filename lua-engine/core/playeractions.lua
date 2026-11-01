@@ -158,7 +158,7 @@ function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_
  local hit=pointed_for(above,pointed)
  local stack=Stack.new(itemstack,rt.registry.items)
  local def=rt.registry.nodes[stack:get_name()]
- if not def or stack:is_empty() then return stack,false end
+ if not def or stack:is_empty() then return stack,nil end
  local api=rt.api
  local under=api.get_node(hit.under)
  local underdef=rt.registry.nodes[under.name]
@@ -166,11 +166,11 @@ function Actions.default_place(rt,itemstack,player,pointed,param2,prevent_after_
  -- (snow/grass), instead of always placing at pointed_thing.above.
  local dest=(under.name~='air' and underdef and underdef.buildable_to)
   and hit.under or above
- if api.is_protected(dest,name) then return stack,false end
+ if api.is_protected(dest,name) then return stack,nil end
  local old=api.get_node(dest)
  local olddef=rt.registry.nodes[old.name]
  if old.name~='air' and not (olddef and olddef.buildable_to) then
-  return stack,false
+  return stack,nil
  end
  local oriented=Placement.param2(def,stack,player,hit,param2)
  if not api.set_node(dest,{name=stack:get_name(),param1=0,
