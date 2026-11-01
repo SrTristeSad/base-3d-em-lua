@@ -138,7 +138,7 @@ local grass_boxes=Nodebox.faces(original_path,{param2=0})
 assert(grass_boxes and #grass_boxes==6)
 assert(grass_boxes[1].corners[1][2]==0.4375,
  'real grass path must be one sixteenth below a full block')
-local original_snow=rt.api.registered_nodes['mcl_core:snow_1']
+local original_snow=rt.api.registered_nodes['mcl_core:snow']
 assert(original_snow and original_snow.drawtype=='nodebox')
 local snow_faces=Nodebox.faces(original_snow,{param2=0})
 assert(snow_faces and snow_faces[1].corners[1][2]==-.375,
