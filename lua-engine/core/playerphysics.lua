@@ -15,7 +15,7 @@ local function validate(player,controller)
   player.get_physics_override==nil,
   'host already implements player physics overrides; refusing to replace')
 end
-function Bridge.attach(player,controller,hp_set)
+function Bridge.attach(player,controller,hp_set,player_meta)
  validate(player,controller)
  local detached=false
  local function check(self)
@@ -54,6 +54,10 @@ function Bridge.attach(player,controller,hp_set)
   get_inventory=function(self)
    check(self)
    return owned_inventory
+  end,
+  get_meta=function(self)
+   check(self)
+   return player_meta
   end,
   get_wield_list=function(self)
    check(self)
