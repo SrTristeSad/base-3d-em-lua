@@ -129,7 +129,9 @@ function M.restore(player,controller,data)
  for i=1,state.size do
   assert(inv:set_stack('main',i,candidates[i]),'failed to restore slot')
  end
- if state.craft then
+ -- Older profiles without a craft field start with an empty grid.
+ -- Never preserve stale ingredients from a different loaded session.
+ if state.craft or inv:get_size('craft')>0 then
   inv:set_size('craft',4)
   inv:set_width('craft',2)
   for i=1,4 do
