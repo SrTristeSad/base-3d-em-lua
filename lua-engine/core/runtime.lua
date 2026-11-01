@@ -734,6 +734,21 @@ local function named(def,node)
  end
  return false
 end
+-- Install a decoded world without losing live node-change notifications.
+-- Storage.load creates a fresh Map with no runtime observer; assigning it
+-- directly would silently revert the selective collision updates.
+function Runtime:replaceMap(map)
+ assert(type(map)=='table' and type(map.get_node)=='function' and
+  type(map.set_node)=='function' and type(map.nodes)=='table',
+  'expected a decoded Lua engine Map')
+ self.map=map
+ map.registry=self.registry.items
+ map.on_geometry_changed=function(changed,x,y,z)
+  CollisionGeometry.node_changed(self,changed,x,y,z)
+ end
+ CollisionGeometry.invalidate(self)
+ return map
+end
 function Runtime:step(dt)
  assert(type(dt)=='number' and dt>=0 and dt==dt,'invalid dt')
  self.clock=self.clock+dt

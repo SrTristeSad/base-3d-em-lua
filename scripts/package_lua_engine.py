@@ -17,6 +17,7 @@ REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
             "core/atlas.lua", "core/mesher.lua", "core/nodebox.lua",
             "core/physics.lua", "core/playerphysics.lua",
             "core/playeractions.lua", "core/digging.lua",
+            "core/playerstorage.lua", "core/demohud.lua",
             "core/renderer.lua")
 
 
