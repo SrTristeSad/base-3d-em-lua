@@ -3,6 +3,7 @@
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import argparse
+import subprocess
 from build_lua_engine_atlas import create as build_atlas
 
 REQUIRED = ("main.lua", "conf.lua", "core/map.lua",
@@ -26,6 +27,14 @@ def build(source: Path, output: Path, game: Path | None = None,
     original = game is not None and (game / "textures").is_dir()
     if require_upstream and not original:
         raise FileNotFoundError("VoxeLibre textures unavailable: checkout submodule")
+    revision = ""
+    if original:
+        result = subprocess.run(
+            ["git", "-C", str(game), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True)
+        revision = result.stdout.strip()
+        if len(revision) != 40:
+            raise ValueError("invalid pinned upstream Git revision")
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
         output.unlink()
@@ -52,7 +61,8 @@ def build(source: Path, output: Path, game: Path | None = None,
         z.writestr("visual/ASSET-SOURCES.txt",
             "Atlas source: " + ("pinned VoxeLibre submodule textures/" if original
                                  else "generated placeholders (no upstream assets)") +
-            "\\nWater: first animation frame only; no animation in Lua renderer.\\n" +
+            ("\\nUpstream commit: " + revision if original else "") +
+            "\nWater: first animation frame only; no animation in Lua renderer.\\n" +
             "Grass side: upstream dirt + grass shadow composite.\\n" +
             "See visual/licenses/ for upstream credits and licensing if present.\\n")
     with ZipFile(output) as z:
