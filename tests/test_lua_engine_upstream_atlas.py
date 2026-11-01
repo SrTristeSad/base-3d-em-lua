@@ -64,6 +64,7 @@ with TemporaryDirectory() as work:
     with ZipFile(target) as archive:
         assert archive.read("visual/atlas.png") == pixels
         assert b"pinned VoxeLibre submodule" in archive.read("visual/ASSET-SOURCES.txt")
+        assert b"Upstream commit:" in archive.read("visual/ASSET-SOURCES.txt")
         assert archive.read("visual/licenses/VoxeLibre-LICENSE.txt")
         assert archive.read("visual/licenses/VoxeLibre-CREDITS.md")
         assert archive.read("visual/licenses/mcl_core-README.txt")
