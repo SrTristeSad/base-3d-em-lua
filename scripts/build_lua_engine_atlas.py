@@ -24,8 +24,8 @@ def tile_names(source: Path) -> list[str]:
     text = source.read_text(encoding="utf-8")
     content = text.split("A.tiles={", 1)[1].split("\n}", 1)[0]
     result = re.findall(r"'([^']+\.png)'", content)
-    if len(result) != 16 or len(set(result)) != 16:
-        raise ValueError("expected 16 unique Lua atlas texture names")
+    if len(result) < 16 or len(set(result)) != len(result):
+        raise ValueError("expected unique Lua atlas texture names")
     return result
 
 
@@ -65,7 +65,7 @@ def create_upstream(source: Path, game: Path) -> bytes:
     """Make the first real-texture atlas; no silent fallback if assets are missing."""
     from PIL import Image
     names = tile_names(source)
-    atlas = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    atlas = Image.new("RGBA", (64, 16 * ((len(names) + 3) // 4)), (0, 0, 0, 0))
     # The only non-upstream tile is our explicit magenta missing-texture slot.
     fallback = Image.open(BytesIO(create_placeholder(source))).convert("RGBA")
     for i, name in enumerate(names):
@@ -96,10 +96,10 @@ def create(source: Path, game: Path | None = None,
 
 def create_placeholder(source: Path) -> bytes:
     names = tile_names(source)
-    width = height = 64
+    width, height = 64, 16 * ((len(names) + 3) // 4)
     pixels = bytearray(width * height * 4)
     for i, _ in enumerate(names):
-        base = BASE[i]
+        base = BASE[i % len(BASE)]
         for y in range(16):
             for x in range(16):
                 noise = (((x * 1103515245 + y * 12345 + (i + 1) * 7919) ^
