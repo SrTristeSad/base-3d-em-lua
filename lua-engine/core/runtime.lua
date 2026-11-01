@@ -40,7 +40,7 @@ function Runtime.new(options)
     on_craft={},craft_predict={},on_item_eat={},liquid_transformed={},
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
-  chatcommands={},privileges={},players={},playerPhysicsBindings={},particles=Particles.new()
+  chatcommands={},privileges={},players={},playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new()
  },Runtime)
  local api={}
  self.api=api
@@ -730,7 +730,15 @@ function Runtime:bindPlayerPhysics(name,controller)
   'character controller belongs to a different runtime')
  local release=PlayerPhysics.attach(player,controller)
  self.playerPhysicsBindings[name]=release
+ self.playerPhysicsControllers[name]=controller
  return player
+end
+-- Control flags come from the REAL host input, never inferred from
+-- movement vectors. ObjectRef:get_player_control returns a defensive copy.
+function Runtime:updatePlayerControls(name,controls)
+ local controller=self.playerPhysicsControllers[name]
+ assert(controller,'no connected player physics controller: '..tostring(name))
+ return controller:set_player_controls(controls)
 end
 -- Host-provided players only. An optional controller is bound BEFORE mods
 -- see on_joinplayer, and rollback leaves no partially connected player.
@@ -748,6 +756,7 @@ function Runtime:connectPlayer(player,controller)
  if not ok then
   local release=self.playerPhysicsBindings[name]
   if release then release();self.playerPhysicsBindings[name]=nil end
+  self.playerPhysicsControllers[name]=nil
   self.players[name]=nil
   error(err,0)
  end
@@ -760,6 +769,7 @@ function Runtime:disconnectPlayer(name)
  local ok,err=pcall(function() self:emit('on_leaveplayer',player) end)
  local release=self.playerPhysicsBindings[name]
  if release then release();self.playerPhysicsBindings[name]=nil end
+  self.playerPhysicsControllers[name]=nil
  self.players[name]=nil
  if not ok then error(err,0) end
  return true
