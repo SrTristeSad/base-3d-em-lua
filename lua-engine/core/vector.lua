@@ -96,7 +96,18 @@ function V.rotate(a,axis,angle)
 end
 function V.from_string(s)
  if type(s)~='string' then return nil end
- local x,y,z=s:match('^%s*%(%s*([^,]+)%s*,%s*([^,]+)%s*,%s*([^%)]+)%s*%)%s*)
+ local x,y,z=s:match('^%s*%(%s*([^,]+)%s*,%s*([^,]+)%s*,%s*([^%)]+)%s*%)%s* if not x then return nil end
+ x,y,z=tonumber(x),tonumber(y),tonumber(z)
+ if not x or not y or not z then return nil end
+ return v(x,y,z)
+end
+function V.in_area(p,minp,maxp)
+ return p.x>=minp.x and p.x<=maxp.x
+  and p.y>=minp.y and p.y<=maxp.y
+  and p.z>=minp.z and p.z<=maxp.z
+end
+return V
+)
  if not x then return nil end
  x,y,z=tonumber(x),tonumber(y),tonumber(z)
  if not x or not y or not z then return nil end
