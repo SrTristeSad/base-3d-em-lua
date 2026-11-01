@@ -183,6 +183,7 @@ end
 function M.deserialize(data)
  if type(data)~='string' or data:match('^%s*$') then return nil end
  local ok,value=pcall(parse,data)
- return ok and value or nil
+ if not ok then return nil end
+ return value
 end
 return M
