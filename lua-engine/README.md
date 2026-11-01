@@ -1991,3 +1991,59 @@ formspecs de mods, imagens de ícones, baús ou
 todas as receitas do VoxeLibre. A interface requer
 teste visual manual no Windows; sucesso em CI não
 comprova aparência ou jogabilidade integral 1:1.
+
+
+### Fase 56 — `StorageRef` do Luanti persistente por mundo e mod
+
+**Lacuna real de compatibilidade corrigida:** a API original
+`core.get_mod_storage()` já podia ser chamada durante o carregamento
+dos mods VoxeLibre, mas suas configurações desapareciam quando o
+runtime terminava. Agora o motor mantém dados **separados por mod**
+e consegue restaurá-los **antes de executar o primeiro `init.lua`**,
+preservando estado de configurações e progressos que dependem de
+`StorageRef`.
+
+Os métodos suportados incluem `get_string`, `set_string`,
+`get_int`, `set_int`, `get_float`, `set_float`,
+`contains`, `get_keys`, `to_table`, `from_table` e
+`equals`, segundo o contrato de `MetaDataRef` do Luanti.
+`from_table(nil)` limpa a referência; cópias não expõem
+tabelas internas mutáveis.
+
+Para ativar o armazenamento durável, crie o runtime com
+`Runtime.new({mod_storage_path='worlds/exemplo/mod_storage.dat',
+mod_storage_fs=fs})`, onde `fs.read(path)` devolve o texto
+do arquivo ou `nil`, e `fs.write(path,data)` grava seus
+bytes e informa sucesso/erro (LÖVR ou host equivalente).
+Um arquivo existente é lido no construtor, **antes dos mods**;
+o runtime salva automaticamente após
+`register_on_shutdown` quando `Runtime:shutdown()`
+é chamado. Também existem
+`Runtime:saveModStorage(path,fs)`,
+`Runtime:loadModStorage(path,fs)` e
+`Runtime:restoreModStorage(bytes)` para hosts diferentes.
+
+O sidecar `LUAENGINE MODSTORAGE 1` é versionado, com limites
+de tamanho e leitura **sem execução de código**. Um arquivo
+inválido no boot configurado provoca erro explícito em vez
+de apagar o progresso; um restore manual inválido não
+sobrescreve os dados atuais. A restauração mantém a
+identidade dos objetos `StorageRef` já usados por mods.
+Arquivos ausentes iniciam um armazenamento novo e vazio.
+
+A suíte `tests/lua_engine_mod_storage_persistence.lua`
+executa em Lua 5.4 e LuaJIT e cobre isolamento entre mods
+e mundos, carregamento em ordem de dependências,
+retorno de métodos, salvamento durante shutdown,
+integridade em corrupção e erro de gravação.
+`tests/lua_engine_real_voxelibre.lua` também grava
+e recupera um valor na **referência original do módulo
+VoxeLibre `vl_tuning`**, previamente obtida durante a
+execução do seu próprio `init.lua`.
+
+**Limites:** o formato sidecar é específico deste motor,
+não é o banco de dados do Luanti; depende de filesystem
+fornecido pelo host e não realiza commits atômicos entre
+mapa, entidades e mods. A demo isolada não usa os mods
+VoxeLibre e o aumento de persistência não significa que
+o jogo completo passe a inicializar.
