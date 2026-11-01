@@ -598,3 +598,50 @@ Os nós com esses callbacks personalizados são rejeitados
 explicitamente no novo caminho simplificado, não tratados como
 compatíveis. Portanto, este avanço **não é jogabilidade 1:1 do
 VoxeLibre**. A meta continua a compatibilidade completa em Lua.
+
+### Mineração por duração e desgaste (Fase 26)
+
+O módulo `core/digging.lua` agora interpreta o subconjunto
+`tool_capabilities.groupcaps`, `times`, `uses`, `maxlevel`,
+`groups.level` e `dig_immediate`. Calcula a duração necessária
+para quebrar um nó e o incremento de desgaste da ferramenta
+(`ItemStack.wear`). Uma ferramenta de usos limitados se quebra
+quando atinge o limite de desgaste. As regras de escala de tempo
+de `leveldiff` ainda são aproximações e não substituem a
+implementação nativa de `core.get_dig_params`.
+
+O runtime fornece um ciclo de mineração por jogador:
+`beginDigNodeAsPlayer(player,pos)`,
+`advanceDigNodeAsPlayer(player,dt)`,
+`cancelDigNodeAsPlayer(player)` e
+`getDigProgress(player)`. O controlador só retira o nó e entrega
+os drops **ao concluir a duração prevista**; ferramentas usadas
+recebem desgaste apenas após sucesso. Troca da ferramenta,
+modificação do nó, proteção ou desconexão cancelam o progresso.
+
+A mineração pela sessão de jogador preserva uma cópia de
+`oldmetadata`, remove metadados do nó antigo e executa
+`after_dig_node(pos,oldnode,oldmetadata,digger)` quando
+o nó implementa esse callback. Os callbacks personalizados
+`on_dig` continuam rejeitados explicitamente no caminho
+simplificado: essa compatibilidade ainda precisa ser portada.
+
+Na demo LÖVR, o botão esquerdo **precisa ser mantido**
+para minerar; soltar o botão ou deixar de mirar no bloco
+interrompe a escavação. A picareta de demonstração tem
+habilidades para vários grupos de materiais, mas não é
+um item original do VoxeLibre. A API anterior
+`digNodeAsPlayer` permanece instantânea para os testes
+e hosts que usam o caminho legado.
+
+A bateria `tests/lua_engine_timed_digging.lua`, executada em
+Lua 5.4 e LuaJIT, verifica tempos por grupos, desgaste e quebra,
+drops, metadados e callbacks originais, cancelamento por mudanças
+e limpeza na desconexão. A compilação Windows ainda exige teste
+visual em máquina real.
+
+**Não é ainda a mineração 1:1 de Luanti**: faltam calibração
+completa de `get_dig_params`, `on_dig` customizado,
+`on_place` para itens, regras completas de privilégio e modo
+criativo, partículas de progresso, pontuação de experiência
+e persistência do desgaste por inventário entre sessões.
