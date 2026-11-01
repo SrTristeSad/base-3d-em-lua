@@ -19,6 +19,7 @@ local paths={
  walkover='mods/CORE/walkover',
  mcl_luck='mods/PLAYER/mcl_luck',
  mcl_gamemode='mods/PLAYER/mcl_gamemode',
+ mcl_death_drop='mods/PLAYER/mcl_death_drop',
  mcl_colors='mods/CORE/mcl_colors',
  mcl_init='mods/CORE/mcl_init',
  mcl_util='mods/CORE/mcl_util',
@@ -95,6 +96,10 @@ assert(type(g.mcl_luck.get_luck)=='function',
  'original luck module did not load')
 assert(type(g.mcl_gamemode.get_gamemode)=='function',
  'original gamemode module did not load')
+assert(type(g.mcl_death_drop.register_dropped_list)=='function',
+ 'original death-drop module did not load')
+assert(#g.mcl_death_drop.registered_dropped_lists>=6,
+ 'original player inventory lists for death-drop were not registered')
 assert(type(g.doc)=='table' and type(g.doc.sub.items.temp.build)=='string',
  'original doc_items must load before mcl_core')
 assert(rt.api.registered_nodes['mcl_stonecutter:stonecutter'],
@@ -157,7 +162,8 @@ assert(g.vl_tuning.registered_settings['gamerule:keepInventory'])
 assert(rt.chatcommands.gamerule and rt.chatcommands.settings)
 assert(rt.api.get_modpath('mcl_colors')==root..'/mods/CORE/mcl_colors')
 assert(rt.mod_storage.vl_tuning,'mod storage not attached to source mod')
-assert(#rt.callbacks.on_dieplayer==1)
+assert(#rt.callbacks.on_dieplayer>=2,
+ 'original death-drop callback must be registered')
 assert(#rt.callbacks.on_joinplayer>=1)
 assert(runner.read_count>=8,'vl_tuning should load additional source files')
 assert(g.mcl_colors~=rawget(_G,'mcl_colors'),
@@ -197,7 +203,7 @@ end
 print(('MCL_CORE PROBE: %d original nodes registered; stone=%s; error=%s')
  :format(#core_nodes,tostring(stone~=nil),tostring(core_error):sub(1,180)))
 local report={
- '# VoxeLibre real Lua mod boot — Fase 12','',
+ '# VoxeLibre real Lua mod boot — Fase 13','',
  'Original VoxeLibre code from the pinned Git checkout was executed.',
  'Lua 5.4 and LuaJIT tests must both pass for this report to be published.','',
  ('- Real modules loaded: **%d**'):format(#results),
