@@ -46,6 +46,8 @@ compare **median CPU time** on the same hardware and Lua runtime.
 | `node_wide_linear` | Same wide AABB through every voxel, including air | geometry queries |
 | `node_dense_adaptive` | Adaptive selection over completely filled three-dimensional terrain | geometry queries |
 | `node_dense_linear` | Identical solid terrain through the original full voxel/nodebox scan | geometry queries |
+| `node_mixed_cached` | Alternating dense and sparse mapblocks, with cached geometry | geometry queries |
+| `node_mixed_linear` | Same mixed terrain through the original full voxel/nodebox scan | geometry queries |
 
 All cases use explicit, reproducible positions, velocities and a
 fixed query order; counts are **32, 128** in CI, plus **256** in
