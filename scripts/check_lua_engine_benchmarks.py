@@ -21,6 +21,8 @@ CASES = {
     "node_collision_uncached",
     "node_wide_sparse",
     "node_wide_linear",
+    "node_dense_adaptive",
+    "node_dense_linear",
 }
 FIELDS = {
     "name", "entities", "iterations", "unit", "cpu_seconds_median",
@@ -84,6 +86,13 @@ def validate(path: Path):
         assert a["iterations"] == b["iterations"]
         assert a["checksum"] == b["checksum"], (
             path, n, "sparse node broadphase differs from dense voxel scan"
+        )
+    for n in expected_sizes:
+        a = seen[("node_dense_adaptive", n)]
+        b = seen[("node_dense_linear", n)]
+        assert a["iterations"] == b["iterations"]
+        assert a["checksum"] == b["checksum"], (
+            path, n, "adaptive dense scan differs from original geometry"
         )
     print(
         f"VALID BENCHMARK {path}: {data['runtime']}, "

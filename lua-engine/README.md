@@ -1694,3 +1694,51 @@ equivalente obrigatório em Lua 5.4 e LuaJIT.
 pouco benefício ou até introduzir custo extra; varreduras pequenas
 continuam no caminho anterior. O sistema não substitui o
 solucionador cinemático pela implementação física C++ do Luanti.
+
+
+### Fase 50 — seleção adaptativa para terreno denso e esparso
+
+O filtro de mapblocks da Fase 49 agora compara **quantidades da
+mesma unidade**: número de mapblocks na consulta contra número
+de mapblocks ocupados no índice, em vez de comparar mapblocks
+com nós individuais. O `core.mapnodeindex` acompanha
+`block_count` junto a `count`, mantendo ambos corretos
+quando um mapblock fica vazio, reaparece ou a tabela de nós
+é substituída.
+
+O `core.collisiongeometry` agora escolhe entre os algoritmos
+**antes de materializar/sortear uma lista grande de candidatos**:
+varreduras pequenas (até 512 células) continuam na malha
+original; consultas maiores com ar não colidível verificam
+o índice de mapblocks. Se a contagem conservadora de nós
+dos mapblocks alcançados ultrapassar aproximadamente **45%
+do volume examinado**, o motor retorna à varredura densa.
+Em mundos esparsos, permanece a consulta indexada que evita
+percorrer milhares de nós de ar.
+
+A escolha por ocupação de mapblock é um **limite superior**
+para a quantidade de nós na região; se os blocos estiverem
+nas bordas do volume, o motor pode preferir a malha densa,
+mas **nunca descarta um nó real**. Ambos os caminhos
+preservam a ordem x/y/z, as caixas AABB de `Nodebox.boxes`,
+os volumes `buildable_to`, a detecção de colisões de
+jogadores e criaturas, e a invalidação após alterações
+do mapa. Em configurações com ar caminhável, a varredura
+densa continua obrigatória.
+
+A suíte `tests/lua_engine_adaptive_node_collision_scan.lua`
+verifica terreno sólido de 16³ nós (incluindo caixas
+rotacionadas e conectadas), mundos esparsos, troca da tabela
+de nós, remoção, coordenadas negativas, contagem de
+mapblocks e as duas estratégias de consulta. O benchmark
+reproduzível ganhou os casos `node_dense_adaptive` e
+`node_dense_linear`, com equivalência de checksum exigida
+no CI em Lua 5.4 e LuaJIT. `dense_fallbacks` no cache
+e `dense_rejections` no índice permitem inspecionar
+quantas vezes a estratégia selecionou a malha original.
+
+**Limites:** a ocupação por mapblock é uma heurística de
+custo e não uma previsão perfeita do tempo real. O ganho
+depende da distribuição do terreno e do interpretador;
+os benchmarks medem CPU, não FPS. A física C++ do Luanti
+ainda não foi reproduzida integralmente em Lua.

@@ -129,11 +129,12 @@ local function geometry_setup(n)
  end
  return {rt=rt,api=api,positions=positions}
 end
-local function geometry_reference(ctx,region)
+local function geometry_reference(ctx,region,pad)
  local rt=ctx.rt
- local x1,x2=floor(region[1]-2),floor(region[4]+2)
- local y1,y2=floor(region[2]-2),floor(region[5]+2)
- local z1,z2=floor(region[3]-2),floor(region[6]+2)
+ pad=pad or 2
+ local x1,x2=floor(region[1]-pad),floor(region[4]+pad)
+ local y1,y2=floor(region[2]-pad),floor(region[5]+pad)
+ local z1,z2=floor(region[3]-pad),floor(region[6]+pad)
  local total=0
  for x=x1,x2 do for y=y1,y2 do for z=z1,z2 do
   local pos=p(x,y,z)
@@ -172,6 +173,31 @@ local function work_wide_geometry(ctx,iterations,sparse)
    total=total+#Geometry.collect(ctx.rt,region,2,true)
   else
    total=total+geometry_reference(ctx,region)
+  end
+ end
+ return total
+end
+-- Dense solid terrain can make candidate enumeration/sorting more costly
+-- than the straightforward voxel scan. Geometry.collect should select
+-- the dense path adaptively for these fully occupied regions.
+local function dense_geometry_setup(n)
+ local rt,api=fresh()
+ api.register_node('bench:stone',{})
+ local extent=n==32 and 9 or n==128 and 16 or 20
+ for x=0,extent-1 do for y=0,extent-1 do for z=0,extent-1 do
+  api.set_node(p(x,y,z),{name='bench:stone'})
+ end end end
+ return {rt=rt,api=api,extent=extent}
+end
+local function work_dense_geometry(ctx,iterations,adaptive)
+ local total=0
+ local far=ctx.extent-1
+ local region={0,0,0,far,far,far}
+ for _=1,iterations do
+  if adaptive then
+   total=total+#Geometry.collect(ctx.rt,region,0,true)
+  else
+   total=total+geometry_reference(ctx,region,0)
   end
  end
  return total
@@ -226,6 +252,7 @@ local event_iterations=quick and 8 or 32
 local relocation_iterations=quick and 80 or 300
 local geometry_iterations=quick and 80 or 240
 local wide_iterations=quick and 40 or 120
+local dense_iterations=quick and 4 or 10
 print('Lua engine performance baseline | '.._VERSION..
  (jit and (' / '..jit.version) or '')..
  ' | samples='..samples..' | quick='..tostring(quick))
@@ -289,6 +316,12 @@ for _,n in ipairs(sizes) do
  measure('node_wide_linear',n,wide_iterations,'geometry_queries',
   function()return geometry_setup(n) end,
   function(c,it)return work_wide_geometry(c,it,false) end)
+ measure('node_dense_adaptive',n,dense_iterations,'geometry_queries',
+  function()return dense_geometry_setup(n) end,
+  function(c,it)return work_dense_geometry(c,it,true) end)
+ measure('node_dense_linear',n,dense_iterations,'geometry_queries',
+  function()return dense_geometry_setup(n) end,
+  function(c,it)return work_dense_geometry(c,it,false) end)
 end
 
 local function escaped(str)
