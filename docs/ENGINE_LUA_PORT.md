@@ -650,3 +650,36 @@ considerado um dos módulos integrados.**
   faixa -16..31, nem tratamento correto de todos os tipos de
   nós e iluminação dos objetos. A equivalência 1:1 permanece
   pendente, como o boot integral do VoxeLibre.
+
+### Fase 74 — luz do mundo aplicada ao mesh 3D LÖVR
+
+- O `core.mesher.build(map, nodes, cx, cy, cz, lighting, timeofday)`
+  agora aceita uma fonte de iluminação opcional e amostra a célula
+  adjacente de cada face exposta. O nível de 0..15 controla o
+  `VertexColor` RGBA (brilho mínimo visual de 0,16), preservando
+  os tons de orientação já aplicados no mesher. O backend GPU LÖVR
+  usa seu formato `VertexColor` existente, sem criar outro motor
+  nem trocar a linguagem Lua.
+- A demonstração executável em `lua-engine/main.lua` passa
+  `engine.lighting` ao `Renderer:draw`. A renderização antiga sem
+  esse parâmetro continua intacta e usa a mesma geometria que antes.
+  `Renderer` cria buffers atualizados quando o fator dia/noite
+  muda em degraus limitados, um nó emissor é modificado ou a
+  definição de um bloco muda. A assinatura do mesher iluminado
+  considera as revisões dos **26 mapblocks adjacentes**; um
+  emissor diagonal pode iluminar faces além de uma borda.
+- `Lighting:has_near_source` agrupa emissores registrados em
+  mapblocks 16³. Consultas longe de fontes ignoram a busca BFS
+  em espaço vazio; o cache de respostas zero permanece limitado.
+  Essa otimização é importante para evitar trabalho custoso em
+  cada face de um mapa extenso.
+- `tests/lua_engine_vertex_light_render.lua` cobre cores por
+  vértice, dia/noite, emissão diagonal, invalidação da GPU por
+  alteração de mundo e definição, preservação do modo sem
+  iluminação e liberação de buffers, em Lua 5.4 e LuaJIT.
+- **A fidelidade 1:1 ainda não foi alcançada:** este é um
+  sombreamento por face (cor uniforme entre os vértices da face)
+  e não iluminação suave do Luanti original. Ainda faltam
+  reconstrução nativa de `param1` em mapblocks, skylight fora
+  da faixa demo, efeitos e materiais especiais, atualização
+  incremental e equivalência comprovada de renderização.
