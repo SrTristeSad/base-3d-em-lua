@@ -290,7 +290,8 @@ function V7:generateChunk(minp,maxp,chunk_size)
  end
  self.lastChunkGeometry=geom
  self.generatedMapBlocks=(self.generatedMapBlocks or 0)+#blocks
- return true,{minp=geom.node_min,maxp=geom.node_max}
+ return true,{minp=geom.node_min,maxp=geom.node_max,
+  blockseed=RandomWalk.getBlockSeed2(geom.full_node_min,self.worldseed)}
 end
 V7.defaults=defaults
 return V7
