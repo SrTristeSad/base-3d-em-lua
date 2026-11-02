@@ -90,7 +90,7 @@ eq(buf:get_node({x=1,y=-32,z=1}).name,'air')
 -- Expansion outside the supported world and unsupported true mode are
 -- rejected before changing either the area or its loaded snapshots.
 local maxx=buf.geometry.full_node_max.x
-assert(not pcall(buf.initialEmerge,buf,true,{x=3,y=0,z=0},{x=3,y=0,z=0}))
+assert(not pcall(buf.initialEmerge,buf,'invalid',{x=3,y=0,z=0},{x=3,y=0,z=0}))
 assert(not pcall(buf.initialEmerge,buf,false,{x=1938,y=0,z=0},{x=1938,y=0,z=0}))
 assert(not pcall(buf.initialEmerge,buf,false,{x=0,y=0,z=0},nil))
 eq(buf.geometry.full_node_max.x,maxx)
