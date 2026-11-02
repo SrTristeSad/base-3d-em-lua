@@ -139,6 +139,10 @@ assert(gen.lastChunkVoxelStats.border_discarded==2*32*32)
 assert(gen.lastChunkVoxelStats.buffer_volume==64*48*64)
 assert(gen.generatedMapBlocks==4)
 assert(#rt2.api.get_loaded_blocks()==4)
-assert(rt2.api.get_node_or_nil({x=0,y=-1,z=0})==nil,
+-- The non-streamed runtime preserves historical implicit-air reads.
+-- Validate mapblock metadata rather than treating implicit air as loaded.
+assert(rt2.map.revisions['0,-1,0']==nil and
+ rt2.map.last_active['0,-1,0']==nil and
+ rt2.map.lbm_applied['0,-1,0']==nil,
  'extended border must stay ungenerated')
 print('LUANTI 5.18 MMVMANIP CORE, CONTENT_IGNORE, CAVE FLAGS, OVERGENERATION PASS')
