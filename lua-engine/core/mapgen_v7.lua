@@ -207,14 +207,15 @@ function V7:_generateRegion(map,minp,maxp,full_node_min)
   local level=self:baseTerrainLevelAtPoint(x,z)
   local surface=level<0 and math.ceil(level) or floor(level)
   if surface>stone_surface_max_y then stone_surface_max_y=surface end
+  if buffered then map:begin_terrain_column(x,z,ymin,ymax) end
   for y=ymin,ymax do
    local p={x=x,y=y,z=z}
-   if not buffered or map:get_node(p).name=='ignore' then
+   if not buffered or map:terrain_writable(p) then
     local name=self:materialAt(x,y,z,
      buffered and surface or level,gen_rivers)
-    if buffered or name~='air' then
-     map:set_node(p,{name=name})
-    end
+    -- In a generation buffer, air is the implicit known default
+    -- within this 1-up/1-down column; only ground/liquid needs storage.
+    if name~='air' then map:set_node(p,{name=name}) end
     if buffered and name==self.names.stone and
      y>stone_surface_max_y then stone_surface_max_y=y end
    end
@@ -304,7 +305,7 @@ function V7:generateChunk(minp,maxp,chunk_size)
  -- One-up/one-down cells remain in the temporary VoxelManip area;
  -- do not commit partial neighboring mapblocks as if fully generated.
  self.lastChunkVoxelStats={core_nodes=copied,
-  border_discarded=discarded,
+  border_discarded=discarded,air_columns=stage.air_columns_count,
   generated_writes=stage.writes,buffer_volume=stage.voxel_count}
  self.lastChunkGeometry=geom
  self.generatedMapBlocks=(self.generatedMapBlocks or 0)+#blocks
