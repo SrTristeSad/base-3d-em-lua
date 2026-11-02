@@ -25,6 +25,7 @@ local Lighting=require('core.lighting')
 local LBM=require('core.lbm')
 local ActiveBlocks=require('core.activeblocks')
 local MapBlockStore=require('core.mapblockstore')
+local Emerge=require('core.emerge')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -68,6 +69,7 @@ function Runtime.new(options)
  self.light_registry_revision=0
  self.lighting=Lighting.new(self)
  AuthChat.install(self,api)
+ Emerge.install(self,api)
  self.formspec=Formspec.new(self)
  PlayerHP.install(api)
  api.serialize=Serialization.serialize
@@ -583,7 +585,24 @@ function Runtime.new(options)
   end
   return nil
  end
- function api.get_node(pos) return self.map:get_node(pos) end
+ -- Luanti 5.18: absent/unloaded mapblocks are ignore, not air.
+ -- Non-streamed prototype sessions preserve their historical implicit air.
+ local function node_loaded(pos)
+  return not self.mapBlockStore or
+   self.mapBlockStore:resident(self.map:blockkey(pos))
+ end
+ function api.get_node(pos)
+  if not node_loaded(pos) then
+   return {name='ignore',param1=0,param2=0}
+  end
+  return self.map:get_node(pos)
+ end
+ function api.get_node_raw(x,y,z)
+  local p={x=x,y=y,z=z}
+  if not node_loaded(p) then return api.CONTENT_IGNORE,0,0,false end
+  local n=self.map:get_node(p)
+  return self.content:get_id(n.name),n.param1,n.param2,true
+ end
  function api.get_node_boxes(box_type,pos,node)
   assert(type(pos)=='table' and
    type(pos.x)=='number' and type(pos.y)=='number' and
@@ -602,7 +621,10 @@ function Runtime.new(options)
  function api._node_collision_entries(swept,pad,exclude_buildable)
   return CollisionGeometry.collect(self,swept,pad,exclude_buildable)
  end
- function api.get_node_or_nil(pos) return self.map:get_node(pos) end
+ function api.get_node_or_nil(pos)
+  if not node_loaded(pos) then return nil end
+  return self.map:get_node(pos)
+ end
  -- Luanti ServerEnvironment::setNode calls on_destruct before replacement,
  -- then after_destruct and on_construct. Only swap_node preserves metadata
  -- and avoids callbacks. Keep those semantics for unmodified game mods.
@@ -865,6 +887,11 @@ end
 function Runtime:attachMapBlockStore(fs,prefix)
  return MapBlockStore.new(self,fs,prefix)
 end
+-- Generation must be provided by the host's real map generator.
+-- The Lua runtime will not substitute the independent demo worldgen.
+function Runtime:setMapBlockGenerator(fn)
+ return Emerge.set_generator(self,fn)
+end
 -- Advance node timers once per active tick or on return to a dormant block.
 function Runtime:_tickNodeTimers(dt,block)
  local timeouts={}
@@ -893,6 +920,7 @@ function Runtime:step(dt)
  assert(type(dt)=='number' and dt>=0 and dt==dt and dt~=math.huge,
   'invalid dt')
  local managed=ActiveBlocks.sync(self)
+ Emerge.step(self)
  self.clock=self.clock+dt
  self.map.game_time=self.clock
  self.stepcount=self.stepcount+1
