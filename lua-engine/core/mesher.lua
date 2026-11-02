@@ -56,7 +56,7 @@ local function tile_for(def,index)
  -- Luanti uses tile 1 for the top and 2 for the bottom, with 3-6 sides.
  return tiles[index] or tiles[3] or tiles[1] or 'missing.png'
 end
-function M.build(map,registry,cx,cy,cz)
+function M.build(map,registry,cx,cy,cz,lighting,timeofday)
  assert(type(cx)=='number' and cx==floor(cx) and
   type(cy)=='number' and cy==floor(cy) and
   type(cz)=='number' and cz==floor(cz),'invalid mapblock coordinates')
@@ -66,6 +66,21 @@ function M.build(map,registry,cx,cy,cz)
  local sx,sy,sz=cx*16,cy*16,cz*16
  local function emit(x,y,z,face,def)
   local u0,v0,u1,v1=Atlas.uv(tile_for(def,face.tile))
+  local shade=face.shade
+  if lighting then
+   -- The existing renderer already uploads RGBA vertex colors. Sample
+   -- the outward-facing cell so sunlight and lamps illuminate *surfaces*,
+   -- not an opaque block's unlit interior. Diagonal plant quads use
+   -- their own cell as the ambient sample.
+   local nx,ny,nz=face.n[1],face.n[2],face.n[3]
+   local sample={x=x,y=y,z=z}
+   if nx==floor(nx) and ny==floor(ny) and nz==floor(nz) then
+    sample.x=x+nx;sample.y=y+ny;sample.z=z+nz
+   end
+   local light=lighting:get_node_light(sample,timeofday)
+   if type(light)~='number' then light=0 end
+   shade=shade*(.16+.84*math.max(0,math.min(15,light))/15)
+  end
   -- One unindexed pair of triangles; the default LÖVR mesh mode is triangles.
   local uvs={{u0,v1},{u1,v1},{u1,v0},{u0,v0}}
   local order={1,2,3,1,3,4}
@@ -75,7 +90,7 @@ function M.build(map,registry,cx,cy,cz)
     x+p[1],y+p[2],z+p[3],
     face.n[1],face.n[2],face.n[3],
     uvs[i][1],uvs[i][2],
-    face.shade,face.shade,face.shade,1
+    shade,shade,shade,1
    }
   end
   metrics.faces=metrics.faces+1
@@ -177,10 +192,22 @@ function M.item_cube(tile,scale)
  },scale or .32)
 end
 -- Block boundary changes invalidate visible faces in both mapblocks.
-function M.fingerprint(map,cx,cy,cz)
+function M.fingerprint(map,cx,cy,cz,light_neighborhood)
  local revisions=map.revisions or {}
  local function revision(x,y,z)
   return revisions[x..','..y..','..z] or 0
+ end
+ if light_neighborhood then
+  -- Light from a torch near a mapblock corner reaches diagonally
+  -- neighboring mapblocks. Their face colors must be re-uploaded even
+  -- if no geometry changed in the six axis-aligned neighbor blocks.
+  local all={}
+  for x=cx-1,cx+1 do for y=cy-1,cy+1 do
+   for z=cz-1,cz+1 do
+    all[#all+1]=revision(x,y,z)
+   end
+  end end
+  return table.concat(all,':')
  end
  return table.concat({
   revision(cx,cy,cz),revision(cx-1,cy,cz),revision(cx+1,cy,cz),

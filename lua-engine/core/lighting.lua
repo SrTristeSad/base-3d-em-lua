@@ -79,7 +79,8 @@ end
 function Lighting.new(runtime)
  return setmetatable({runtime=runtime,map=nil,revision=nil,
   registry_revision=nil,cache={},count=0,checks=0,
-  skycache={},skycount=0,columncache={},columncount=0},Lighting)
+  skycache={},skycount=0,columncache={},columncount=0,
+  source_blocks=nil},Lighting)
 end
 -- All lighting entrypoints share one revision gate. In particular,
 -- direct_sun must not reuse a cached open column after its roof changes.
@@ -94,7 +95,40 @@ function Lighting:refresh()
   self.cache={};self.count=0
   self.skycache={};self.skycount=0
   self.columncache={};self.columncount=0
+  self.source_blocks=nil
  end
+end
+-- Search 27 mapblocks around the query, not every empty air voxel.
+-- This prevents a million no-source BFS visits while meshing daylight.
+function Lighting:has_near_source(pos)
+ local blocks=self.source_blocks
+ if not blocks then
+  blocks={}
+  for key,node in pairs(self.runtime.map.nodes) do
+   local def=self.runtime.registry.nodes[node.name]
+   if level(def and def.light_source)>0 then
+    local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+    x,y,z=tonumber(x),tonumber(y),tonumber(z)
+    if x and y and z then
+     local block=position_key(floor(x/16),floor(y/16),floor(z/16))
+     local list=blocks[block] or {}
+     list[#list+1]={x=x,y=y,z=z}
+     blocks[block]=list
+    end
+   end
+  end
+  self.source_blocks=blocks
+ end
+ local bx,by,bz=floor(pos.x/16),floor(pos.y/16),floor(pos.z/16)
+ for x=bx-1,bx+1 do for y=by-1,by+1 do for z=bz-1,bz+1 do
+  local list=blocks[position_key(x,y,z)]
+  if list then for _,source in ipairs(list) do
+   if abs(source.x-pos.x)+abs(source.y-pos.y)+abs(source.z-pos.z)<14 then
+    return true
+   end
+  end end
+ end end end
+ return false
 end
 -- Get max light arriving at target from real registered emitters, with
 -- six-neighbor falloff and blocking geometry. Sources emit from within
@@ -108,6 +142,12 @@ function Lighting:emitted(pos)
  local hit=self.cache[key]
  if hit~=nil then return hit end
  self.checks=self.checks+1
+ if not self:has_near_source(pos) then
+  if self.count>=4096 then self.cache={};self.count=0 end
+  self.cache[key]=0
+  self.count=self.count+1
+  return 0
+ end
  local nodes=rt.registry.nodes
  local visited={[key]=true}
  local queue={{x=pos.x,y=pos.y,z=pos.z,d=0}}
