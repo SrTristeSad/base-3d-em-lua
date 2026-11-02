@@ -26,6 +26,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_blit.lua'
       - 'tests/lua_engine_mmvm_halo_caves.lua'
       - 'tests/lua_engine_vertical_border.lua'
       - 'tests/lua_engine_native_chunk5.lua'
@@ -131,6 +132,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_blit.lua'
       - 'tests/lua_engine_mmvm_halo_caves.lua'
       - 'tests/lua_engine_vertical_border.lua'
       - 'tests/lua_engine_native_chunk5.lua'
@@ -243,6 +245,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 MMVManip getCoveredBlocks, sparse air and safe halo blit (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mmvm_blit.lua
+          luajit tests/lua_engine_mmvm_blit.lua
       - name: Luanti 5.18 MMVManip XZ cave overlap, known halo and persistence (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mmvm_halo_caves.lua
