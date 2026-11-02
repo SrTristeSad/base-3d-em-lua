@@ -616,3 +616,37 @@ considerado um dos módulos integrados.**
   por vértice no GPU mesher. A demonstração não foi validada
   visualmente em GPU. O cálculo sob demanda é uma solução
   provisória funcional, não o sistema de iluminação nativa completo.
+
+### Fase 73 — luz solar em regiões geradas, escuridão e cavernas
+
+- Nova API `get_natural_light(pos, timeofday)` fornece o componente
+  natural da iluminação diurna/noturna para a **faixa efetivamente
+  gerada pelo worldgen Lua**: chunks 16x16 x/z em
+  `Map.generatedChunks`, y entre -16 e 31. Regiões sem marcador
+  de geração retornam `nil`, em vez de receber iluminação
+  falsa de um céu que o motor ainda não conhece.
+- `core.lighting:direct_sun` procura bloqueadores verticais de
+  `sunlight_propagates`, mantendo luz plena (15) nos trechos
+  diretamente expostos ao céu. Em cavernas com abertura lateral,
+  `sky(pos)` percorre um volume limitado de vizinhos que deixam
+  passar luz, subtraindo um nível por passo. Cavernas totalmente
+  fechadas não recebem luz do céu. Ao anoitecer, aplica-se a
+  curva nativa `time_to_daynight_ratio` já portada na Fase 72.
+- `get_node_light` combina a luz solar calculada para áreas
+  geradas com emissão artificial. Quando o nó já possui bancos
+  explícitos em `param1`, respeita esses valores e não injeta
+  uma iluminação fictícia sobre eles. Cache de sol e colunas é
+  descartado em edições do mapa e alterações de definições.
+- Teste `lua_engine_natural_sunlight.lua` usa chunks reais marcados
+  como gerados e confere luz do dia e da noite, entrada lateral,
+  vidro que bloqueia ou transmite sol, cavernas seladas,
+  edição direta, `override_item`, salvamento/restauração
+  e substituição de mundo em Lua 5.4 e LuaJIT.
+- **Limites explícitos:** este é um cálculo sob demanda só da
+  faixa do gerador atual; não reproduz a atualização incremental
+  de `param1`/light banks pelo Luanti nem seu processamento de
+  milhões de células no mundo nativo. Ainda não há luz solar
+  no mesher GPU, luz solar em terreno arbitrário além da
+  faixa -16..31, nem tratamento correto de todos os tipos de
+  nós e iluminação dos objetos. A equivalência 1:1 permanece
+  pendente, como o boot integral do VoxeLibre.
