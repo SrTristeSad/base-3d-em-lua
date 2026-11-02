@@ -134,21 +134,21 @@ function E.step(rt)
       -- A chunk-capable generator can return the full generated core.
       -- Legacy single-mapblock callbacks still return true only.
       local min_generated,max_generated=p,maxp
-      if region~=nil then
-       assert(type(region)=='table' and
-        type(region.minp)=='table' and type(region.maxp)=='table',
-        'generator returned invalid chunk region')
-       min_generated,max_generated=region.minp,region.maxp
-       for _,axis in ipairs({'x','y','z'}) do
-        local lo,hi=min_generated[axis],max_generated[axis]
-        assert(finite(lo) and finite(hi) and
-         lo==floor(lo) and hi==floor(hi) and lo%16==0 and
-         (hi+1)%16==0 and lo<=p[axis] and hi>=maxp[axis] and
-         hi>=lo and math.abs(lo)<=31000 and math.abs(hi)<=31000,
-         'generator chunk region outside mapgen limits')
-       end
-      end
       local finalized=pcall(function()
+       if region~=nil then
+        assert(type(region)=='table' and
+         type(region.minp)=='table' and type(region.maxp)=='table',
+         'generator returned invalid chunk region')
+        min_generated,max_generated=region.minp,region.maxp
+        for _,axis in ipairs({'x','y','z'}) do
+         local lo,hi=min_generated[axis],max_generated[axis]
+         assert(finite(lo) and finite(hi) and
+          lo==floor(lo) and hi==floor(hi) and lo%16==0 and
+          (hi+1)%16==0 and lo<=p[axis] and hi>=maxp[axis] and
+          hi>=lo and math.abs(lo)<=31000 and math.abs(hi)<=31000,
+          'generator chunk region outside mapgen limits')
+        end
+       end
        rt:markGeneratedMapBlocks(min_generated,max_generated)
        rt:generate(min_generated,max_generated,rt.opts.seed or 0)
       end)
