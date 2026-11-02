@@ -62,7 +62,8 @@ function Buffer.new(map,geom)
  return setmetatable({
   source=map,geometry=geom,is_gen_buffer=true,extended_y=true,
   overlay={},modified={},flags={},air_columns={},air_columns_count=0,
-  flags={},writes=0,discarded_border=0,
+  resident_original={},resident_modified={},resident_halo_ground=nil,
+  writes=0,discarded_border=0,
   core_nodes=0,voxel_count=sx*sy*sz,
   sx=sx,sy=sy,sz=sz,origin={x=xmin,y=ymin,z=zmin}
  },Buffer)
@@ -85,6 +86,28 @@ function Buffer:_resident(pos)
  local key=self.source:blockkey(pos)
  return self.source.revisions[key] or self.source.last_active[key] or
   self.source.lbm_applied[key]
+end
+-- The C++ ManualMapVoxelManipulator initialEmerge also reads already
+-- loaded neighbor mapblocks. Only cave carving can request edits to their
+-- known ground nodes; terrain generation still protects their contents.
+function Buffer:enable_resident_halo_caves(ground_name)
+ assert(type(ground_name)=='string' and ground_name~='',
+  'resident halo cave ground name required')
+ self.resident_halo_ground=ground_name
+end
+function Buffer:disable_resident_halo_caves()
+ self.resident_halo_ground=nil
+end
+function Buffer:can_carve_resident(pos)
+ if not self:contains(pos) or self:core_contains(pos) or
+    self.resident_halo_ground==nil or not self:_resident(pos) then
+  return false
+ end
+ local key=indexkey(pos)
+ -- A cave must not remove nodes bearing metadata or running timers.
+ if self.source.metadata[key] or self.source.timers[key] then return false end
+ local n=self.source:get_node(pos)
+ return n.name==self.resident_halo_ground
 end
 -- During V7 terrain generation, a complete vertical column is known to
 -- contain air EXCEPT at its explicit non-air entries. Store the known-air
@@ -142,8 +165,15 @@ function Buffer:set_node(pos,node)
   node.name~='' and node.name~='ignore',
   'cannot write CONTENT_IGNORE as generated data')
  local k=indexkey(pos)
- -- Never change nodes in already-emerged mapblocks (including known air).
- if not self.overlay[k] and self:_resident(pos) then return false end
+ -- Existing mapblocks are immutable to terrain generation. A cave may
+ -- change a known ground node in the halo only when explicitly enabled.
+ if self:_resident(pos) then
+  if not self.resident_original[k] then
+   if not self:can_carve_resident(pos) then return false end
+   self.resident_original[k]=copy(self.source:get_node(pos))
+  end
+  self.resident_modified[k]=true
+ end
  -- An air node under the column's known-air default needs no allocation
  -- unless it replaces explicit ground (e.g. after cave excavation).
  if node.name=='air' and not self.overlay[k] and self:_known_air(pos) then
@@ -162,6 +192,24 @@ end
 -- Cave writes after this point can be copied back to partial neighbors.
 function Buffer:mark_imports_clean()
  self.modified={}
+end
+local function same(a,b)
+ return a.name==b.name and (a.param1 or 0)==(b.param1 or 0)
+  and (a.param2 or 0)==(b.param2 or 0)
+end
+-- A preflight prevents overwriting edits performed after initialEmerge.
+-- It runs before any live-map writes, including the generated core.
+function Buffer:validate_resident_halo()
+ local map=self.source
+ for k in pairs(self.resident_modified) do
+  local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
+  assert(self:contains(p) and not self:core_contains(p) and
+   self:_resident(p) and self.resident_original[k] and
+   not map.metadata[k] and not map.timers[k] and
+   same(map:get_node(p),self.resident_original[k]),
+   'MMVManip resident halo changed during mapgen')
+ end
 end
 -- Equivalent to MMVManip::copyTo/ServerMap::finishBlockMake for the
 -- generated core only. Ignore is not copied; explicit air clears nodes.
@@ -182,18 +230,29 @@ function Buffer:commit_core()
    end
   end
  end
- local nodes,discarded=0,0
+ -- No part of the core is committed if a neighboring voxel was
+ -- changed concurrently or has node metadata/timers.
+ self:validate_resident_halo()
+ local nodes,discarded,resident=0,0,0
  for k,node in pairs(self.overlay) do
   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
   if self:core_contains(pos) then
    if node.name~='air' then map:set_node(pos,node) end
    nodes=nodes+1
+  elseif self.resident_modified[k] then
+   -- Native blitBackAll writes non-IGNORE nodes to emerged neighbors.
+   -- These are staged cave changes, never raw terrain or unknown voxels.
+   if not same(node,self.resident_original[k]) then
+    map:set_node(pos,node)
+    resident=resident+1
+   end
   else
    discarded=discarded+1
   end
  end
  self.core_nodes,self.discarded_border=nodes,discarded
- return nodes,discarded
+ self.committed_resident=resident
+ return nodes,discarded,resident
 end
 return Buffer
