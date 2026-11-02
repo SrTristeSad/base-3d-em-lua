@@ -9,6 +9,7 @@ local ModStorage=require('core.modstorage')
 local Voxel=require('core.voxel')
 local Particles=require('core.particles')
 local NodeDrops=require('core.nodedrops')
+local NodeSearch=require('core.nodesearch')
 local Digging=require('core.digging')
 local Placement=require('core.placement')
 local Falling=require('core.falling')
@@ -590,13 +591,66 @@ function Runtime.new(options)
   return CollisionGeometry.collect(self,swept,pad,exclude_buildable)
  end
  function api.get_node_or_nil(pos) return self.map:get_node(pos) end
+ -- Luanti ServerEnvironment::setNode calls on_destruct before replacement,
+ -- then after_destruct and on_construct. Only swap_node preserves metadata
+ -- and avoids callbacks. Keep those semantics for unmodified game mods.
  function api.set_node(pos,node)
+  local n=opts_copy(node)
+  n.name=resolve(n.name)
+  local before=self.map:get_node(pos)
+  local olddef=self.registry.nodes[before.name]
+  if olddef and type(olddef.on_destruct)=='function' then
+   olddef.on_destruct(clone(pos))
+  end
+  local success=self.map:set_node(pos,n)
+  if not success then return false end
+  local key=Map.key(pos)
+  self.map.metadata[key]=nil
+  self.map.timers[key]=nil
+  if olddef and type(olddef.after_destruct)=='function' then
+   olddef.after_destruct(clone(pos),before)
+  end
+  local newdef=self.registry.nodes[n.name]
+  if newdef and type(newdef.on_construct)=='function' then
+   newdef.on_construct(clone(pos))
+  end
+  return true
+ end
+ function api.add_node(pos,node) return api.set_node(pos,node) end
+ function api.bulk_set_node(positions,node)
+  assert(type(positions)=='table','positions must be a list')
+  for i=1,#positions do
+   if not api.set_node(positions[i],node) then return false end
+  end
+  return true
+ end
+ function api.swap_node(pos,node)
   local n=opts_copy(node)
   n.name=resolve(n.name)
   return self.map:set_node(pos,n)
  end
- function api.swap_node(pos,node) return api.set_node(pos,node) end
- function api.remove_node(pos) return self.map:remove_node(pos) end
+ function api.bulk_swap_node(positions,node)
+  assert(type(positions)=='table','positions must be a list')
+  for i=1,#positions do
+   if not api.swap_node(positions[i],node) then return false end
+  end
+  return true
+ end
+ function api.remove_node(pos)
+  local before=self.map:get_node(pos)
+  local def=self.registry.nodes[before.name]
+  if def and type(def.on_destruct)=='function' then
+   def.on_destruct(clone(pos))
+  end
+  if not self.map:remove_node(pos) then return false end
+  local key=Map.key(pos)
+  self.map.metadata[key]=nil
+  self.map.timers[key]=nil
+  if def and type(def.after_destruct)=='function' then
+   def.after_destruct(clone(pos),before)
+  end
+  return true
+ end
  function api.get_meta(pos) return self.map:get_meta(pos) end
  function api.get_node_timer(pos) return self.map:get_timer(pos) end
  function api.get_item_group(name,group)
@@ -617,33 +671,23 @@ function Runtime.new(options)
   assert(type(name)=='string','node name required')
   return NodeDrops.evaluate(self.registry.nodes,resolve(name),tool,rng)
  end
- function api.find_nodes_in_area(minp,maxp,names)
-  local matches={}
-  if type(names)=='string' then names={names} end
-  local lookup={}
-  for _,n in ipairs(names or {}) do lookup[n]=true end
-  for _,entry in ipairs(self.map:iter_nodes(minp,maxp)) do
-   local name=entry.node.name
-   if lookup[name] then matches[#matches+1]=entry.pos
-   else
-    local def=self.registry.nodes[name]
-    for n in pairs(lookup) do
-     local g=n:match('^group:(.+)')
-     if g and def and def.groups and (def.groups[g] or 0)>0 then
-      matches[#matches+1]=entry.pos
-      break
-     end
-    end
-   end
-  end
-  return matches
+ function api.find_nodes_in_area(minp,maxp,names,grouped)
+  return NodeSearch.area(self.map,self.registry.nodes,
+   self.registry.aliases,minp,maxp,names,grouped)
+ end
+ function api.find_nodes_in_area_under_air(minp,maxp,names)
+  return NodeSearch.under_air(self.map,self.registry.nodes,
+   self.registry.aliases,minp,maxp,names)
+ end
+ function api.find_node_near(pos,radius,names,search_center)
+  return NodeSearch.near(self.map,self.registry.nodes,
+   self.registry.aliases,pos,radius,names,search_center)
  end
  function api.place_node(pos,node)
   local old=api.get_node(pos)
   if not api.set_node(pos,node) then return false end
   local new=api.get_node(pos)
-  local def=self.registry.nodes[new.name]
-  if def and def.on_construct then def.on_construct(clone(pos)) end
+  -- set_node already called the constructor.
   for _,cb in ipairs(self.callbacks.on_placenode) do
    cb(clone(pos),new,nil,old,nil,nil)
   end
@@ -653,12 +697,8 @@ function Runtime.new(options)
  function api.dig_node(pos)
   local old=api.get_node(pos)
   if old.name=='air' then return false end
-  local def=self.registry.nodes[old.name]
-  if def and def.on_destruct then def.on_destruct(clone(pos)) end
+  -- remove_node already called destructor and cleared metadata/timer.
   api.remove_node(pos)
-  api.get_meta(pos):from_table({fields={},inventory={}})
-  api.get_node_timer(pos):stop()
-  if def and def.after_destruct then def.after_destruct(clone(pos),old) end
   for _,cb in ipairs(self.callbacks.on_dignode) do
    cb(clone(pos),old,nil)
   end
