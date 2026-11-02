@@ -16,7 +16,6 @@ on:
       - 'tests/lua_engine_emerge_area.lua'
       - 'tests/lua_engine_mapblock_streaming.lua'
       - 'tests/lua_engine_active_mapblocks.lua'
-      - 'tests/lua_engine_active_mapblocks.lua'
       - 'tests/lua_engine_lbm_activation.lua'
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
@@ -109,6 +108,9 @@ on:
       - 'tests/lua_engine_natural_sunlight.lua'
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
+      - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_mapblock_streaming.lua'
+      - 'tests/lua_engine_active_mapblocks.lua'
       - 'tests/lua_engine_lbm_activation.lua'
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
@@ -205,6 +207,10 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y lua5.4 luajit
       - name: Syntax check for standalone Lua engine
         run: find lua-engine -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
+      - name: Luanti 5.18 core.emerge_area/load_area and unloaded node semantics (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_emerge_area.lua
+          luajit tests/lua_engine_emerge_area.lua
       - name: Persistent segmented mapblock streaming (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mapblock_streaming.lua
