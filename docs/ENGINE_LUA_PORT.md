@@ -520,3 +520,30 @@ considerado um dos módulos integrados.**
 - **Pendente:** arrasto contínuo, botões das setas do scrollbar,
   precisão dos estilos/medidas originais Irrlicht e demais
   funcionalidades para equivalência 1:1 completa do motor.
+
+### Fase 70 — contratos nativos de nós Luanti 5.18
+
+- `core.add_node` é um alias de `core.set_node` no mesmo runtime.
+  `core.bulk_set_node` e `core.bulk_swap_node` percorrem a lista
+  de posições sem inventar callbacks de interação de jogador.
+- `set_node` agora executa `on_destruct`, substitui o nó, remove
+  metadados e timer antigos, em seguida executa `after_destruct` e
+  `on_construct`, na ordem de `ServerEnvironment::setNode` do
+  Luanti 5.18. `swap_node` conserva metadados e timer sem rodar
+  construtor/destrutor. `place_node`/`dig_node` continuam enviando
+  seus callbacks de jogador sem disparar callbacks nativos duas vezes.
+- A consulta `find_nodes_in_area` agora inclui contagens por nome como
+  segundo retorno e `grouped=true`, aceitando filtros de grupos e
+  apelidos. Novas APIs: `find_node_near` (busca por anéis Chebyshev
+  com opção de incluir centro) e `find_nodes_in_area_under_air`
+  (filtra a presença de ar imediatamente acima).
+- Teste `tests/lua_engine_node_api_parity.lua` confere ordem dos
+  callbacks, metadados, timers, aliases, operações em lote,
+  contagem/agrupamento e buscas, em Lua 5.4/LuaJIT.
+- **Lacunas explicitadas**: ainda não existem distinções entre
+  mapblocks não carregados e ar gerado, o motor Lua ainda limita
+  buscas densas a 1.048.576 nós e `find_node_near` a raio 64.
+  A ordem exata de retorno de `FacePositionCache` e suporte a
+  150 milhões de nós das buscas nativas não foram reproduzidos.
+  Esta fase não implementa iluminação, mapas Luanti, líquidos ou
+  a inicialização de todos os mods do VoxeLibre.
