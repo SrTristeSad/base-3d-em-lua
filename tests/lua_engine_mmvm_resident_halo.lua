@@ -63,7 +63,7 @@ for k in pairs(buffer.resident_modified) do
 end
 assert(#changes>0 and #changes==walk.metrics.carved,
  'CavesRandomWalk must carve known resident ground in XYZ halo')
-assert(buffer:get_node({x=20,y=-2,z=0}).name=='ignore')
+assert(buffer:get_node({x=-32,y=-2,z=0}).name=='ignore')
 assert(not buffer:set_node(pos,{name='air'}),
  'disabling resident halo mutation must reject further writes')
 -- The staged entries remain valid; commit applies them after preflight.
@@ -74,7 +74,7 @@ for _,p in ipairs(changes) do
   'blitBackAll must update the already emerged mapblock')
 end
 assert(rt.map.revisions[block] and rt.map.modified[block])
-assert(rt.api.get_node({x=20,y=-2,z=0}).name=='ignore',
+assert(rt.api.get_node({x=-32,y=-2,z=0}).name=='ignore',
  'unknown halo should not be changed or emerged')
 assert(store:flush())
 local reboot=runtime()
