@@ -21,6 +21,7 @@ local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local PlayerHP=require('core.playerhp')
 local AuthChat=require('core.authchat')
+local Lighting=require('core.lighting')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -60,6 +61,8 @@ function Runtime.new(options)
  },Runtime)
  local api={}
  self.api=api
+ self.light_registry_revision=0
+ self.lighting=Lighting.new(self)
  AuthChat.install(self,api)
  self.formspec=Formspec.new(self)
  PlayerHP.install(api)
@@ -145,6 +148,8 @@ function Runtime.new(options)
  api.craftitemdef_default={stack_max=99}
  api.MAP_BLOCKSIZE=16
  api.MAX_MAP_GENERATION_LIMIT=31000
+ api.LIGHT_MAX=14
+ api.LIGHT_SUN=15
  api.features={hud_def_type_field=true}
  api.settings={}
  local settings=self.opts.settings or {}
@@ -337,6 +342,7 @@ function Runtime.new(options)
   def.type=kind
   def.groups=opts_copy(def.groups)
   if kind=='node' then
+   self.light_registry_revision=self.light_registry_revision+1
    if def.stack_max==nil then def.stack_max=api.nodedef_default.stack_max end
    if def.walkable==nil then def.walkable=true end
    if def.pointable==nil then def.pointable=true end
@@ -360,6 +366,7 @@ function Runtime.new(options)
   for key,value in pairs(overrides) do
    if key~='name' then def[key]=value end
   end
+  self.light_registry_revision=self.light_registry_revision+1
   CollisionGeometry.invalidate(self)
  end
  function api.register_node(name,def)
@@ -755,10 +762,13 @@ function Runtime.new(options)
   end
   return self.opts.creative_mode==true
  end
- function api.get_node_light(pos)
-  local n=api.get_node(pos)
-  local d=self.registry.nodes[n.name]
-  return d and d.light_source or 0
+ -- Day/night light banks from the original node param1 plus a
+ -- bounded source-falloff fallback until map lighting is fully ported.
+ function api.get_node_light(pos,timeofday)
+  return self.lighting:get_node_light(pos,timeofday)
+ end
+ function api.get_artificial_light(param1)
+  return Lighting.artificial(param1)
  end
  function api.get_objects_inside_radius(pos,radius)
   local out=LuaEntities.radius(self,pos,radius)
