@@ -26,6 +26,9 @@ function Map.new(registry)
   -- MapBlock::isAir is a lazy per-block CONTENT_AIR cache. Unknown
   -- MapBlocks have no cache entry, and transient IGNORE is not AIR.
   block_air_cache={},block_air_scans=0,
+  -- Luanti 5.18 MapBlock::m_lighting_complete is u16, default 0xFFFF.
+  -- Only deviations from the default need a sparse entry.
+  lighting_complete={},
   game_time=0,last_active={},count=0,
   geometry_revision=0},Map)
 end
@@ -46,6 +49,73 @@ local function blockcoords(block)
   math.abs(y)<=1938 and math.abs(z)<=1938 and
   block==x..','..y..','..z,'invalid mapblock cache coordinates')
  return x,y,z
+end
+-- Native MapBlock::m_lighting_complete is a 16-bit flag word. Bits 0..5
+-- represent LIGHTBANK_DAY neighbors (directions 0..5); bits 6..11
+-- represent LIGHTBANK_NIGHT. Preserve the four reserved upper bits.
+local function lightword(flags)
+ assert(type(flags)=='number' and flags==floor(flags) and
+  flags>=0 and flags<=65535,'lighting complete must be a u16')
+ return flags
+end
+local function direction_bit(bank,direction)
+ assert(bank=='day' or bank=='night' or bank==0 or bank==1,
+  'light bank must be day/night or 0/1')
+ assert(type(direction)=='number' and direction==floor(direction) and
+  direction>=0 and direction<=5,'light direction must be 0..5')
+ return 2^(direction+((bank=='night' or bank==1) and 6 or 0))
+end
+function Map:get_mapblock_lighting_complete(block)
+ blockcoords(block)
+ return self.lighting_complete[block] or 65535
+end
+function Map:is_mapblock_lighting_complete(block,bank,direction)
+ local bit=direction_bit(bank,direction)
+ return floor(self:get_mapblock_lighting_complete(block)/bit)%2==1
+end
+-- Setter mirrors setLightingComplete(u16): changing any bit raises
+-- write-at-unload dirty state, without implying that light was computed.
+-- The target must already be resident, as in MapBlock::setLightingComplete.
+function Map:set_mapblock_lighting_complete(block,flags)
+ local bx,by,bz=blockcoords(block)
+ flags=lightword(flags)
+ local resident=self.blank_blocks[block] or
+  self.revisions[block] or self.last_active[block] or
+  self.lbm_applied[block]
+ if not resident then
+  local function inblock(k)
+   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+   return x and floor(tonumber(x)/16)==bx and
+    floor(tonumber(y)/16)==by and floor(tonumber(z)/16)==bz
+  end
+  for _,entries in ipairs({self.nodes,self.metadata,self.timers}) do
+   for k in pairs(entries) do
+    if inblock(k) then resident=true;break end
+   end
+   if resident then break end
+  end
+ end
+ assert(resident,'lighting complete requires a resident MapBlock')
+ local old=self:get_mapblock_lighting_complete(block)
+ if old==flags then return false end
+ self.lighting_complete[block]=flags==65535 and nil or flags
+ self.modified[block]=true
+ return true
+end
+function Map:set_mapblock_lighting_complete_direction(block,bank,direction,complete)
+ assert(type(complete)=='boolean','lighting complete requires boolean')
+ local bit=direction_bit(bank,direction)
+ local current=self:get_mapblock_lighting_complete(block)
+ local already=floor(current/bit)%2==1
+ if complete==already then
+  -- Even a no-op setter must not accept an absent MapBlock.
+  blockcoords(block)
+  -- Check residency by requiring an existing MapBlock via the
+  -- full-word setter, which is idempotent for identical flags.
+  return self:set_mapblock_lighting_complete(block,current)
+ end
+ return self:set_mapblock_lighting_complete(block,
+  complete and current+bit or current-bit)
 end
 -- Luanti 5.18 MapBlock::expireIsAirCache. Called on node mutations,
 -- on transitions from IGNORE to generated AIR, and after MMVManip blit.
