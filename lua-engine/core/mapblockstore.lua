@@ -188,6 +188,8 @@ function Store:load_partial(k)
  for _,timer in pairs(image.timers) do
   map:get_timer(timer.pos):set(timer.timeout,timer.elapsed)
  end
+ -- MapNode restoration is a disk import, not a new user edit.
+ map:reset_mapblock_modified(k)
  map.lighting_complete[k]=image.lighting_complete[k]
  map.underground[k]=image.underground[k]
  return true
@@ -271,7 +273,7 @@ function Store:unload(k)
   if block_of(key)==k then map.timers[key]=nil end
  end
  map.revisions[k]=nil
- map.modified[k]=nil
+ map:reset_mapblock_modified(k)
  -- Evicted MapBlocks do not retain a live native isAir cache.
  map:expire_mapblock_air_cache(k)
  map.lightbanks[k]=nil
@@ -315,6 +317,7 @@ function Store:emerge(k)
  map.last_active[k]=image.last_active[k]
  map.lighting_complete[k]=image.lighting_complete[k]
  map.underground[k]=image.underground[k]
+ map:reset_mapblock_modified(k)
  self.loads=self.loads+1
  self.misses[k]=nil
  return true
@@ -354,6 +357,9 @@ function Store:flush()
    write(self.fs,self:path(key),Storage.encode(self:snapshot(key)))
    written=written+1
   end
+  -- A successful atomic write synchronizes this MapBlock's state.
+  -- Never clear dirty flags if any write throws.
+  map:reset_mapblock_modified(key)
  end
  return true,written
 end
