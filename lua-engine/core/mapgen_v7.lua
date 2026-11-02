@@ -305,17 +305,23 @@ function V7:generateChunk(minp,maxp,chunk_size)
   },1)
   local partial=MapgenVoxelBuffer.new(map,single)
   local inherited=border and border:seed(partial,single) or 0
+  local halo=border and border:seedExpanded(partial,single) or 0
+  partial:mark_imports_clean()
   self:_generateRegion(partial,single.node_min,single.node_max,
    single.full_node_min)
   partial:commit_core()
   local retired=border and border:retire(single) or 0
   local published=border and border:publish(partial,single) or 0
+  local carved_halo=border and border:publishModifiedHalo(partial) or 0
   self.lastChunkBorderStats={seeded=inherited,retired=retired,
-   published=published,isolated=true}
+   published=published,seeded_halo=halo,
+   carved_halo=carved_halo,isolated=true}
   return true
  end
  local stage=MapgenVoxelBuffer.new(map,geom)
  local inherited=border and border:seed(stage,geom) or 0
+ local halo=border and border:seedExpanded(stage,geom) or 0
+ stage:mark_imports_clean()
  self:_generateRegion(stage,geom.node_min,geom.node_max,
   geom.full_node_min)
  local copied,discarded=stage:commit_core()
@@ -323,8 +329,10 @@ function V7:generateChunk(minp,maxp,chunk_size)
  -- separate nonresident border layer and seeded into vertical neighbors.
  local retired=border and border:retire(geom) or 0
  local published=border and border:publish(stage,geom) or 0
+ local carved_halo=border and border:publishModifiedHalo(stage) or 0
  self.lastChunkBorderStats={seeded=inherited,retired=retired,
-  published=published,isolated=false}
+  published=published,seeded_halo=halo,
+  carved_halo=carved_halo,isolated=false}
  self.lastChunkVoxelStats={core_nodes=copied,
   border_discarded=discarded,air_columns=stage.air_columns_count,
   generated_writes=stage.writes,buffer_volume=stage.voxel_count}
