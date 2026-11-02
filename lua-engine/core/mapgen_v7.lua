@@ -309,6 +309,7 @@ function V7:generateChunk(minp,maxp,chunk_size)
    x=floor(minp.x/16),y=floor(minp.y/16),z=floor(minp.z/16)
   },1)
   local partial=MapgenVoxelBuffer.new(map,single)
+  partial:initialEmerge(false)
   local inherited=border and border:seed(partial,single) or 0
   local halo=border and border:seedExpanded(partial,single) or 0
   partial:mark_imports_clean()
@@ -325,6 +326,7 @@ function V7:generateChunk(minp,maxp,chunk_size)
   return true
  end
  local stage=MapgenVoxelBuffer.new(map,geom)
+ stage:initialEmerge(false)
  local inherited=border and border:seed(stage,geom) or 0
  local halo=border and border:seedExpanded(stage,geom) or 0
  stage:mark_imports_clean()

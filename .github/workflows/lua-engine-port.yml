@@ -26,6 +26,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_initial_emerge.lua'
       - 'tests/lua_engine_mmvm_blit.lua'
       - 'tests/lua_engine_mmvm_halo_caves.lua'
       - 'tests/lua_engine_vertical_border.lua'
@@ -132,6 +133,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_initial_emerge.lua'
       - 'tests/lua_engine_mmvm_blit.lua'
       - 'tests/lua_engine_mmvm_halo_caves.lua'
       - 'tests/lua_engine_vertical_border.lua'
@@ -245,6 +247,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 MMVManip initialEmerge snapshots and resident known air (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mmvm_initial_emerge.lua
+          luajit tests/lua_engine_mmvm_initial_emerge.lua
       - name: Luanti 5.18 MMVManip getCoveredBlocks, sparse air and safe halo blit (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mmvm_blit.lua
