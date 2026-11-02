@@ -22,6 +22,7 @@ local PlayerPhysics=require('core.playerphysics')
 local PlayerHP=require('core.playerhp')
 local AuthChat=require('core.authchat')
 local Lighting=require('core.lighting')
+local LBM=require('core.lbm')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -150,7 +151,7 @@ function Runtime.new(options)
  api.MAX_MAP_GENERATION_LIMIT=31000
  api.LIGHT_MAX=14
  api.LIGHT_SUN=15
- api.features={hud_def_type_field=true}
+ api.features={hud_def_type_field=true,bulk_lbms=true}
  api.settings={}
  local settings=self.opts.settings or {}
  local mapgen=self.opts.mapgen or {}
@@ -531,8 +532,7 @@ function Runtime.new(options)
   self.registry.abms[#self.registry.abms+1]=copy
  end
  function api.register_lbm(def)
-  assert(type(def)=='table' and type(def.action)=='function')
-  self.registry.lbms[#self.registry.lbms+1]=opts_copy(def)
+  return LBM.register(self,def)
  end
  function api.after(delay,fn,...)
   assert(type(delay)=='number' and delay>=0 and
@@ -837,6 +837,16 @@ function Runtime:replaceMap(map)
  end
  CollisionGeometry.invalidate(self)
  return map
+end
+-- A host calls this when a resident mapblock becomes active. LBMs are not
+-- triggered by get_node, get_node_or_nil, generation or every game tick.
+function Runtime:activateMapBlock(nodepos,dtime_s)
+ return LBM.activate(self,nodepos,dtime_s)
+end
+-- Called by map generation to mark new blocks as newer than registered
+-- one-shot LBMs. It must run after the generator writes the block.
+function Runtime:markGeneratedMapBlocks(minp,maxp)
+ return LBM.mark_generated(self,minp,maxp)
 end
 function Runtime:step(dt)
  assert(type(dt)=='number' and dt>=0 and dt==dt,'invalid dt')
