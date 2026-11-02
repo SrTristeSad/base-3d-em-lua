@@ -216,6 +216,6 @@ eq(resumed.map:get_mapblock_disk_timestamp(a),U)
 assert(reloaded:emerge(a))
 eq(resumed.map:get_mapblock_timestamp(a),100)
 eq(resumed.map:get_mapblock_disk_timestamp(a),100)
-eq(resumed.map.last_active[a],13.75,
- 'save snapshot refreshes last_active independently from P')
+eq(resumed.map.last_active[a],1.25,
+ 'streaming snapshot preserves the LBM last_active independently from P')
 print('LUANTI MAPBLOCK TIMESTAMP AND DISK STATUS STREAMING PASS')
