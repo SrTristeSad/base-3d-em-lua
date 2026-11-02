@@ -179,6 +179,74 @@ function Border:publishModifiedHalo(buffer)
  end
  return count
 end
+-- Scoped MMVManip::blitBackAll equivalent for the HALO only.
+-- Native src/map.cpp selects mapblocks with any known node (including
+-- air) and skips blocks marked generated unless overwrite_generated=true.
+-- We preserve generated/user-edited blocks and transfer known halo voxels
+-- into partial sidecars instead of pretending the destination is emerged.
+-- In contrast to the previous publishModifiedHalo, this also transfers
+-- NEW known voxels, not just changes to previously imported sidecars.
+function Border:blitBackHalo(buffer)
+ assert(buffer and buffer.is_gen_buffer and
+  type(buffer.getCoveredBlocks)=='function',
+  'blitBackHalo requires a generated MMVManip workspace')
+ local covered=buffer:getCoveredBlocks()
+ local changed,modified_blocks=0,{}
+ local map=self.runtime.map
+ local function copyback(p)
+  if not buffer:contains(p) or buffer:core_contains(p) then
+   return
+  end
+  local block=map:blockkey(p)
+  if not covered[block] then return end
+  -- The native default !overwrite_generated condition. In the sparse
+  -- Lua map, revisions and generated activation markers also conservatively
+  -- protect player edits that are not explicitly marked generated.
+  if map.revisions[block] or map.last_active[block] or
+   map.lbm_applied[block] then return end
+  local node=buffer:get_node(p)
+  if node.name=='ignore' then return end
+  self:loadBlock(block)
+  local nk=nodekey(p)
+  local prev=self.pending[block][nk]
+  local n=validnode(node)
+  if prev and prev.name==n.name and prev.param1==n.param1 and
+   prev.param2==n.param2 then return end
+  self.pending[block][nk]=n
+  self.dirty[block]=true
+  modified_blocks[block]=true
+  changed=changed+1
+ end
+ -- Known-air columns have compressed representation. Only the one-down
+ -- and one-up generated halo planes need individual entries in sidecars.
+ for key,col in pairs(buffer.air_columns) do
+  local x,z=key:match('^(%-?%d+),(%-?%d+)$')
+  x,z=tonumber(x),tonumber(z)
+  local a,b=buffer.geometry.node_min,buffer.geometry.node_max
+  local function visit(lo,hi)
+   for y=lo,hi do copyback({x=x,y=y,z=z}) end
+  end
+  if x<a.x or x>b.x or z<a.z or z>b.z then
+   -- Future stages may have known-air columns in an X/Z border.
+   visit(col.ymin,col.ymax)
+  else
+   -- Current V7 has 80+2 known air cells per column. Only the
+   -- overgenerated Y planes can belong to outside-core blocks,
+   -- avoiding an O(chunk volume) second scan during blit.
+   visit(col.ymin,math.min(col.ymax,a.y-1))
+   visit(math.max(col.ymin,b.y+1),col.ymax)
+  end
+ end
+ -- Other mapgen algorithms (e.g. CavesRandomWalk) can create or modify
+ -- voxels on any X/Y/Z face of the full MMVManip area.
+ for key in pairs(buffer.overlay) do
+  local p=decodekey(key)
+  if not buffer:core_contains(p) then copyback(p) end
+ end
+ local nblocks=0
+ for _ in pairs(modified_blocks) do nblocks=nblocks+1 end
+ return changed,nblocks
+end
 local function add(self,p,node)
  local block=self.runtime.map:blockkey(p)
  self:loadBlock(block)
