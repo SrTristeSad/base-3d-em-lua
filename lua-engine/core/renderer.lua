@@ -1,6 +1,7 @@
 -- GPU bridge for pure Lua mapblock mesher, LÖVR 0.19 Pass:mesh.
 -- Rendering is independent of Luanti C++; the LÖVR GPU remains a native API.
 local Mesher=require('core.mesher')
+local Lighting=require('core.lighting')
 local R={}
 R.__index=R
 local format={
@@ -31,19 +32,24 @@ function R:reset()
  self.dynamic_registry=nil
  self.map=nil
 end
-function R:refresh(map,registry,cx,cy,cz)
+function R:refresh(map,registry,cx,cy,cz,lighting,timeofday,light_bucket)
  if map~=self.map then
   self:reset()
   self.map=map
  end
  local id=key(cx,cy,cz)
- local rev=Mesher.fingerprint(map,cx,cy,cz)
+ local rev=Mesher.fingerprint(map,cx,cy,cz,lighting~=nil)
  local entry=self.cache[id]
- if entry and entry.revision==rev and entry.registry==registry then
+ local light_registry_revision=lighting and
+  lighting.runtime.light_registry_revision or nil
+ if entry and entry.revision==rev and entry.registry==registry
+  and entry.lighting==lighting and entry.light_bucket==light_bucket
+  and entry.light_registry_revision==light_registry_revision then
   entry.seen=self.frame
   return entry
  end
- local vertices,stats=Mesher.build(map,registry,cx,cy,cz)
+ local vertices,stats=Mesher.build(map,registry,cx,cy,cz,
+  lighting,timeofday)
  local buffer=nil
  if #vertices>0 then
   buffer=self.graphics.newBuffer(format,vertices)
@@ -52,17 +58,32 @@ function R:refresh(map,registry,cx,cy,cz)
   entry.buffer:release()
  end
  entry={buffer=buffer,revision=rev,registry=registry,
+  lighting=lighting,light_bucket=light_bucket,
+  light_registry_revision=light_registry_revision,
   stats=stats,seen=self.frame}
  self.cache[id]=entry
  self.rebuilt=self.rebuilt+1
  return entry
 end
-function R:draw(pass,map,registry,camera,radius)
+function R:draw(pass,map,registry,camera,radius,lighting,timeofday)
  assert(pass and type(pass.mesh)=='function','draw needs LÖVR pass')
  assert(type(camera)=='table','camera position required')
  radius=radius or 20
  local cr=math.max(1,math.ceil(radius/16))
  local cx,cy,cz=floor(camera.x/16),floor(camera.y/16),floor(camera.z/16)
+ -- Quantize the Luanti day/night blend to prevent permanent GPU buffer
+ -- rebuilds for infinitesimal clock changes. Unlit legacy rendering
+ -- retains exactly its previous cache behavior and vertex colors.
+ local light_bucket=nil
+ if lighting then
+  assert(type(lighting.get_node_light)=='function' and
+   type(lighting.runtime)=='table' and lighting.runtime.map==map,
+   'lighting must match the rendered world')
+  if timeofday==nil then
+   timeofday=lighting.runtime.api.get_timeofday()
+  end
+  light_bucket=floor(Lighting.day_ratio(timeofday)/25+.5)
+ end
  self.frame=self.frame+1
  self.drawcalls=0
  if not self.texture then
@@ -74,7 +95,8 @@ function R:draw(pass,map,registry,camera,radius)
  for x=cx-cr,cx+cr do
   for y=cy-cr,cy+cr do
    for z=cz-cr,cz+cr do
-    local entry=self:refresh(map,registry,x,y,z)
+    local entry=self:refresh(map,registry,x,y,z,
+     lighting,timeofday,light_bucket)
     if entry.buffer then
      -- Vertices are already in world space, so no extra node transforms.
      pass:mesh(entry.buffer,0,0,0)
