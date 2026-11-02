@@ -11,7 +11,7 @@ assert(geom.node_min.x==-16 and geom.node_max.x==15)
 local world=Map.new()
 local resident={x=16,y=-2,z=0}
 local empty={x=16,y=-2,z=1}
-local meta={x=17,y=-2,z=0}
+local meta={x=17,y=0,z=0}
 local timer={x=-17,y=-2,z=0}
 local unknown={x=0,y=-2,z=16}
 world:set_node(resident,{name='test:stone',param1=7,param2=9})
@@ -19,9 +19,9 @@ world:get_meta(meta):set_string('owner','sample')
 world:get_timer(timer):start(12)
 world.last_active['0,0,0']=0 -- already loaded and entirely air
 local area=Buffer.new(world,geom)
-assert(area:initialEmerge(false)==3,
- 'one edited block, one timer-only and one known-empty block')
-assert(area.initial_loaded_count==3)
+assert(area:initialEmerge(false)==4,
+ 'one edited, one metadata-only, one timer-only and one known-empty block')
+assert(area.initial_loaded_count==4)
 assert(area:get_node(resident).name=='test:stone')
 local prior=area:get_node(resident)
 assert(prior.param1==7 and prior.param2==9)
@@ -38,6 +38,7 @@ assert(not area:terrain_writable(timer),
  'timer-only air block must be known and protected')
 assert(area:getCoveredBlocks()['1,-1,0'])
 assert(area:getCoveredBlocks()['-2,-1,0'])
+assert(area:getCoveredBlocks()['1,0,0'])
 assert(area:getCoveredBlocks()['0,0,0'])
 assert(not area:getCoveredBlocks()['0,-1,1'])
 assert(not pcall(area.initialEmerge,area,false),
