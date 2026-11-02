@@ -25,6 +25,7 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_vertical_border.lua'
       - 'tests/lua_engine_native_chunk5.lua'
       - 'tests/lua_engine_mapgen_voxelbuffer.lua'
       - 'tests/lua_engine_chunk_generation.lua'
@@ -127,6 +128,7 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_vertical_border.lua'
       - 'tests/lua_engine_native_chunk5.lua'
       - 'tests/lua_engine_mapgen_voxelbuffer.lua'
       - 'tests/lua_engine_chunk_generation.lua'
@@ -233,6 +235,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_active_mapblocks.lua
           luajit tests/lua_engine_active_mapblocks.lua
+      - name: Luanti 5.18 vertical MMVManip border handoff and persistent reload (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_vertical_border.lua
+          luajit tests/lua_engine_vertical_border.lua
       - name: Luanti 5.18 native 5x5x5 chunks and sparse generated air (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_native_chunk5.lua
