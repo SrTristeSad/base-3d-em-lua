@@ -76,6 +76,9 @@ for _,line in ipairs({
   'invalid underground record accepted: '..line)
 end
 assert(not pcall(Storage.decode,
+ 'LUAENGINE 1\nQ 0 -0 0 2\nEND\n'),
+ 'Q record also requires canonical coordinates under LuaJIT')
+assert(not pcall(Storage.decode,
  'LUAENGINE 1\nU 0 0 0 1\nU 0 0 0 1\nEND\n'),
  'duplicate U flags must be rejected')
 -- A per-block flag cannot be placed in the global streaming header.
