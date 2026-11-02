@@ -585,3 +585,34 @@ considerado um dos módulos integrados.**
   sem adaptação do host ou persistência automática dos privilégios.
   Passar pela auditoria nominal de APIs não prova paridade de
   comportamento 1:1.
+
+### Fase 72 — bancos de luz, fonte luminosa e oclusão em Lua
+
+- O `get_node_light(pos, timeofday)` antes ignorava completamente
+  `param1` e apenas devolvia `light_source` da definição do bloco.
+  Agora lê os bancos de luz diurna e noturna (nibbles de 4 bits)
+  de nós `paramtype="light"` e mistura-os conforme a fórmula inteira
+  `blend_light` e a curva suave `time_to_daynight_ratio` do Luanti
+  5.18. Adicionados `LIGHT_MAX=14`, `LIGHT_SUN=15` e
+  `get_artificial_light(param1)`, compatíveis com as constantes
+  e convenções de luz nativa.
+- Enquanto o mapa Lua ainda não recalcula bancos `param1` como o
+  ServerMap C++ faz, `core.lighting` simula iluminação artificial
+  **sob demanda**: luzes registradas iluminam o próprio nó e os
+  vizinhos ao longo de faces 3D, reduzindo um nível por passo;
+  vidro, ar, líquidos e `paramtype="light"` deixam propagar,
+  blocos opacos bloqueiam. O alcance máximo é limitado por 14.
+- Cache de consultas invalidado automaticamente após edição do
+  mapa (`geometry_revision`), nova definição de bloco,
+  `override_item` e substituição de mundo; o tamanho do cache é
+  limitado. O motor preserva sempre as alterações de `param1`
+  explícitas para os bancos de luz.
+- Testes Lua 5.4/LuaJIT cobrem meio-dia, noite, amanhecer, níveis
+  de emissão, distância, vidro, oclusão completa, edição do mapa,
+  modificação de definições, remoção e `replaceMap`.
+- **Ainda não é 1:1:** faltam skylight gerado por terreno,
+  propagação nativa incremental gravada em `param1`, luz do céu
+  entrando pelas cavernas, `get_natural_light` e iluminação
+  por vértice no GPU mesher. A demonstração não foi validada
+  visualmente em GPU. O cálculo sob demanda é uma solução
+  provisória funcional, não o sistema de iluminação nativa completo.
