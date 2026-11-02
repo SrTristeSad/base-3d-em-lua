@@ -126,17 +126,42 @@ function E.step(rt)
        maxp.y>31000 or maxp.z>31000 then
      action=rt.api.EMERGE_CANCELLED
     else
-     local generated,result=pcall(rt.mapBlockGenerator,rt,p,maxp)
+     local generated,result,region=pcall(rt.mapBlockGenerator,rt,p,maxp)
      if not generated then
       action=rt.api.EMERGE_ERRORED
      elseif result==true then
       -- Only an actual host generator can claim a generated mapblock.
+      -- A chunk-capable generator can return the full generated core.
+      -- Legacy single-mapblock callbacks still return true only.
+      local min_generated,max_generated=p,maxp
+      if region~=nil then
+       assert(type(region)=='table' and
+        type(region.minp)=='table' and type(region.maxp)=='table',
+        'generator returned invalid chunk region')
+       min_generated,max_generated=region.minp,region.maxp
+       for _,axis in ipairs({'x','y','z'}) do
+        local lo,hi=min_generated[axis],max_generated[axis]
+        assert(finite(lo) and finite(hi) and
+         lo==floor(lo) and hi==floor(hi) and lo%16==0 and
+         (hi+1)%16==0 and lo<=p[axis] and hi>=maxp[axis] and
+         hi>=lo and math.abs(lo)<=31000 and math.abs(hi)<=31000,
+         'generator chunk region outside mapgen limits')
+       end
+      end
       local finalized=pcall(function()
-       rt:markGeneratedMapBlocks(p,maxp)
-       rt:generate(p,maxp,rt.opts.seed or 0)
+       rt:markGeneratedMapBlocks(min_generated,max_generated)
+       rt:generate(min_generated,max_generated,rt.opts.seed or 0)
       end)
       if finalized then
-       if rt.mapBlockStore then rt.mapBlockStore:invalidate(k) end
+       if rt.mapBlockStore then
+        for x=floor(min_generated.x/16),floor(max_generated.x/16) do
+         for y=floor(min_generated.y/16),floor(max_generated.y/16) do
+          for z=floor(min_generated.z/16),floor(max_generated.z/16) do
+           rt.mapBlockStore:invalidate(x..','..y..','..z)
+          end
+         end
+        end
+       end
        action=rt.api.EMERGE_GENERATED
       else action=rt.api.EMERGE_ERRORED end
      end
