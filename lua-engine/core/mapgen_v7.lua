@@ -5,6 +5,7 @@
 -- passes are NOT implemented. No independent procedural terrain algorithm.
 local Noise=require('core.valuenoise')
 local CaveNoise=require('core.cave_noise')
+local RandomWalk=require('core.caves_randomwalk')
 local V7={}
 V7.__index=V7
 local floor=math.floor
@@ -89,7 +90,15 @@ function V7.new(runtime,config)
   runtime=runtime,worldseed=seed,water_level=water,mount_zero_level=zero,
   names=names,flags=flags(config.spflags or world.mgv7_spflags),
   noise={},noise_caves=config.noise_caves==true,
-  generated=0},V7)
+  randomwalk_caves=config.randomwalk_caves==true,
+  randomwalk_settings={
+   large_cave_depth=config.large_cave_depth,
+   small_cave_num_min=config.small_cave_num_min,
+   small_cave_num_max=config.small_cave_num_max,
+   large_cave_num_min=config.large_cave_num_min,
+   large_cave_num_max=config.large_cave_num_max
+  },
+  lava=config.lava,generated=0},V7)
  for id,p in pairs(defaults) do
   local custom=config.noise and config.noise[id]
   -- Lua noise implementation already validates octaves, spreads and flags.
@@ -184,11 +193,50 @@ function V7:generateBlock(minp,maxp)
    if name~='air' then map:set_node({x=x,y=y,z=z},{name=name}) end
   end
  end end
+ local heightmap
+ if self.randomwalk_caves then
+  -- Original MapgenV7: updateHeightmap happens after raw terrain, BEFORE
+  -- any cave stage. A column without stone receives -31000.
+  heightmap={}
+  for z=minp.z,maxp.z do for x=minp.x,maxp.x do
+   local h=-31000
+   for y=maxp.y,minp.y,-1 do
+    if map:get_node({x=x,y=y,z=z}).name==self.names.stone then
+     h=y;break
+    end
+   end
+   heightmap[#heightmap+1]=h
+  end end
+ end
  if self.caveNoise then
   self.lastCaveMetrics=self.caveNoise:carve(map,minp,maxp,self.names.stone,{
    max_stone_y=stone_surface_max_y,
    caverns=self.flags.caverns==true
   })
+ end
+ if self.randomwalk_caves then
+  local walk=RandomWalk.new({
+   map=map,node_min=minp,node_max=maxp,
+   heightmap=heightmap,seed=self.worldseed,
+   water_level=self.water_level,stone=self.names.stone,
+   water=self.names.water,lava=self.lava,
+   max_stone_height=stone_surface_max_y
+  })
+  local seed=RandomWalk.getBlockSeed2({
+   x=minp.x-16,y=minp.y-16,z=minp.z-16},self.worldseed)
+  local rw=self.randomwalk_settings
+  local large_ymax=rw.large_cave_depth or -33
+  if self.lastCaveMetrics and self.lastCaveMetrics.near_cavern then
+   large_ymax=-31000 -- MapgenV7 suppresses near-cavern randomwalk caves.
+  end
+  self.lastRandomWalkMetrics=walk:generate(seed,{
+   small_cave_num_min=rw.small_cave_num_min,
+   small_cave_num_max=rw.small_cave_num_max,
+   large_cave_num_min=rw.large_cave_num_min,
+   large_cave_num_max=rw.large_cave_num_max,
+   large_cave_depth=large_ymax
+  })
+  self.lastRandomWalkEvents=walk.events
  end
  self.generated=self.generated+1
  return true
