@@ -99,6 +99,7 @@ function Store.new(runtime,fs,prefix)
   runtime.map.game_time=header.game_time
  end
  runtime.mapBlockStore=self
+ runtime.map.mapBlockStore=self
  runtime.map.streaming=true
  return self
 end
