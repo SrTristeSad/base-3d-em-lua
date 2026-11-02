@@ -26,6 +26,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_copyto_air.lua'
       - 'tests/lua_engine_mmvm_partial_core.lua'
       - 'tests/lua_engine_mmvm_create_blank.lua'
       - 'tests/lua_engine_mmvm_expand.lua'
@@ -136,6 +137,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_copyto_air.lua'
       - 'tests/lua_engine_mmvm_partial_core.lua'
       - 'tests/lua_engine_mmvm_create_blank.lua'
       - 'tests/lua_engine_mmvm_expand.lua'
@@ -253,6 +255,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 VoxelManipulator copyTo AIR, param1/param2 and persisted blank core (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mmvm_copyto_air.lua
+          luajit tests/lua_engine_mmvm_copyto_air.lua
       - name: Luanti 5.18 MMVManip partially known blank core, concurrent edits and V7 reload (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mmvm_partial_core.lua
