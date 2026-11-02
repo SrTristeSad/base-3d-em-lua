@@ -40,10 +40,18 @@ end
 function LBM.register(rt,def)
  assert(type(def)=='table' and type(def.name)=='string' and
   def.name~='', 'LBM requires a persistent name')
- assert(type(def.nodenames)=='table' and #def.nodenames>0,
-  'LBM requires a list of nodenames')
- for _,name in ipairs(def.nodenames) do
+ -- Luanti accepts both a single nodename string and a name list.
+ -- The upstream VoxeLibre vl_legacy mod uses the string form directly.
+ local names=type(def.nodenames)=='string' and
+  {def.nodenames} or def.nodenames
+ assert(type(names)=='table' and #names>0,
+  'LBM requires one or more nodenames')
+ local copied={}
+ for k,v in pairs(def) do copied[k]=v end
+ copied.nodenames={}
+ for _,name in ipairs(names) do
   assert(type(name)=='string' and name~='','invalid LBM nodename')
+  copied.nodenames[#copied.nodenames+1]=name
  end
  assert((type(def.action)=='function' and def.bulk_action==nil)
   or (type(def.bulk_action)=='function' and def.action==nil),
@@ -51,7 +59,7 @@ function LBM.register(rt,def)
  for _,existing in ipairs(rt.registry.lbms) do
   assert(existing.name~=def.name,'duplicate LBM name: '..def.name)
  end
- rt.registry.lbms[#rt.registry.lbms+1]=def
+ rt.registry.lbms[#rt.registry.lbms+1]=copied
 end
 
 -- A newly generated block is newer than all LBMs already registered.
