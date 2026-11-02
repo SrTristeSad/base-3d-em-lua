@@ -4,6 +4,11 @@ local Inventory={}
 local methods={}
 local mt={__index=methods}
 local floor=math.floor
+-- Optional node-metadata owner hook. Detached/player inventories have no
+-- hook; only committed mutations notify the containing MapBlock.
+local function changed(self)
+ if self._on_change then self._on_change() end
+end
 local function integer(v)
  return type(v)=='number' and v==floor(v) and v>=0 and v<=65535
 end
@@ -36,12 +41,14 @@ function methods:set_size(name,size)
  if size==0 then
   self.lists[name]=nil
   self.widths[name]=nil
+  changed(self)
   return true
  end
  local old=self.lists[name] or {}
  local cells={}
  for i=1,size do cells[i]=old[i] or Stack.new(nil,self.registry) end
  self.lists[name]=cells
+ changed(self)
  return true
 end
 function methods:get_size(name)
@@ -52,6 +59,7 @@ function methods:set_width(name,width)
  check_name(name)
  assert(integer(width),'invalid width')
  self.widths[name]=width
+ changed(self)
 end
 function methods:get_width(name) return self.widths[name] or 0 end
 function methods:get_stack(name,index)
@@ -67,6 +75,7 @@ function methods:set_stack(name,index,item)
   return false
  end
  cells[index]=Stack.new(item,self.registry)
+ changed(self)
  return true
 end
 function methods:get_list(name)
@@ -92,6 +101,7 @@ function methods:set_list(name,values)
  local result={}
  for i=1,size do result[i]=Stack.new(values[i],self.registry) end
  self.lists[name]=result
+ changed(self)
  return true
 end
 function methods:set_lists(lists)
@@ -132,7 +142,10 @@ end
 function methods:add_item(name,item)
  local cells=self.lists[name]
  if not cells then return Stack.new(item,self.registry) end
- return insert(cells,item,self.registry)
+ local before=Stack.new(item,self.registry):get_count()
+ local leftover=insert(cells,item,self.registry)
+ if leftover:get_count()<before then changed(self) end
+ return leftover
 end
 function methods:room_for_item(name,item)
  local cells=self:get_list(name)
@@ -172,6 +185,7 @@ function methods:remove_item(name,item)
    if count==0 then break end
   end
  end
+ if not out:is_empty() then changed(self) end
  return out
 end
 function methods:to_table()
@@ -196,5 +210,6 @@ function methods:from_table(t)
    end
   end
  end
+ changed(self)
 end
 return Inventory
