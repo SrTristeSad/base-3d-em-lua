@@ -6,6 +6,8 @@
 local Noise=require('core.valuenoise')
 local CaveNoise=require('core.cave_noise')
 local RandomWalk=require('core.caves_randomwalk')
+local Chunk=require('core.mapgen_chunk')
+local Map=require('core.map')
 local V7={}
 V7.__index=V7
 local floor=math.floor
@@ -182,6 +184,13 @@ function V7:generateBlock(minp,maxp)
  if map.revisions[id] or map.last_active[id] or map.lbm_applied[id] then
   return false
  end
+ return self:_generateRegion(map,minp,maxp,{
+  x=minp.x-16,y=minp.y-16,z=minp.z-16})
+end
+-- All terrain and caves are computed across ONE core region. This makes
+-- CavesRandomWalk share its RNG stream and uninterrupted route across
+-- neighboring mapblocks of the same chunk.
+function V7:_generateRegion(map,minp,maxp,full_node_min)
  local stone_surface_max_y=-31000
  for z=minp.z,maxp.z do for x=minp.x,maxp.x do
   local level=self:baseTerrainLevelAtPoint(x,z)
@@ -222,7 +231,7 @@ function V7:generateBlock(minp,maxp)
    water=self.names.water,lava=self.lava,
    max_stone_height=stone_surface_max_y
   })
-  local seed=RandomWalk.getBlockSeed2({
+  local seed=RandomWalk.getBlockSeed2(full_node_min or {
    x=minp.x-16,y=minp.y-16,z=minp.z-16},self.worldseed)
   local rw=self.randomwalk_settings
   local large_ymax=rw.large_cave_depth or -33
@@ -240,6 +249,49 @@ function V7:generateBlock(minp,maxp)
  end
  self.generated=self.generated+1
  return true
+end
+-- Opt-in multi-mapblock generation. Work is staged in a separate sparse Map
+-- and copied only after all noise/cave stages succeed. A partially existing
+-- or disk-backed chunk falls back to the original single-block generator.
+-- This prevents rewriting user edits and persisted blocks.
+function V7:generateChunk(minp,maxp,chunk_size)
+ local geom=Chunk.geometry({
+  x=floor(minp.x/16),y=floor(minp.y/16),z=floor(minp.z/16)
+ },chunk_size)
+ assert(minp.x>=geom.node_min.x and minp.x<=geom.node_max.x and
+  minp.y>=geom.node_min.y and minp.y<=geom.node_max.y and
+  minp.z>=geom.node_min.z and minp.z<=geom.node_max.z,
+  'mapblock not contained in requested chunk')
+ local map=self.runtime.map
+ local store=self.runtime.mapBlockStore
+ local blocks=Chunk.each_block(geom)
+ local has_existing=false
+ for _,b in ipairs(blocks) do
+  if store and not store:resident(b.key) then
+   -- Do not mistake a disk-resident neighbor for an ungenerated block.
+   store:emerge(b.key)
+  end
+  if (store and store:resident(b.key)) or map.revisions[b.key]
+   or map.last_active[b.key] or map.lbm_applied[b.key] then
+   has_existing=true
+  end
+ end
+ if has_existing then
+  return self:generateBlock(minp,maxp)
+ end
+ local stage=Map.new(self.runtime.registry.items)
+ self:_generateRegion(stage,geom.node_min,geom.node_max,
+  geom.full_node_min)
+ -- Copy the fully computed interior only. No nodes are written to the
+ -- expanded border: that space is reserved for the later MMVManip port.
+ for k,node in pairs(stage.nodes) do
+  local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  map:set_node({x=tonumber(x),y=tonumber(y),z=tonumber(z)},node)
+ end
+ self.lastChunkGeometry=geom
+ self.generatedMapBlocks=(self.generatedMapBlocks or 0)+#blocks
+ return true,{minp=geom.node_min,maxp=geom.node_max,
+  blockseed=RandomWalk.getBlockSeed2(geom.full_node_min,self.worldseed)}
 end
 V7.defaults=defaults
 return V7
