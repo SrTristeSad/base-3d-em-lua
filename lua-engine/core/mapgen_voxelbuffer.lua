@@ -88,11 +88,13 @@ end
 -- since changed. Missing blocks retain VOXELFLAG_NO_DATA. Sparse loaded
 -- MapBlocks are captured as explicit nodes plus implicit known air.
 --
--- load_if_inexistent=true intentionally remains unsupported: C++ may
--- create not-yet-generated MapBlocks, which this engine does not model.
+-- load_if_inexistent=true first loads disk MapBlocks (when the segmented
+-- store is available) and otherwise creates transient, ungenerated
+-- CONTENT_IGNORE MapBlocks. They stay distinct from generated air blocks.
 function Buffer:initialEmerge(load_if_inexistent,block_min,block_max)
- assert(load_if_inexistent==nil or load_if_inexistent==false,
-  'initialEmerge(true) needs ungenerated MapBlock lifecycle support')
+ assert(load_if_inexistent==nil or
+  type(load_if_inexistent)=='boolean',
+  'load_if_inexistent must be boolean')
  assert((block_min==nil)==(block_max==nil),
   'initialEmerge block range requires both endpoints')
  local a,b=self.geometry.full_node_min,self.geometry.full_node_max
@@ -166,6 +168,23 @@ function Buffer:initialEmerge(load_if_inexistent,block_min,block_max)
   return floor(tonumber(x)/16)..','..
    floor(tonumber(y)/16)..','..floor(tonumber(z)/16)
  end
+ -- ServerMap::emergeBlock(key,true) tries RAM, then disk, then
+ -- createBlankBlock. This stage runs only after the final VoxelArea
+ -- bounds have passed validation; blank blocks never become generated
+ -- merely through initialEmerge.
+ if load_if_inexistent then
+  local store=map.mapBlockStore
+  for key in pairs(wanted) do
+   if not (map.revisions[key] or map.last_active[key] or
+     map.lbm_applied[key] or map.blank_blocks[key]) then
+    if store then
+     store:load_or_create_blank(key)
+    else
+     map:create_blank_block(key)
+    end
+   end
+  end
+ end
  local newblocks={}
  local function detect(key)
   if wanted[key] then newblocks[key]=true end
@@ -173,6 +192,7 @@ function Buffer:initialEmerge(load_if_inexistent,block_min,block_max)
  for key in pairs(map.revisions) do detect(key) end
  for key in pairs(map.last_active) do detect(key) end
  for key in pairs(map.lbm_applied) do detect(key) end
+ for key in pairs(map.blank_blocks) do detect(key) end
  for key in pairs(map.metadata) do
   local block=block_of(key)
   if block then detect(block) end
@@ -185,12 +205,17 @@ function Buffer:initialEmerge(load_if_inexistent,block_min,block_max)
   local block=block_of(key)
   if block then detect(block) end
  end
- for key in pairs(newblocks) do known[key]=true end
+ local blank=self.initial_blank_blocks or {}
+ for key in pairs(newblocks) do
+  known[key]=true
+  if map.blank_blocks[key] then blank[key]=true end
+ end
  for key,node in pairs(map.nodes) do
   local block=block_of(key)
   if block and newblocks[block] then nodes[key]=copy(node) end
  end
  self.initial_blocks=known
+ self.initial_blank_blocks=blank
  self.initial_nodes=nodes
  self.initial_emerged=true
  local count=0
@@ -247,7 +272,11 @@ function Buffer:_known_air(pos)
 end
 function Buffer:terrain_writable(pos)
  assert(self:contains(pos),'generation voxel outside MMVManip area')
- return not self.overlay[indexkey(pos)] and not self:_resident(pos)
+ local block=self.source:blockkey(pos)
+ return not self.overlay[indexkey(pos)] and
+  (not self:_resident(pos) or
+   (self.initial_blank_blocks and self.initial_blank_blocks[block] and
+    not self.initial_nodes[indexkey(pos)]))
 end
 function Buffer:get_node(pos)
  assert(self:contains(pos),'generation voxel outside MMVManip area')
@@ -255,7 +284,12 @@ function Buffer:get_node(pos)
  if v then return copy(v) end
  if self:_resident(pos) then
   if self.initial_emerged then
-   return copy(self.initial_nodes[indexkey(pos)] or {name='air'})
+   local n=self.initial_nodes[indexkey(pos)]
+   if n then return copy(n) end
+   local block=self.source:blockkey(pos)
+   return {name=self.initial_blank_blocks and
+     self.initial_blank_blocks[block] and 'ignore' or 'air',
+    param1=0,param2=0}
   end
   return self.source:get_node(pos)
  end
@@ -289,7 +323,10 @@ function Buffer:set_node(pos,node)
  local k=indexkey(pos)
  -- Existing mapblocks are immutable to terrain generation. A cave may
  -- change a known ground node in the halo only when explicitly enabled.
- if self:_resident(pos) then
+ if self:_resident(pos) and not
+   (self.initial_blank_blocks and
+    self.initial_blank_blocks[self.source:blockkey(pos)] and
+    not self.initial_nodes[k]) then
   if self.resident_halo_ground==nil then return false end
   if not self.resident_original[k] then
    if not self:can_carve_resident(pos) then return false end
