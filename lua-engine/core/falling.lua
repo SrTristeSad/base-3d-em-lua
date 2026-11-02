@@ -329,11 +329,10 @@ local function settle(rt,obj,where)
  if existing.name~='air' and not (def and def.buildable_to) then
   return false
  end
- api.get_node_timer(where):stop()
- api.get_meta(where):from_table({fields={},inventory={}})
+ -- set_node handles old metadata/timer removal and on_construct once.
+ -- Then the falling object's original metadata overrides constructor fields,
+ -- as in Luanti's falling-node restoration protocol.
  api.set_node(where,obj.node)
- local newdef=rt.registry.nodes[obj.node.name]
- if newdef and newdef.on_construct then newdef.on_construct(copy(where)) end
  api.get_meta(where):from_table(obj.meta)
  if obj.timer then
   api.get_node_timer(where):set(obj.timer.timeout,obj.timer.elapsed)
