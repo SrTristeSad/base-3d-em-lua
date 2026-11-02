@@ -83,6 +83,10 @@ local status
 reboot.api.emerge_area(pos,pos,function(_,action) status=action end)
 reboot:step(.1)
 assert(status==reboot.api.EMERGE_FROM_DISK)
+-- The route spans both Z=-1 and Z=0 mapblocks; only the requested
+-- block is loaded by emerge_area. Explicitly reload the neighboring
+-- saved block before asserting both sides of the persisted tunnel.
+reboot.api.load_area({x=16,y=-5,z=-4},{x=19,y=-1,z=4})
 for _,p in ipairs(changes) do
  assert(reboot.api.get_node(p).name=='air',
   'resident cave modification must survive unload/load')
