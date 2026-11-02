@@ -29,6 +29,7 @@ local Emerge=require('core.emerge')
 local ValueNoise=require('core.valuenoise')
 local MapgenV7=require('core.mapgen_v7')
 local MapgenChunk=require('core.mapgen_chunk')
+local MapgenBorder=require('core.mapgen_border')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -937,6 +938,9 @@ function Runtime:enableMapgenV7Chunks(config,size)
    'Lua chunk staging supports at most five mapblocks per axis')
  end
  local generator=MapgenV7.new(self,config)
+ -- Border values are provisional until the adjacent chunk is generated.
+ -- The mapblock store writes them to sidecars only at flush/unload.
+ self.mapgenBorder=MapgenBorder.new(self)
  self:setMapBlockGenerator(function(_,minp,maxp)
   return generator:generateChunk(minp,maxp,chunk_size)
  end)
