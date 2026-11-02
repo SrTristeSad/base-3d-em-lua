@@ -25,6 +25,7 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_value_noise.lua'
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
       - 'tests/lua_engine_meshing.lua'
@@ -120,6 +121,7 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_value_noise.lua'
       - 'tests/lua_engine_voxel.lua'
       - 'tests/lua_engine_worldgen.lua'
       - 'tests/lua_engine_meshing.lua'
@@ -219,6 +221,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_active_mapblocks.lua
           luajit tests/lua_engine_active_mapblocks.lua
+      - name: Luanti 5.18 original fractal value noise, maps and world seeds (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_value_noise.lua
+          luajit tests/lua_engine_value_noise.lua
       - name: Luanti 5.18 LBM activation, persistence and bulk callbacks (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_lbm_activation.lua
