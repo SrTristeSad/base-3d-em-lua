@@ -432,6 +432,34 @@ function Buffer:validate_resident_halo()
    'MMVManip resident halo changed during mapgen')
  end
 end
+-- Verify the revision of a partially initialized, ungenerated halo
+-- MapBlock before native-style blitBackAll writes any of its known cells.
+-- Existing snapshot nodes are kept by VoxelManipulator::copyTo; IGNORE
+-- elsewhere is never copied. Revalidate also at halo publication time.
+function Buffer:validate_blank_halo()
+ local map=self.source
+ if not map.blank_blocks then return end
+ for block in pairs(self:getCoveredBlocks()) do
+  if map.blank_blocks[block] then
+   local bx,by,bz=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+   local origin={x=tonumber(bx)*16,y=tonumber(by)*16,
+    z=tonumber(bz)*16}
+   if not self:core_contains(origin) then
+    local post=self.blank_halo_postcommit_revisions
+    local expected=post and post[block]
+    if expected==nil then
+     expected=self.initial_block_revisions and
+      self.initial_block_revisions[block] or 0
+    end
+    assert(self.initial_emerged and self.initial_blank_blocks and
+     self.initial_blank_blocks[block] and
+     not map.last_active[block] and not map.lbm_applied[block] and
+     (map.revisions[block] or 0)==expected,
+     'MMVManip blank halo changed during mapgen')
+   end
+  end
+ end
+end
 -- Equivalent to MMVManip::copyTo/ServerMap::finishBlockMake for the
 -- generated core only. Ignore is not copied; explicit air clears nodes.
 -- Validation comes before the first live-map mutation.
@@ -467,6 +495,7 @@ function Buffer:commit_core()
  -- No part of the core is committed if a neighboring voxel was
  -- changed concurrently or has node metadata/timers.
  self:validate_resident_halo()
+ self:validate_blank_halo()
  -- Native MapBlock::copyFrom uses VoxelManipulator::copyTo, copying
  -- all non-IGNORE nodes (including AIR) to ungenerated MapBlocks.
  -- For new/completed blocks AIR stays sparse; for an existing blank,
@@ -493,6 +522,7 @@ function Buffer:commit_core()
  end
  self.core_air_copied=air_copied
  local nodes,discarded,resident=0,0,0
+ local changed_blank_halo={}
  for k,node in pairs(self.overlay) do
   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
@@ -510,10 +540,21 @@ function Buffer:commit_core()
    if not same(node,self.resident_original[k]) then
     map:set_node(pos,node)
     resident=resident+1
+    local block=map:blockkey(pos)
+    if map.blank_blocks[block] then changed_blank_halo[block]=true end
    end
   else
    discarded=discarded+1
   end
+ end
+ -- Resident cave blits above are part of THIS commit, not concurrent
+ -- edits. Record their resulting revisions for the following halo copy.
+ if next(changed_blank_halo) then
+  local stamps={}
+  for block in pairs(changed_blank_halo) do
+   stamps[block]=map.revisions[block] or 0
+  end
+  self.blank_halo_postcommit_revisions=stamps
  end
  self.core_nodes,self.discarded_border=nodes,discarded
  self.committed_resident=resident
