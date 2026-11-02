@@ -90,7 +90,7 @@ local sb=Buffer.new(safe.map,g)
 sb:initialEmerge(false)
 assert(safe.map:create_blank_block(blankblock))
 safe.map:set_node(blank,{name='test:stone'})
-assert(sb:validate_blank_halo())
+assert(pcall(sb.validate_blank_halo,sb))
 eq(sb:getCoveredBlocks()[blankblock],false)
 -- False entries must not cause blitBackAll to emerge blank neighbors.
 local written,changed,created=sb:blitBackAll()
