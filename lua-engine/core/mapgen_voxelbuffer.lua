@@ -189,6 +189,50 @@ end
 function Buffer:remove_node(pos)
  return self:set_node(pos,{name='air'})
 end
+-- Luanti 5.18 MMVManip::getCoveredBlocks (src/map.cpp): a mapblock
+-- is covered if ANY position in it has data (!VOXELFLAG_NO_DATA).
+-- The Lua representation can count a known-air column in O(number of
+-- Y mapblocks), instead of allocating all individual air voxels.
+-- Returned keys are block positions, values are the same booleans as
+-- the original covered-block map (only true entries need copying).
+function Buffer:getCoveredBlocks()
+ local result={}
+ local function visit(p)
+  if self:contains(p) then
+   result[self.source:blockkey(p)]=true
+  end
+ end
+ for key in pairs(self.overlay) do
+  local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  visit({x=tonumber(x),y=tonumber(y),z=tonumber(z)})
+ end
+ for key,rng in pairs(self.air_columns) do
+  local x,z=key:match('^(%-?%d+),(%-?%d+)$')
+  x,z=tonumber(x),tonumber(z)
+  for by=floor(rng.ymin/16),floor(rng.ymax/16) do
+   visit({x=x,y=by*16,z=z})
+  end
+ end
+ -- initialEmerge also copies loaded mapblocks, including their
+ -- implicit-air cells. A loaded but all-air block is covered.
+ local function resident(block)
+  local bx,by,bz=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  if bx then
+   local p={x=tonumber(bx)*16,y=tonumber(by)*16,
+    z=tonumber(bz)*16}
+   local max={x=p.x+15,y=p.y+15,z=p.z+15}
+   local a,b=self.geometry.full_node_min,self.geometry.full_node_max
+   if max.x>=a.x and max.y>=a.y and max.z>=a.z and
+    p.x<=b.x and p.y<=b.y and p.z<=b.z then
+    result[block]=true
+   end
+  end
+ end
+ for key in pairs(self.source.revisions) do resident(key) end
+ for key in pairs(self.source.last_active) do resident(key) end
+ for key in pairs(self.source.lbm_applied) do resident(key) end
+ return result
+end
 -- Imported MMVManip voxels are the initial state, not modifications.
 -- Cave writes after this point can be copied back to partial neighbors.
 function Buffer:mark_imports_clean()
