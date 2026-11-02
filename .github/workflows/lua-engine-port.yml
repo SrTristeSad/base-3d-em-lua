@@ -13,6 +13,7 @@ on:
       - 'tests/lua_engine_natural_sunlight.lua'
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
+      - 'tests/lua_engine_active_mapblocks.lua'
       - 'tests/lua_engine_lbm_activation.lua'
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
