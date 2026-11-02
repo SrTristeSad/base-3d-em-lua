@@ -26,6 +26,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_covered_false.lua'
       - 'tests/lua_engine_mmvm_blitbackall.lua'
       - 'tests/lua_engine_mmvm_partial_state.lua'
       - 'tests/lua_engine_mmvm_blank_halo.lua'
@@ -140,6 +141,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_covered_false.lua'
       - 'tests/lua_engine_mmvm_blitbackall.lua'
       - 'tests/lua_engine_mmvm_partial_state.lua'
       - 'tests/lua_engine_mmvm_blank_halo.lua'
@@ -261,6 +263,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 MMVManip getCoveredBlocks false NO_DATA and reemergence (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mmvm_covered_false.lua
+          luajit tests/lua_engine_mmvm_covered_false.lua
       - name: Luanti 5.18 MMVManip explicit blitBackAll overwrite_generated and restart (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mmvm_blitbackall.lua
