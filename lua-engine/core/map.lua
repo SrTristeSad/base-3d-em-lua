@@ -21,7 +21,7 @@ local function bk(x,y,z)
 end
 function Map.new(registry)
  return setmetatable({nodes={},metadata={},timers={},registry=registry,
-  revisions={},modified={},generatedChunks={},lightbanks={},count=0,
+  revisions={},modified={},generatedChunks={},lightbanks={},lbm_applied={},count=0,
   geometry_revision=0},Map)
 end
 function Map.key(p)
