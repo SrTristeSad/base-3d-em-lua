@@ -13,7 +13,13 @@ local function match(name,filter,definitions,aliases)
  end
  local def=definitions[name] or definitions[resolved]
  for _,selector in ipairs(filter) do
-  if selector==name or selector==resolved then return true end
+  local canonical=selector
+  local visited={}
+  while aliases[canonical] and not visited[canonical] do
+   visited[canonical]=true
+   canonical=aliases[canonical]
+  end
+  if canonical==name or canonical==resolved then return true end
   local group=selector:match('^group:(.+)$')
   if group and def and type(def.groups)=='table' and
    (def.groups[group] or 0)>0 then
