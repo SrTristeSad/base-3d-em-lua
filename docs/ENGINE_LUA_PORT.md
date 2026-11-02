@@ -547,3 +547,41 @@ considerado um dos módulos integrados.**
   150 milhões de nós das buscas nativas não foram reproduzidos.
   Esta fase não implementa iluminação, mapas Luanti, líquidos ou
   a inicialização de todos os mods do VoxeLibre.
+
+### Fase 71 — permissões, mensagens e callbacks de proteção
+
+- O módulo novo `core.authchat` fornece `get_player_privs`,
+  `set_player_privs`, `change_player_privs` e `check_player_privs`.
+  `check_player_privs` aceita nome ou objeto PlayerRef, lista de
+  nomes ou tabela de booleanos e devolve `true, ""` ou
+  `false, {privilégios ausentes}`, conforme o builtin Luanti 5.18.
+- Estado por usuário, sem conceder automaticamente privilégios apenas
+  por terem sido registrados. Um host pode informar `default_privs`,
+  `read_player_privs(name)` e `write_player_privs(name, set)` em
+  `Runtime.new` para usar seu próprio armazenamento/autenticação.
+  Sem esses callbacks, privilégios alterados são **apenas de sessão**;
+  ainda não existe um servidor de autenticação persistente integrado.
+- `register_on_protection_violation` e
+  `record_protection_violation` notificam callbacks reais registrados
+  pelos mods. A implementação padrão de `is_protected` continua
+  `false`, como no `builtin/game/misc.lua` do Luanti original:
+  mods podem sobrescrevê-la; um host pode fornecer `is_protected`
+  por parâmetro. `is_area_protected` verifica a malha incluindo
+  extremidades, com limite explícito de trabalho para o motor Lua.
+- `chat_send_player`, `chat_send_all` e
+  `format_chat_message` entregam mensagens apenas a usuários
+  conectados. Um host com `chat_sink(name, message)` recebe as
+  mensagens imediatamente; senão são mantidas por jogador
+  até `Runtime:pollChat(player)`, para que a interface do host
+  possa consumi-las. Desconectar elimina mensagens pendentes.
+  `format_chat_message` respeita `chat_message_format`
+  e a ordem de substituição do Luanti original.
+- O teste `lua_engine_auth_chat_protection.lua` executa em Lua
+  5.4/LuaJIT, incluindo autenticação pelo host, cópias defensivas,
+  permissões de mods, eventos, proteção por região, mensagens
+  privadas, broadcast e desconexão.
+- **Limitações:** não foi implementado o protocolo de rede,
+  credenciais/autenticação nativas do Luanti, chat visível na demo
+  sem adaptação do host ou persistência automática dos privilégios.
+  Passar pela auditoria nominal de APIs não prova paridade de
+  comportamento 1:1.

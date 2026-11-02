@@ -20,6 +20,7 @@ local CollisionGeometry=require('core.collisiongeometry')
 local Attached=require('core.attached')
 local PlayerPhysics=require('core.playerphysics')
 local PlayerHP=require('core.playerhp')
+local AuthChat=require('core.authchat')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -59,6 +60,7 @@ function Runtime.new(options)
  },Runtime)
  local api={}
  self.api=api
+ AuthChat.install(self,api)
  self.formspec=Formspec.new(self)
  PlayerHP.install(api)
  api.serialize=Serialization.serialize
@@ -758,7 +760,6 @@ function Runtime.new(options)
   local d=self.registry.nodes[n.name]
   return d and d.light_source or 0
  end
- function api.is_protected() return false end
  function api.get_objects_inside_radius(pos,radius)
   local out=LuaEntities.radius(self,pos,radius)
   assert(type(radius)=='number' and radius>=0 and
@@ -1030,6 +1031,7 @@ function Runtime:disconnectPlayer(name)
   self.playerPhysicsControllers[name]=nil
  if self.playerDigSessions then self.playerDigSessions[name]=nil end
  self.players[name]=nil
+ self:clearChat(name)
  if not ok then error(err,0) end
  return true
 end
