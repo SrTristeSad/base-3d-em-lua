@@ -33,7 +33,7 @@ api.register_lbm({name='audit:bulk',nodenames={'audit:new'},
   bulk_count=bulk_count+1
  end})
 assert(api.registered_lbms==rt.registry.lbms)
-assert(#rt.registry.lbms==3)
+assert(#rt.registry.lbms==4)
 -- x=-16 and x=-1 share block -1, but x=0 is in block 0.
 assert(rt:activateMapBlock({x=-15,y=1,z=0},8)==5)
 assert(once==2 and repeat_count==2 and bulk_count==1)
