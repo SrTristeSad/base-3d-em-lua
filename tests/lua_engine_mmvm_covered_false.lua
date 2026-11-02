@@ -34,9 +34,11 @@ local map=w.map
 map:set_node(core,{name='test:stone'})
 assert(map:create_blank_block(blankblock))
 local buf=Buffer.new(map,g)
--- The native MMVManip constructor starts with an empty VoxelArea;
--- the Lua geometry is reserved before initialEmerge.
-eq(nkeys(buf:getCoveredBlocks()),0)
+-- Before initialEmerge, the legacy Lua staging adapter exposes
+-- existing live-map blocks sparsely; the full 3x3x3 boolean table only
+-- applies after the explicit initialEmerge snapshot.
+eq(nkeys(buf:getCoveredBlocks()),1)
+eq(buf:getCoveredBlocks()[coreblock],true)
 eq(buf:initialEmerge(false),2)
 local covered=buf:getCoveredBlocks()
 eq(nkeys(covered),27,'3x3x3 emerged VoxelArea must include false entries')
