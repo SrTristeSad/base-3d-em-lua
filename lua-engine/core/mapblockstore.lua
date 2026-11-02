@@ -157,6 +157,9 @@ function Store:unload(k)
   'cannot unload an active mapblock')
  if not self:resident(k) then return false end
  local map=rt.map
+ -- Persist pending partial terrain before a mapblock is evicted.
+ -- A border is never interpreted as a complete mapblock.
+ if rt.mapgenBorder then rt.mapgenBorder:flush() end
  -- Global world time and chunk markers must be available on next boot
  -- before the block is decoded and its last-active stamp is validated.
  self:saveGlobal()
@@ -226,6 +229,9 @@ end
 -- Persist every resident mapblock and the global clock without eviction.
 -- This replaces full-world Storage.save for a segmented streaming session.
 function Store:flush()
+ -- Write the partial-overlap sidecars before the complete block images;
+ -- both remain independently validated on reload.
+ if self.runtime.mapgenBorder then self.runtime.mapgenBorder:flush() end
  self:saveGlobal()
  local found={}
  local map=self.runtime.map
