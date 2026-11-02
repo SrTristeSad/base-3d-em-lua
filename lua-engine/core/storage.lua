@@ -70,6 +70,20 @@ function Storage.encode(map)
    and seed>=0 and seed<=2147483646,'invalid generated chunk seed')
   lines[#lines+1]=('G %d %d %d'):format(tonumber(cx),tonumber(cz),seed)
  end
+ -- Per-mapblock one-shot LBM markers. Preserve names so a newly added
+ -- LBM still runs on old mapblocks after a world is reloaded.
+ for _,block in ipairs(keys(map.lbm_applied or {})) do
+  local x,y,z=coords(block)
+  assert(x and y and z and math.abs(x)<=1938 and
+   math.abs(y)<=1938 and math.abs(z)<=1938,
+   'invalid persisted LBM mapblock')
+  for _,name in ipairs(keys(map.lbm_applied[block])) do
+   if map.lbm_applied[block][name] then
+    assert(type(name)=='string' and name~='','invalid persisted LBM')
+    lines[#lines+1]=('A %d %d %d %s'):format(x,y,z,enc(name))
+   end
+  end
+ end
  for _,k in ipairs(keys(map.timers)) do
   local x,y,z=coords(k)
   local t=map.timers[k]
@@ -103,10 +117,21 @@ function Storage.decode(data)
      assert(map.generatedChunks[chunk]==nil,'duplicate generated chunk')
      map.generatedChunks[chunk]=seed
     else
-     local tag,x,y,z,rest=line:match('^([NMTLIF]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
+     local tag,x,y,z,rest=line:match('^([NMTLIFA]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
      assert(tag,'malformed save at line '..lineNo)
     local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
-    if tag=='N' then
+    if tag=='A' then
+     assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
+      math.abs(p.z)<=1938,'invalid LBM block coordinates')
+     assert(rest~='' and not rest:find('%s'),'invalid LBM name encoding')
+     local name=dec(rest)
+     assert(name~='' and not name:find('%z'),'invalid LBM name')
+     local block=p.x..','..p.y..','..p.z
+     map.lbm_applied[block]=map.lbm_applied[block] or {}
+     assert(not map.lbm_applied[block][name],
+      'duplicate mapblock LBM marker')
+     map.lbm_applied[block][name]=true
+    elseif tag=='N' then
      local name,p1,p2=rest:match('^(%S+) (%d+) (%d+)$')
      assert(name,'invalid node save')
      map:set_node(p,{name=dec(name),param1=tonumber(p1),param2=tonumber(p2)})

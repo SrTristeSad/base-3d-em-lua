@@ -156,6 +156,7 @@ function Worldgen:generate(cx,cz)
  end end
  local writes=manip:write_to_map()
  generated[id]=self.seed
+ self.runtime:markGeneratedMapBlocks(lo,hi)
  self.runtime:generate(lo,hi,self.seed)
  return true,writes
 end
