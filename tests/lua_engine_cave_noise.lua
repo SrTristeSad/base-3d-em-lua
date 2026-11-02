@@ -42,6 +42,20 @@ assert(metrics.caverns==1 and metrics.tunnels==0 and metrics.near_cavern)
 assert(map:get_node(stone).name=='air')
 assert(map:get_node(water).name=='test:water')
 assert(map:get_node(foreign).name=='test:ore')
+-- No cavern pass requested: the same deep ground remains untouched when
+-- both tunnel contours are zero. The upper and lower gates are independent.
+local protected_map=Map.new()
+protected_map:set_node(stone,{name='test:stone'})
+local off=nocave:carve(protected_map,
+ {x=0,y=-512,z=0},{x=0,y=-512,z=0},'test:stone',
+ {max_stone_y=0,caverns=false})
+assert(off.tunnels==0 and off.caverns==0 and not off.near_cavern)
+assert(protected_map:get_node(stone).name=='test:stone')
+local above=nocave:carve(protected_map,
+ {x=0,y=-512,z=0},{x=0,y=-512,z=0},'test:stone',
+ {max_stone_y=-1000,caverns=true})
+assert(above.tunnels==0 and above.caverns==0)
+assert(protected_map:get_node(stone).name=='test:stone')
 -- Strict compare: equal contour threshold is not a cave.
 local exact=Cave.new(42,{noise=noise,cave_width=1})
 assert(not exact:tunnelAt(2,0,3))
