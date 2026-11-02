@@ -26,6 +26,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_blank_halo.lua'
       - 'tests/lua_engine_mmvm_copyto_air.lua'
       - 'tests/lua_engine_mmvm_partial_core.lua'
       - 'tests/lua_engine_mmvm_create_blank.lua'
@@ -137,6 +138,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_blank_halo.lua'
       - 'tests/lua_engine_mmvm_copyto_air.lua'
       - 'tests/lua_engine_mmvm_partial_core.lua'
       - 'tests/lua_engine_mmvm_create_blank.lua'
@@ -255,6 +257,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 MMVManip blank halo blit, revision preflight and sidecar persistence (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mmvm_blank_halo.lua
+          luajit tests/lua_engine_mmvm_blank_halo.lua
       - name: Luanti 5.18 VoxelManipulator copyTo AIR, param1/param2 and persisted blank core (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mmvm_copyto_air.lua
