@@ -136,4 +136,35 @@ skipped.large=false;skipped.flooded=false
 skipped.large_cave_is_flat=false
 skipped:_carveRoute({x=0,y=0,z=0},0,false)
 assert(skipped.metrics.carved==0)
+-- Both the negative-Z face and the X/Z corner must be copied via the
+-- SAME expanded-area path. Outside the core these remain sidecar data.
+local side=runtime()
+side:enableMapgenV7Chunks(opts,{x=2,y=1,z=2})
+local edge=side.mapgenBorder
+local positions={
+ {x=0,y=-1,z=-17},  -- negative-Z halo
+ {x=16,y=-1,z=-17} -- positive-X, negative-Z corner
+}
+for _,pos in ipairs(positions) do
+ local bk=side.map:blockkey(pos)
+ local nk=pos.x..','..pos.y..','..pos.z
+ edge:loadBlock(bk)
+ edge.pending[bk][nk]={name='test:stone',param1=0,param2=0}
+end
+local sidebuf=Buffer.new(side.map,g)
+assert(edge:seedExpanded(sidebuf,g)==2)
+sidebuf:mark_imports_clean()
+for _,pos in ipairs(positions) do
+ assert(sidebuf:get_node(pos).name=='test:stone')
+ assert(sidebuf:remove_node(pos))
+ assert(sidebuf:get_node(pos).name=='air')
+end
+assert(edge:publishModifiedHalo(sidebuf)==2)
+for _,pos in ipairs(positions) do
+ local bk=side.map:blockkey(pos)
+ local nk=pos.x..','..pos.y..','..pos.z
+ assert(edge.pending[bk][nk].name=='air')
+ assert(not side.map.last_active[bk] and not side.map.revisions[bk],
+  'XZ halo must not be considered a fully generated mapblock')
+end
 print('LUANTI 5.18 MMVMANIP XZ OVERLAP CAVE CARVE AND PERSISTENCE PASS')
