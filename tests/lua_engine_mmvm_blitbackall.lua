@@ -175,4 +175,50 @@ assert(not pcall(lv.blitBackAll,lv,false))
 eq(late.map:get_node(blanknew).name,'air')
 assert(not late.map.blank_blocks[blank])
 eq(late.map:get_node(missingnew).name,'test:gem')
+-- An unimported complete/partial MapBlock on disk must not be
+-- shadowed by a newly created blank destination. A provisional border
+-- sidecar is equally protected. The full preflight is atomic.
+for _,kind in ipairs({'complete','partial','border'}) do
+ local staged=runtime()
+ local disk=fs()
+ local store2=staged:attachMapBlockStore(disk,'occupied98')
+ if kind=='border' then
+  local Border=require('core.mapgen_border')
+  staged.mapgenBorder=Border.new(staged)
+ end
+ local probe=Buffer.new(staged.map,geom)
+ probe:initialEmerge(false)
+ probe:stage_vmanip_node(missingnew,{name='test:marker'})
+ probe:stage_vmanip_node(blanknew,{name='test:stone'})
+ local path=kind=='complete' and store2:path(missing) or
+  kind=='partial' and store2:partial_path(missing) or
+  staged.mapgenBorder:path(missing)
+ disk.files[path]='preexisting data'
+ assert(not pcall(probe.blitBackAll,probe,true),
+  'never overwrite an unimported '..kind..' destination')
+ assert(not staged.map.blank_blocks[missing])
+ assert(not staged.map.blank_blocks[blank])
+ eq(staged.map:get_node(blanknew).name,'air')
+end
+-- With initialEmerge(true), a complete disk-backed target IS imported
+-- before blitting. overwrite_generated=true can then replace its node.
+local disk=fs()
+local initial=runtime()
+local initialStore=initial:attachMapBlockStore(disk,'disk98')
+initial.map:set_node(missingnew,{name='test:stone',param1=3,param2=4})
+initial.map.last_active[missing]=0
+assert(initialStore:flush())
+local reopened=runtime()
+reopened:attachMapBlockStore(disk,'disk98')
+local imported=Buffer.new(reopened.map,geom)
+imported:initialEmerge(true)
+eq(imported:get_node(missingnew).name,'test:stone')
+assert(imported:stage_vmanip_node(missingnew,
+ {name='test:marker',param1=42,param2=43}))
+local importedModified,importedChanges=imported:blitBackAll(true)
+assert(importedModified[missing])
+eq(importedChanges,1)
+eq(reopened.map:get_node(missingnew).name,'test:marker')
+eq(reopened.map:get_node(missingnew).param2,43)
+assert(not reopened.map.blank_blocks[missing])
 print('LUANTI 5.18 EXPLICIT MMVM BLITBACKALL OVERWRITE AND DISK PASS')
