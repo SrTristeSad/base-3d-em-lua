@@ -27,6 +27,7 @@ local ActiveBlocks=require('core.activeblocks')
 local MapBlockStore=require('core.mapblockstore')
 local Emerge=require('core.emerge')
 local ValueNoise=require('core.valuenoise')
+local MapgenV7=require('core.mapgen_v7')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -909,6 +910,18 @@ end
 -- The Lua runtime will not substitute the independent demo worldgen.
 function Runtime:setMapBlockGenerator(fn)
  return Emerge.set_generator(self,fn)
+end
+-- Source-derived V7 base/mountain/river stage only; caves, biome passes,
+-- ores, decorations and dungeons are deliberately still unported.
+-- Explicit opt-in avoids changing worlds or the separate LÖVR demo.
+function Runtime:enableMapgenV7Base(config)
+ assert(not self.mapgenV7Base,'Mapgen V7 base stage already configured')
+ local generator=MapgenV7.new(self,config)
+ self:setMapBlockGenerator(function(_,minp,maxp)
+  return generator:generateBlock(minp,maxp)
+ end)
+ self.mapgenV7Base=generator
+ return generator
 end
 -- Advance node timers once per active tick or on return to a dormant block.
 function Runtime:_tickNodeTimers(dt,block)
