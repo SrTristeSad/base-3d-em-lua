@@ -26,6 +26,8 @@ local function keys(t)
 end
 function Storage.encode(map)
  assert(map and map.nodes and map.metadata and map.timers)
+ assert(not map.streaming,
+  'segmented world cannot be exported as a partial full-map save; use mapBlockStore:flush()')
  local lines={'LUAENGINE 1'}
  local clock=map.game_time or 0
  assert(type(clock)=='number' and clock==clock and
