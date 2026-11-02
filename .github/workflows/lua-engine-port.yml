@@ -10,6 +10,7 @@ on:
       - 'tests/lua_engine_node_api_parity.lua'
       - 'tests/lua_engine_auth_chat_protection.lua'
       - 'tests/lua_engine_light_banks.lua'
+      - 'tests/lua_engine_natural_sunlight.lua'
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
       - 'tests/lua_engine_inventory_modloader.lua'
@@ -98,6 +99,7 @@ on:
       - 'tests/lua_engine_node_api_parity.lua'
       - 'tests/lua_engine_auth_chat_protection.lua'
       - 'tests/lua_engine_light_banks.lua'
+      - 'tests/lua_engine_natural_sunlight.lua'
       - 'tests/lua_engine_serialization.lua'
       - 'tests/lua_engine_vector_extended.lua'
       - 'tests/lua_engine_inventory_modloader.lua'
@@ -193,6 +195,10 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y lua5.4 luajit
       - name: Syntax check for standalone Lua engine
         run: find lua-engine -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
+      - name: Luanti generated sunlight, cave occlusion and saved world regression (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_natural_sunlight.lua
+          luajit tests/lua_engine_natural_sunlight.lua
       - name: Luanti light source propagation, day/night banks and occlusion (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_light_banks.lua
