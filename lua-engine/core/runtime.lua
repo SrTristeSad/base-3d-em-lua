@@ -897,7 +897,16 @@ end
 -- Called by map generation to mark new blocks as newer than registered
 -- one-shot LBMs. It must run after the generator writes the block.
 function Runtime:markGeneratedMapBlocks(minp,maxp)
- return LBM.mark_generated(self,minp,maxp)
+ local result=LBM.mark_generated(self,minp,maxp)
+ local floor=math.floor
+ for x=floor(minp.x/16),floor(maxp.x/16) do
+  for y=floor(minp.y/16),floor(maxp.y/16) do
+   for z=floor(minp.z/16),floor(maxp.z/16) do
+    self.map:finish_blank_block(x..','..y..','..z)
+   end
+  end
+ end
+ return result
 end
 -- Real player positions drive mapblock activation, never ordinary node reads.
 function Runtime:isMapBlockActive(nodepos)
