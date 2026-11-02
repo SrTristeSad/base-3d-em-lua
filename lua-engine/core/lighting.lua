@@ -112,7 +112,7 @@ function Lighting:has_near_source(pos)
     if x and y and z then
      local block=position_key(floor(x/16),floor(y/16),floor(z/16))
      local list=blocks[block] or {}
-     list[#list+1]={x=x,y=y,z=z}
+     list[#list+1]={x=x,y=y,z=z,light=level(def.light_source)}
      blocks[block]=list
     end
    end
@@ -120,15 +120,18 @@ function Lighting:has_near_source(pos)
   self.source_blocks=blocks
  end
  local bx,by,bz=floor(pos.x/16),floor(pos.y/16),floor(pos.z/16)
+ local radius=0
  for x=bx-1,bx+1 do for y=by-1,by+1 do for z=bz-1,bz+1 do
   local list=blocks[position_key(x,y,z)]
   if list then for _,source in ipairs(list) do
-   if abs(source.x-pos.x)+abs(source.y-pos.y)+abs(source.z-pos.z)<14 then
-    return true
+   local dist=abs(source.x-pos.x)+abs(source.y-pos.y)+
+    abs(source.z-pos.z)
+   if dist<source.light then
+    radius=max(radius,source.light)
    end
   end end
  end end end
- return false
+ return radius
 end
 -- Get max light arriving at target from real registered emitters, with
 -- six-neighbor falloff and blocking geometry. Sources emit from within
@@ -142,7 +145,8 @@ function Lighting:emitted(pos)
  local hit=self.cache[key]
  if hit~=nil then return hit end
  self.checks=self.checks+1
- if not self:has_near_source(pos) then
+ local max_source=self:has_near_source(pos)
+ if max_source==0 then
   if self.count>=4096 then self.cache={};self.count=0 end
   self.cache[key]=0
   self.count=self.count+1
@@ -164,7 +168,7 @@ function Lighting:emitted(pos)
   end
   -- No source beyond this distance can improve the best known value.
   if strongest>=14-cell.d then break end
-  if cell.d<13 and transparent(node.name,def) then
+  if cell.d<max_source-1 and transparent(node.name,def) then
    for _,off in ipairs(dirs) do
     local x,y,z=cell.x+off[1],cell.y+off[2],cell.z+off[3]
     if abs(x)<=31000 and abs(y)<=31000 and abs(z)<=31000 then
@@ -259,6 +263,119 @@ function Lighting:sky(pos)
  self.skycount=self.skycount+1
  return brightness
 end
+-- Keep light banks in their own per-mapblock array. A sparse map does
+-- not store air as a normal node; forcing baked param1 into map.nodes would
+-- turn empty air into millions of fake registered blocks. These arrays
+-- model the two native 4-bit banks without modifying node contents.
+local function blockkey(pos)
+ return position_key(floor(pos.x/16),floor(pos.y/16),floor(pos.z/16))
+end
+local function blockindex(pos)
+ return 1+(pos.x%16)*256+(pos.y%16)*16+(pos.z%16)
+end
+local function checked(pos)
+ assert(type(pos)=='table' and finite(pos.x) and finite(pos.y)
+  and finite(pos.z) and pos.x==floor(pos.x)
+  and pos.y==floor(pos.y) and pos.z==floor(pos.z)
+  and abs(pos.x)<=31000 and abs(pos.y)<=31000 and abs(pos.z)<=31000,
+  'light position requires valid integer coordinates')
+ return pos
+end
+local function packed(day,night)
+ return day+16*night
+end
+-- The original world stores day in the low nibble and night in the high
+-- nibble. Compute both *raw* banks; the 175/1000 night ratio is only used
+-- when presenting them to the player, never baked into the night bank.
+function Lighting:raw_banks(pos)
+ local map=self.runtime.map
+ local node=map:get_node(pos)
+ local def=self.runtime.registry.nodes[node.name]
+ local source=level(def and def.light_source)
+ if def and def.paramtype=='light' and (node.param1 or 0)~=0 then
+  return max(source,node.param1%16),
+   max(source,floor(node.param1/16))
+ end
+ local emitted=self:emitted(pos)
+ local night=max(source,emitted)
+ local daylight=self:sky(pos)
+ local day=max(night,daylight or 0)
+ return day,night
+end
+function Lighting:baked_banks(pos)
+ local map=self.runtime.map
+ local blocks=map.lightbanks
+ if not blocks then return nil end
+ local block=blocks[blockkey(pos)]
+ if not block or block.map_revision~=map.geometry_revision or
+  block.registry_revision~=self.runtime.light_registry_revision then
+  return nil
+ end
+ local marker=map.generatedChunks and map.generatedChunks[
+  floor(pos.x/16)..','..floor(pos.z/16)]
+ if block.generated_marker~=marker then return nil end
+ local value=block.values[blockindex(pos)] or 0
+ return value%16,floor(value/16)
+end
+-- Rebuild exactly one 16^3 block transactionally. No half-updated bank
+-- is visible if the computation fails. Packed bank zero still counts as
+-- computed; readers never substitute stale lighting for darkness.
+function Lighting:relight_block(cx,cy,cz)
+ assert(type(cx)=='number' and cx==floor(cx) and
+  type(cy)=='number' and cy==floor(cy) and
+  type(cz)=='number' and cz==floor(cz),
+  'light mapblock coordinates must be integers')
+ local map=self.runtime.map
+ -- The current Lua generator marks whole x/z columns for y=-16..31.
+ local marker=map.generatedChunks and map.generatedChunks[cx..','..cz]
+ if not marker or cy<-1 or cy>1 or
+  abs(cx*16)>31000 or abs(cx*16+15)>31000 or
+  abs(cz*16)>31000 or abs(cz*16+15)>31000 then
+  return false
+ end
+ self:refresh()
+ local values={}
+ local nonzero=0
+ local index=1
+ for x=cx*16,cx*16+15 do
+  for y=cy*16,cy*16+15 do
+   for z=cz*16,cz*16+15 do
+    local day,night=self:raw_banks({x=x,y=y,z=z})
+    local byte=packed(day,night)
+    if byte~=0 then
+     values[index]=byte
+     nonzero=nonzero+1
+    end
+    index=index+1
+   end
+  end
+ end
+ map.lightbanks=map.lightbanks or {}
+ map.lightbanks[position_key(cx,cy,cz)]={
+  values=values,map_revision=map.geometry_revision,
+  registry_revision=self.runtime.light_registry_revision,
+  generated_marker=marker,nonzero=nonzero}
+ return true
+end
+function Lighting:fix_light(p1,p2)
+ p1,p2=checked(p1),checked(p2)
+ assert(p1.x<=p2.x and p1.y<=p2.y and p1.z<=p2.z,
+  'fix_light corners must be ordered')
+ local ax,ay,az=floor(p1.x/16),floor(p1.y/16),floor(p1.z/16)
+ local bx,by,bz=floor(p2.x/16),floor(p2.y/16),floor(p2.z/16)
+ -- The upstream engine can load arbitrary maps. The Lua engine presently
+ -- only knows generated demo columns and caps updates to 8 mapblocks.
+ if (bx-ax+1)*(by-ay+1)*(bz-az+1)>8 then return false end
+ local map=self.runtime.map
+ for cx=ax,bx do for cy=ay,by do for cz=az,bz do
+  local marker=map.generatedChunks and map.generatedChunks[cx..','..cz]
+  if not marker or cy < -1 or cy > 1 then return false end
+ end end end
+ for cx=ax,bx do for cy=ay,by do for cz=az,bz do
+  if not self:relight_block(cx,cy,cz) then return false end
+ end end end
+ return true
+end
 function Lighting:get_natural_light(pos,timeofday)
  assert(type(pos)=='table' and finite(pos.x) and
   finite(pos.y) and finite(pos.z) and
@@ -278,26 +395,9 @@ function Lighting:get_node_light(pos,timeofday)
   finite(pos.y) and finite(pos.z) and
   pos.x==floor(pos.x) and pos.y==floor(pos.y) and
   pos.z==floor(pos.z),'node light requires integer position')
- local map=self.runtime.map
- local node=map:get_node(pos)
- local def=self.runtime.registry.nodes[node.name]
- local source=level(def and def.light_source)
- local day,night=source,source
- if node.param1 and def and def.paramtype=='light' then
-  day=max(day,node.param1%16)
-  night=max(night,floor(node.param1/16))
- end
- -- Explicitly packed light banks remain authoritative for the
- -- target node.  Nodes without light-bank storage use the fallback
- -- source propagation and generated-column daylight.
- local has_packed=def and def.paramtype=='light' and
-  (node.param1 or 0)~=0
- if not has_packed then
-  local emitted=self:emitted(pos)
-  day=max(day,emitted)
-  night=max(night,emitted)
-  local sky=self:sky(pos)
-  if sky~=nil then day=max(day,sky) end
+ local day,night=self:baked_banks(pos)
+ if day==nil then
+  day,night=self:raw_banks(pos)
  end
  local t=timeofday
  if t==nil then t=self.runtime.api.get_timeofday() end

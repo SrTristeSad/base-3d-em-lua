@@ -773,6 +773,11 @@ function Runtime.new(options)
  function api.get_artificial_light(param1)
   return Lighting.artificial(param1)
  end
+ -- Recalculate the mapblocks intersecting a cuboid, as core.fix_light
+ -- does in the original engine, for the currently generated demo slab.
+ function api.fix_light(pos1,pos2)
+  return self.lighting:fix_light(pos1,pos2)
+ end
  function api.get_objects_inside_radius(pos,radius)
   local out=LuaEntities.radius(self,pos,radius)
   assert(type(radius)=='number' and radius>=0 and
