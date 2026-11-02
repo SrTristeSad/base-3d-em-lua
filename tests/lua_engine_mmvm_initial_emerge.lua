@@ -45,8 +45,8 @@ assert(area:initialEmerge(false)==4,
  'overlapping initialEmerge preserves the four captured mapblocks')
 assert(area:get_node(resident).name=='test:stone',
  'repeated emergence must not overwrite a prior snapshot')
-assert(not pcall(Buffer.initialEmerge,Buffer.new(world,geom),true),
- 'load_if_inexistent=true unsupported, never invent loaded mapblocks')
+assert(not pcall(Buffer.initialEmerge,Buffer.new(world,geom),'wrong'),
+ 'invalid load_if_inexistent option must be rejected')
 -- Native initialEmerge copies nodes. Changes to the real world after
 -- that point cannot retroactively change the generated workspace.
 world:set_node(resident,{name='test:marker',param1=1,param2=2})
