@@ -261,6 +261,17 @@ function Border:blitBackHalo(buffer)
    visit(math.max(col.ymin,b.y+1),col.ymax)
   end
  end
+ -- A blank block may already contain valid nodes from its initialEmerge
+ -- snapshot, even outside generated columns. MapBlock::copyFrom retains
+ -- them. Mirror these nodes to the provisional file as well, because the
+ -- Lua streaming store cannot serialize a partial MapBlock as complete.
+ for nk in pairs(buffer.initial_nodes or {}) do
+  local p=decodekey(nk)
+  if not buffer:core_contains(p) and
+     map.blank_blocks[map:blockkey(p)] then
+   copyback(p)
+  end
+ end
  -- Other mapgen algorithms (e.g. CavesRandomWalk) can create or modify
  -- voxels on any X/Y/Z face of the full MMVManip area.
  for key in pairs(buffer.overlay) do
