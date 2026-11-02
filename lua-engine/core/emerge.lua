@@ -160,7 +160,7 @@ function E.install(rt,api)
  api.EMERGE_FROM_DISK=3
  api.EMERGE_GENERATED=4
  api.MAP_BLOCKSIZE=16
- function api.load_area(p1,p2) return E.load_area(rt,p1,p2) end
+ function api.load_area(p1,p2) E.load_area(rt,p1,p2) end
  function api.emerge_area(p1,p2,cb,param)
   return E.queue(rt,p1,p2,cb,param)
  end
@@ -186,10 +186,11 @@ function E.install(rt,api)
    end
    if emerging then break end
   end
-  if condition=='active' then return active==true end
-  if condition=='loaded' then return loaded and not active end
-  if condition=='emerging' then return emerging end
-  return not loaded and not emerging
+  -- ServerEnvironment::BlockStatus is ordered by readiness and
+  -- l_compare_block_status checks status >= condition_i (Luanti 5.18).
+  local status=active and 3 or loaded and 2 or emerging and 1 or 0
+  local requested={unknown=0,emerging=1,loaded=2,active=3}
+  return status>=requested[condition]
  end
 end
 return E
