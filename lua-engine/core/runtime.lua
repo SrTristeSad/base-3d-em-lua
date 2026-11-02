@@ -28,6 +28,7 @@ local MapBlockStore=require('core.mapblockstore')
 local Emerge=require('core.emerge')
 local ValueNoise=require('core.valuenoise')
 local MapgenV7=require('core.mapgen_v7')
+local MapgenChunk=require('core.mapgen_chunk')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -919,6 +920,22 @@ function Runtime:enableMapgenV7Base(config)
  local generator=MapgenV7.new(self,config)
  self:setMapBlockGenerator(function(_,minp,maxp)
   return generator:generateBlock(minp,maxp)
+ end)
+ self.mapgenV7Base=generator
+ return generator
+end
+-- Opt-in coherent chunk generation, currently bounded to <=2 mapblocks
+-- on each axis. Size 5 (Luanti default) requires further MMVManip work.
+function Runtime:enableMapgenV7Chunks(config,size)
+ assert(not self.mapgenV7Base,'Mapgen V7 already configured')
+ local chunk_size=MapgenChunk.size(size or {x=2,y=1,z=2})
+ for _,axis in ipairs({'x','y','z'}) do
+  assert(chunk_size[axis]<=2,
+   'Lua chunk staging currently supports at most 2 mapblocks per axis')
+ end
+ local generator=MapgenV7.new(self,config)
+ self:setMapBlockGenerator(function(_,minp,maxp)
+  return generator:generateChunk(minp,maxp,chunk_size)
  end)
  self.mapgenV7Base=generator
  return generator
