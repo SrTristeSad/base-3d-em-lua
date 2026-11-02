@@ -505,28 +505,45 @@ function Map:iter_nodes(minp,maxp)
  end end end
  return nodes
 end
-local function metaref(entry,registry)
+-- Luanti NodeMetaRef reports metadata changes via MapEditEvent.
+-- Node timers lack a dedicated native reason; use UNKNOWN as a Lua
+-- durability marker without claiming timer writes are metadata events.
+function Map:report_node_metadata_change(p)
+ local block=self:blockkey(p)
+ raise_modified_fast(self,block,Map.MOD_STATE_WRITE_NEEDED,
+  Map.MOD_REASON_REPORT_META_CHANGE)
+end
+function Map:report_node_timer_change(p)
+ local block=self:blockkey(p)
+ raise_modified_fast(self,block,Map.MOD_STATE_WRITE_AT_UNLOAD,
+  Map.MOD_REASON_UNKNOWN)
+end
+local function metaref(entry,registry,on_change)
  local ref={}
  function ref:get_string(name) return tostring(entry.fields[name] or '') end
  function ref:set_string(name,v)
   assert(type(name)=='string' and
    (type(v)=='string' or type(v)=='number'),'invalid metadata')
   entry.fields[name]=tostring(v)
+  on_change()
  end
  function ref:get_int(name) return tonumber(entry.fields[name]) and
   floor(tonumber(entry.fields[name])) or 0 end
  function ref:set_int(name,v)
   assert(type(v)=='number' and v==floor(v),'integer expected')
   entry.fields[name]=tostring(v)
+  on_change()
  end
  function ref:get_float(name) return tonumber(entry.fields[name]) or 0 end
  function ref:set_float(name,v)
   assert(type(v)=='number','number expected')
   entry.fields[name]=tostring(v)
+  on_change()
  end
  function ref:contains(name) return entry.fields[name]~=nil end
  function ref:get_inventory()
   if not entry.inventory then entry.inventory=Inventory.new(registry) end
+  entry.inventory._on_change=on_change
   return entry.inventory
  end
  function ref:to_table()
@@ -545,6 +562,7 @@ local function metaref(entry,registry)
   else
    entry.inventory=nil
   end
+  on_change()
   return true
  end
  return ref
@@ -552,17 +570,30 @@ end
 function Map:get_meta(p)
  local k=Map.key(p)
  if not self.metadata[k] then self.metadata[k]={fields={}} end
- return metaref(self.metadata[k],self.registry)
+ local block=self:blockkey(p)
+ local function on_change()
+  raise_modified_fast(self,block,Map.MOD_STATE_WRITE_NEEDED,
+   Map.MOD_REASON_REPORT_META_CHANGE)
+ end
+ return metaref(self.metadata[k],self.registry,on_change)
 end
 function Map:get_timer(p)
  local k=Map.key(p)
  local all=self.timers
+ local block=self:blockkey(p)
+ local function on_change()
+  raise_modified_fast(self,block,Map.MOD_STATE_WRITE_AT_UNLOAD,
+   Map.MOD_REASON_UNKNOWN)
+ end
  local ref={}
  function ref:start(timeout)
   assert(type(timeout)=='number' and timeout>0,'timeout must be positive')
   all[k]={timeout=timeout,elapsed=0,pos={x=p.x,y=p.y,z=p.z}}
+  on_change()
  end
- function ref:stop() all[k]=nil end
+ function ref:stop()
+  if all[k] then all[k]=nil;on_change() end
+ end
  function ref:is_started() return all[k]~=nil end
  function ref:get_timeout() return all[k] and all[k].timeout or 0 end
  function ref:get_elapsed() return all[k] and all[k].elapsed or 0 end
@@ -570,6 +601,7 @@ function Map:get_timer(p)
   assert(type(timeout)=='number' and timeout>0,'bad timeout')
   all[k]={timeout=timeout,elapsed=elapsed or 0,
    pos={x=p.x,y=p.y,z=p.z}}
+  on_change()
  end
  return ref
 end
