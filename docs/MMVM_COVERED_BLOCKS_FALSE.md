@@ -9,7 +9,7 @@ A representação Lua anterior incluía apenas as chaves dos blocos cobertos (`t
 ## Implementação
 
 - Após `initialEmerge`, `Buffer:getCoveredBlocks()` devolve uma entrada por mapblock em toda a extensão alinhada: `false` inicialmente, `true` para nós sobrepostos, colunas de AIR conhecido e mapblocks importados. MapBlocks parciais carregados podem ter `CONTENT_IGNORE` em todas as posições e ainda assim são `true`: `MapBlock::copyTo` limpa `NO_DATA` mesmo quando o conteúdo é `IGNORE`.
-- Antes de `initialEmerge`, a reserva geométrica Lua continua sem blocos conhecidos, preservando a semântica anterior do staging e as regressões de geração pré-emerge.
+- Antes de `initialEmerge`, a reserva geométrica Lua continua com a **cobertura esparsa anterior**: pode identificar blocos já existentes no mapa e overlays/colunas previamente preparados, mas não enumera todos os blocos desconhecidos como `false`. A tabela integral é garantida apenas após o snapshot.
 - `validate_blank_halo` ignora explicitamente as entradas `false`, evitando tratar blocos não importados como uma alteração concorrente. `blitBackAll` e `blitBackHalo` já consideravam os valores booleanos.
 - `Buffer:get_flags` agora mantém o bit `NO_DATA` sem somá-lo duas vezes quando o flag já está presente. A soma anterior poderia convertê-lo incorretamente em `CHECKED1`.
 
