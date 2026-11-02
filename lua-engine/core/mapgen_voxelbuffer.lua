@@ -206,9 +206,13 @@ function Buffer:initialEmerge(load_if_inexistent,block_min,block_max)
   if block then detect(block) end
  end
  local blank=self.initial_blank_blocks or {}
+ local revisions=self.initial_block_revisions or {}
  for key in pairs(newblocks) do
   known[key]=true
   if map.blank_blocks[key] then blank[key]=true end
+  -- This snapshot distinguishes pre-existing partial nodes from writes
+  -- made concurrently after the generation buffer was initialized.
+  revisions[key]=map.revisions[key] or 0
  end
  for key,node in pairs(map.nodes) do
   local block=block_of(key)
@@ -216,6 +220,7 @@ function Buffer:initialEmerge(load_if_inexistent,block_min,block_max)
  end
  self.initial_blocks=known
  self.initial_blank_blocks=blank
+ self.initial_block_revisions=revisions
  self.initial_nodes=nodes
  self.initial_emerged=true
  local count=0
@@ -434,8 +439,21 @@ function Buffer:commit_core()
   for y=floor(geom.node_min.y/16),floor(geom.node_max.y/16) do
    for z=floor(geom.node_min.z/16),floor(geom.node_max.z/16) do
     local k=x..','..y..','..z
-    assert(not (map.revisions[k] or map.last_active[k] or
-     map.lbm_applied[k]),'cannot overwrite existing mapblock in commit')
+    if map.blank_blocks[k] then
+      -- MapBlock::copyFrom may complete an ungenerated block containing
+      -- previously known nodes. Validate its original revision before
+      -- ANY core voxels are written to the live map.
+      assert(self.initial_emerged and
+       self.initial_blank_blocks and self.initial_blank_blocks[k] and
+       not map.last_active[k] and not map.lbm_applied[k] and
+       (map.revisions[k] or 0)==
+        (self.initial_block_revisions[k] or 0),
+       'MMVManip blank core changed during mapgen')
+     else
+      assert(not (map.revisions[k] or map.last_active[k] or
+       map.lbm_applied[k]),
+       'cannot overwrite existing mapblock in commit')
+     end
    end
   end
  end
