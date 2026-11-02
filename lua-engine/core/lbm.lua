@@ -81,6 +81,8 @@ function LBM.mark_generated(rt,minp,maxp)
    if not def.run_at_every_load then done[def.name]=true end
   end
   if next(done) then map.lbm_applied[key]=done end
+  map.last_active=map.last_active or {}
+  map.last_active[key]=rt.clock
  end end end
 end
 
