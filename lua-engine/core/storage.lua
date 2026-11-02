@@ -185,8 +185,8 @@ function Storage.decode(data,options)
      local block=p.x..','..p.y..','..p.z
      assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
       math.abs(p.z)<=1938 and
-      x==tostring(p.x) and y==tostring(p.y) and
-      z==tostring(p.z) and rest=='1',
+      x==('%d'):format(p.x) and y==('%d'):format(p.y) and
+      z==('%d'):format(p.z) and rest=='1',
       'invalid underground MapBlock record')
      assert(map.underground[block]==nil,
       'duplicate underground MapBlock record')
@@ -196,8 +196,8 @@ function Storage.decode(data,options)
      local flags=tonumber(rest)
      assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
       math.abs(p.z)<=1938 and
-      x==tostring(p.x) and y==tostring(p.y) and
-      z==tostring(p.z) and
+      x==('%d'):format(p.x) and y==('%d'):format(p.y) and
+      z==('%d'):format(p.z) and
       rest:match('^%d+$') and flags and
       flags==math.floor(flags) and flags>=0 and flags<=65535,
       'invalid lighting-complete flag record')
