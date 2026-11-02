@@ -853,27 +853,19 @@ end
 function Runtime:markGeneratedMapBlocks(minp,maxp)
  return LBM.mark_generated(self,minp,maxp)
 end
-function Runtime:step(dt)
- assert(type(dt)=='number' and dt>=0 and dt==dt,'invalid dt')
- self.clock=self.clock+dt
- self.stepcount=self.stepcount+1
- -- Queue snapshot prevents recursive after(0) from locking a frame.
- local pending=self.scheduled
- self.scheduled={}
- for _,task in ipairs(pending) do
-  if not task.cancelled then
-   if task.at<=self.clock then
-    task.callback(unpack_args(task.args,1,task.count))
-   else self.scheduled[#self.scheduled+1]=task end
-  end
- end
- for _,fn in ipairs(self.callbacks.globalstep) do fn(dt) end
- -- Node timers run once per tick, without repeated callbacks in one frame.
+-- Positions from the real host drive mapblock activation, never node reads.
+function Runtime:isMapBlockActive(nodepos)
+ return ActiveBlocks.is_active(self,nodepos)
+end
+-- Node timers run once per active tick and once on catch-up after activation.
+function Runtime:_tickNodeTimers(dt,block)
  local timeouts={}
  for key,t in pairs(self.map.timers) do
-  t.elapsed=t.elapsed+dt
-  if t.elapsed>=t.timeout then
-   timeouts[#timeouts+1]={key=key,time=t.timeout,elapsed=t.elapsed,pos=t.pos}
+  if not block or self.map:blockkey(t.pos)==block then
+   t.elapsed=t.elapsed+dt
+   if t.elapsed>=t.timeout then
+    timeouts[#timeouts+1]={key=key,time=t.timeout,elapsed=t.elapsed,pos=t.pos}
+   end
   end
  end
  for _,timer in ipairs(timeouts) do
@@ -886,6 +878,37 @@ function Runtime:step(dt)
     self.map.timers[timer.key]={
      timeout=timer.time,elapsed=0,pos=timer.pos}
    end
+  end
+ end
+end
+function Runtime:step(dt)
+ assert(type(dt)=='number' and dt>=0 and dt==dt and dt~=math.huge,
+  'invalid dt')
+ local managed=ActiveBlocks.sync(self)
+ self.clock=self.clock+dt
+ self.map.game_time=self.clock
+ self.stepcount=self.stepcount+1
+ -- Queue snapshot prevents recursive after(0) from locking a frame.
+ local pending=self.scheduled
+ self.scheduled={}
+ for _,task in ipairs(pending) do
+  if not task.cancelled then
+   if task.at<=self.clock then
+    task.callback(unpack_args(task.args,1,task.count))
+   else self.scheduled[#self.scheduled+1]=task end
+  end
+ end
+ for _,fn in ipairs(self.callbacks.globalstep) do fn(dt) end
+ -- During positional play, only active mapblocks advance node timers.
+ -- Hosts with no positioned players retain the old headless tick contract.
+ if managed then
+  for block in pairs(self.activeMapBlocks) do self:_tickNodeTimers(dt,block) end
+ else
+  self:_tickNodeTimers(dt)
+ end
+ if managed then
+  for block in pairs(self.activeMapBlocks) do
+   self.map.last_active[block]=self.clock
   end
  end
  -- Falling object state advances before ABMs, with swept vertical collision
@@ -910,8 +933,386 @@ function Runtime:step(dt)
    def._api=self.api
    for poskey,node in pairs(self.map.nodes) do
     if named(def,node) and math.random(def.chance)==1 then
-     local x,y,z=poskey:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-     def.action({x=tonumber(x),y=tonumber(y),z=tonumber(z)},node,0,0)
+     local x,y,z=poskey:match('^(%-?%d+),(%-?%d+),(%-?%d+)
+    end
+   end
+  end
+ end
+end
+function Runtime:generate(minp,maxp,seed)
+ for _,fn in ipairs(self.callbacks.generated) do
+  fn(minp,maxp,seed or 0)
+ end
+end
+function Runtime:installGlobals(target)
+ target=target or _G
+ target.minetest=self.api
+ target.core=self.api
+ target.vector=Vector
+ target.ItemStack=self.api.ItemStack
+ return self.api
+end
+function Runtime:loadMod(name,path)
+ assert(type(name)=='string' and type(path)=='string')
+ assert(not self.current_mod,'nested mod loading unsupported')
+ self.opts.modpaths=self.opts.modpaths or {}
+ self.opts.modpaths[name]=path
+ self.current_mod=name
+ local execute=self.opts.executeMod or dofile
+ local ok,err=pcall(execute,path..'/init.lua',name)
+ self.current_mod=nil
+ if not ok then error('error loading mod '..name..': '..tostring(err),0) end
+end
+function Runtime:finishMods()
+ for _,fn in ipairs(self.callbacks.mods_loaded) do fn() end
+end
+-- Entry points for the real host UI: no fabricated UI or player events.
+function Runtime:getPlayerFormspec(playername)
+ return self.formspec:get(playername)
+end
+function Runtime:receiveFormFields(playername,formname,fields)
+ return self.formspec:receive(playername,formname,fields)
+end
+-- Prediction is a separate lifecycle from taking a crafting result.
+-- The host supplies the item stack and actual crafting inventory.
+function Runtime:predictCraft(stack,player,old_grid,inventory)
+ assert(type(stack)=='table' and type(stack.get_name)=='function',
+  'craft prediction needs an ItemStack')
+ for _,callback in ipairs(self.callbacks.craft_predict) do
+  local changed=callback(stack,player,old_grid,inventory)
+  if changed~=nil then stack=changed end
+ end
+ return stack
+end
+-- Dispatch a batch of actual changed liquid nodes supplied by the host.
+-- The source and target nodes are managed by the liquid simulation, not
+-- mutated by merely registering this callback.
+function Runtime:liquidTransformed(positions)
+ assert(type(positions)=='table','liquid transformation needs positions')
+ local snapshot={}
+ for i,pos in ipairs(positions) do
+  assert(ispos(pos),'invalid transformed liquid position')
+  snapshot[i]=clone(pos)
+ end
+ return self:emit('liquid_transformed',snapshot)
+end
+-- Attach optional host-owned character physics without replacing the
+-- host player object. Mods always receive that SAME table in callbacks.
+function Runtime:bindPlayerPhysics(name,controller)
+ local player=self.players[name]
+ assert(player,'cannot bind physics to a disconnected player: '..tostring(name))
+ assert(not self.playerPhysicsBindings[name],
+  'player already has a Lua physics binding: '..name)
+ assert(type(controller)=='table' and controller.api==self.api,
+  'character controller belongs to a different runtime')
+ local meta=self.player_meta[name]
+ if not meta then
+  meta=PlayerMeta.new()
+  self.player_meta[name]=meta
+ end
+ local release=PlayerPhysics.attach(player,controller,
+  function(host_player,old_hp,new_hp,hp_max,reason,apply)
+   return PlayerHP.set(self,host_player,old_hp,new_hp,hp_max,reason,apply)
+  end,meta)
+ local previous_provider=controller.object_colliders
+ controller.object_colliders=function(swept)
+  local boxes=EntityPhysics.entity_boxes(self,swept)
+  -- Connected player controllers also block each other. Never infer
+  -- collision data from unbound/native host-owned player objects.
+  local names={}
+  for other_name in pairs(self.playerPhysicsControllers) do
+   if other_name~=name and self.players[other_name] then
+    names[#names+1]=other_name
+   end
+  end
+  table.sort(names)
+  for _,other_name in ipairs(names) do
+   local other=self.playerPhysicsControllers[other_name]
+   local position=other:get_pos()
+   local b=other:get_properties().collisionbox
+   boxes[#boxes+1]={
+    position.x+b[1],position.y+b[2],position.z+b[3],
+    position.x+b[4],position.y+b[5],position.z+b[6]
+   }
+  end
+  return boxes
+ end
+ self.playerPhysicsBindings[name]=function()
+  controller.object_colliders=previous_provider
+  release()
+ end
+ self.playerPhysicsControllers[name]=controller
+ return player
+end
+-- Control flags come from the REAL host input, never inferred from
+-- movement vectors. ObjectRef:get_player_control returns a defensive copy.
+function Runtime:updatePlayerControls(name,controls)
+ local controller=self.playerPhysicsControllers[name]
+ assert(controller,'no connected player physics controller: '..tostring(name))
+ return controller:set_player_controls(controls)
+end
+-- Host-provided players only. An optional controller is bound BEFORE mods
+-- see on_joinplayer, and rollback leaves no partially connected player.
+function Runtime:connectPlayer(player,controller)
+ assert(type(player)=='table' and type(player.get_player_name)=='function',
+  'connectPlayer requires a player object')
+ local name=player:get_player_name()
+ assert(type(name)=='string' and name~='', 'invalid player name')
+ assert(not self.players[name], 'player already connected: '..name)
+ self.players[name]=player
+ local ok,err=pcall(function()
+  if controller then self:bindPlayerPhysics(name,controller) end
+  self:emit('on_joinplayer',player)
+ end)
+ if not ok then
+  self.formspec:close(name,'')
+  local release=self.playerPhysicsBindings[name]
+  if release then release();self.playerPhysicsBindings[name]=nil end
+  self.playerPhysicsControllers[name]=nil
+  if self.playerDigSessions then self.playerDigSessions[name]=nil end
+ self.players[name]=nil
+  error(err,0)
+ end
+ return player
+end
+function Runtime:disconnectPlayer(name)
+ local player=self.players[name]
+ if not player then return false end
+ -- Leave callbacks can still use player physics before the host releases it.
+ local ok,err=pcall(function() self:emit('on_leaveplayer',player) end)
+ self.formspec:close(name,'')
+ local release=self.playerPhysicsBindings[name]
+ if release then release();self.playerPhysicsBindings[name]=nil end
+  self.playerPhysicsControllers[name]=nil
+ if self.playerDigSessions then self.playerDigSessions[name]=nil end
+ self.players[name]=nil
+ self:clearChat(name)
+ if self.activeBlockTracking then ActiveBlocks.sync(self) end
+ if not ok then error(err,0) end
+ return true
+end
+-- Host-driven player node actions. Unlike core.dig_node/place_node, these
+-- pass the actual connected player, wielded stack, and real drop inventory.
+-- Timed player mining; player and tool belong to this runtime.
+function Runtime:beginDigNodeAsPlayer(player,pos)
+ return require('core.playeractions').begin(self,player,pos)
+end
+function Runtime:advanceDigNodeAsPlayer(player,dt)
+ return require('core.playeractions').advance(self,player,dt)
+end
+function Runtime:cancelDigNodeAsPlayer(player)
+ return require('core.playeractions').cancel(self,player)
+end
+function Runtime:getDigProgress(player)
+ return require('core.playeractions').progress(self,player)
+end
+function Runtime:digNodeAsPlayer(player,pos)
+ return require('core.playeractions').dig(self,player,pos)
+end
+function Runtime:placeNodeAsPlayer(player,pos,pointed_thing)
+ return require('core.playeractions').place(self,player,pos,pointed_thing)
+end
+-- Explicit host action for manual pickup tests and scripted magnet systems.
+-- Returns number of world-item units transferred or consumed by callbacks.
+function Runtime:pickupItemsAsPlayer(player,radius)
+ return Falling.pickup_player(self,player,radius)
+end
+-- Host-level object punch path. Unlike automatic proximity pickup, it
+-- verifies that the referenced object belongs to this world and is within
+-- reach of the player's collisionbox before invoking item callbacks.
+function Runtime:punchItemAsPlayer(player,item,reach)
+ return Falling.punch_item(self,player,item,reach)
+end
+-- LuaEntity ObjectRefs have their own on_punch/on_rightclick callbacks.
+-- They are not item stacks and must not be processed as dropped items.
+-- Unload active LuaEntity ObjectRefs after the host has saved the world.
+-- on_deactivate(false) differs from removal-triggered on_deactivate(true).
+function Runtime:deactivateLuaEntities()
+ return LuaEntities.deactivate_all(self)
+end
+function Runtime:punchLuaEntity(obj,puncher,interval,toolcaps,dir,damage)
+ return LuaEntities.punch(self,obj,puncher,interval,toolcaps,dir,damage)
+end
+function Runtime:rightclickLuaEntity(obj,clicker)
+ return LuaEntities.rightclick(self,obj,clicker)
+end
+-- Return the first real pointing hit; entities behind node collision
+-- geometry cannot be selected. Direction need not be normalized.
+function Runtime:raycast(origin,direction,reach,opts)
+ return Raycast.first(self,origin,direction,reach or 6,opts)
+end
+-- Host-player ray interaction. A forged remote camera origin cannot
+-- collect items because the ray origin must remain near the live player.
+-- The existing item-punch path checks object ownership and reach again.
+function Runtime:punchItemAlongRay(player,origin,direction,reach)
+ assert(type(player)=='table' and
+  type(player.get_player_name)=='function' and
+  self.players[player:get_player_name()]==player,
+  'ray punch requires connected player')
+ assert(type(player.get_pos)=='function',
+  'ray punch requires player position')
+ local feet=player:get_pos()
+ assert(type(origin)=='table' and
+  type(origin.x)=='number' and type(origin.y)=='number' and
+  type(origin.z)=='number','ray punch requires eye coordinates')
+ local dx,dy,dz=origin.x-feet.x,
+  origin.y-feet.y,origin.z-feet.z
+ if dx*dx+dz*dz>.75*.75 or dy<-.6 or dy>2.6 then
+  return false,'invalid_origin'
+ end
+ reach=reach or self.opts.item_punch_reach or 4
+ local hit=self:raycast(origin,direction,reach)
+ if not hit or hit.type~='object' then return false,'not_item' end
+ -- A falling block has no dropped-item inventory and cannot be punched
+ -- as an item until it actually becomes a dropped entity.
+ local found=false
+ for _,obj in ipairs(self.droppedItems or {}) do
+  if obj==hit.ref then found=true;break end
+ end
+ if not found then return false,'not_item' end
+ return self:punchItemAsPlayer(player,hit.ref,reach)
+end
+-- Return true when a Lua mod cancels the incoming player punch.
+-- This is a policy/callback preflight; the host owns actual HP and physics.
+-- Ray-directed LuaEntity interaction. The origin must be near the REAL
+-- connected player, and only the first visible pointed object is valid.
+function Runtime:interactObjectAlongRay(player,origin,direction,reach,action)
+ assert(type(player)=='table' and
+  type(player.get_player_name)=='function' and
+  self.players[player:get_player_name()]==player,
+  'ray interaction requires connected player')
+ assert(type(player.get_pos)=='function','player has no position')
+ assert(action=='punch' or action=='rightclick','invalid entity action')
+ local at=player:get_pos()
+ assert(type(origin)=='table' and type(origin.x)=='number' and
+  type(origin.y)=='number' and type(origin.z)=='number',
+  'ray requires eye position')
+ local dx,dy,dz=origin.x-at.x,origin.y-at.y,origin.z-at.z
+ if dx*dx+dz*dz>.75*.75 or dy<-.6 or dy>2.6 then
+  return false,'invalid_origin'
+ end
+ reach=reach or 4
+ local hit=self:raycast(origin,direction,reach)
+ if not hit or hit.type~='object' then return false,'not_object' end
+ for _,obj in ipairs(self.luaEntities) do
+  if obj==hit.ref and not obj.removed then
+   if action=='punch' then
+    self:punchLuaEntity(obj,player,1,nil,direction,0)
+   else self:rightclickLuaEntity(obj,player) end
+   return true,obj
+  end
+ end
+ if action=='punch' then
+  local ok,count=self:punchItemAsPlayer(player,hit.ref,reach)
+  if ok then return true,count end
+  return false,count
+ end
+ return false,'not_entity'
+end
+function Runtime:isPlayerPunchCancelled(player,hitter,interval,toolcaps,dir,damage)
+ assert(type(player)=='table','punch victim required')
+ for _,cb in ipairs(self.callbacks.on_punchplayer) do
+  if cb(player,hitter,interval,toolcaps,dir,damage)==true then
+   return true
+  end
+ end
+ return false
+end
+-- A punch is distinct from digging a node: do not remove the node or
+-- simulate a player.  The host passes the actual puncher when available.
+function Runtime:punchNode(pos,puncher,pointed_thing)
+ assert(ispos(pos),'punch requires a node position')
+ local node=self.api.get_node(pos)
+ self:emit('on_punchnode',clone(pos),node,puncher,pointed_thing)
+ self.api.check_for_falling(pos)
+ return node
+end
+-- A UI/host-initiated action enters here; Lua callbacks are the authority.
+-- Only same-InvRef moves are supported so far. Do not silently fake swaps.
+function Runtime:movePlayerInventoryStack(playername,info)
+ return PlayerInventoryActions.move(self,playername,info)
+end
+-- Host-side cursor/external-inventory bridge; "take" produces a real
+-- ItemStack and "put" consumes the host's held stack without copying items.
+function Runtime:takePlayerInventoryStack(playername,info)
+ return PlayerInventoryActions.take(self,playername,info)
+end
+function Runtime:putPlayerInventoryStack(playername,info)
+ return PlayerInventoryActions.put(self,playername,info)
+end
+-- Count-restrictions from upstream callbacks are combined conservatively.
+-- This function is the permission preflight for supported transactions.
+function Runtime:allowedInventoryAction(player,action,inventory,info)
+ assert(type(action)=='string' and type(info)=='table',
+  'invalid inventory action')
+ local count=info.count or (info.stack and info.stack:get_count()) or 0
+ assert(type(count)=='number' and count>=0 and count==math.floor(count),
+  'invalid action count')
+ for _,callback in ipairs(self.callbacks.allow_player_inventory_action) do
+  local result=callback(player,action,inventory,info)
+  if result~=nil then
+   assert(type(result)=='number' and result>=0
+    and result==math.floor(result),'invalid inventory allowance')
+   count=math.min(count,result)
+  end
+ end
+ return count
+end
+-- Called once by the host when the world/session closes.  Luanti's
+-- register_on_shutdown callbacks are not regular per-frame callbacks.
+-- Explicit mod-storage API supports a host's filesystem, while the
+-- optional mod_storage_path/fs constructor options enable load-before-mods
+-- and save-after-shutdown-callbacks lifecycle automatically.
+function Runtime:saveModStorage(path,fs)
+ return ModStorage.save(self.mod_storage,path,fs)
+end
+local function applyModStorage(runtime,parsed)
+ -- Preserve StorageRef identity even when mods keep a reference globally.
+ -- All fields were already validated by decode/load before this mutation.
+ for name,ref in pairs(runtime.mod_storage) do
+  ref:from_table({fields=parsed[name] or {}})
+ end
+ for name,fields in pairs(parsed) do
+  if not runtime.mod_storage[name] then
+   runtime.mod_storage[name]=ModStorage.new(fields)
+  end
+ end
+ return true
+end
+function Runtime:restoreModStorage(data)
+ return applyModStorage(self,ModStorage.decode(data))
+end
+function Runtime:loadModStorage(path,fs)
+ local decoded,err=ModStorage.load(path,fs)
+ if not decoded then return nil,err end
+ return applyModStorage(self,decoded)
+end
+function Runtime:shutdown()
+ if self.shut_down then return false end
+ self:emit('shutdown')
+ if self.opts.mod_storage_path then
+  local ok,err=self:saveModStorage(
+   self.opts.mod_storage_path,self.opts.mod_storage_fs)
+  assert(ok,'cannot save world mod storage: '..tostring(err))
+ end
+ self.shut_down=true
+ return true
+end
+function Runtime:emit(event,...)
+ local callbacks=self.callbacks[event]
+ assert(callbacks,'unknown runtime event: '..tostring(event))
+ local results={}
+ for i,callback in ipairs(callbacks) do
+  results[i]=callback(...)
+ end
+ return results
+end
+return Runtime
+)
+     local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
+     if not managed or self:isMapBlockActive(pos) then
+      def.action(pos,node,0,0)
+     end
     end
    end
   end
