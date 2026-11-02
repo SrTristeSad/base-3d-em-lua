@@ -178,9 +178,10 @@ function Map:set_node(p,node)
   if not old then self.count=self.count+1 end
   self.nodes[k]={name=name,param1=p1,param2=p2}
  end
- -- A native setNode/copyFrom may invalidate the cached all-air result.
- -- Do it even if the MapNode is byte-identical (MMVManip semantics).
- self:expire_mapblock_air_cache(block)
+ -- Map:set_node is a hot worldgen loop; 'block' is already a
+ -- canonical key, so invalidate directly rather than re-parse it.
+ -- Even a byte-identical MapNode write expires the derived isAir cache.
+ self.block_air_cache[block]=nil
  -- Sparse collision broadphase is maintained incrementally once built.
  -- Replacing map.nodes directly is handled by lazy index reconstruction.
  MapNodeIndex.changed(self,x,y,z,name~='air')
