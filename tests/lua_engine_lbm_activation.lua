@@ -5,6 +5,10 @@ local Storage=require('core.storage')
 local rt=Runtime.new()
 local api=rt.api
 assert(api.features.bulk_lbms==true)
+api.register_lbm({name='audit:string_name',
+ nodenames='audit:never',run_at_every_load=true,
+ action=function() error('a nonmatching LBM must not run') end})
+assert(rt.registry.lbms[1].nodenames[1]=='audit:never')
 api.register_node('audit:legacy',{groups={upgrade=1}})
 api.register_node('audit:new',{groups={upgrade=2}})
 api.register_node('audit:other',{})
