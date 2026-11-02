@@ -119,6 +119,36 @@ for _,line in ipairs(bads) do
 end
 assert(not pcall(Storage.decode,
  'LUAENGINE 1\nQ 0 0 0 0\nQ 0 0 0 1\nEND\n'))
+-- The streaming world header may contain global time/chunk markers,
+-- never a per-mapblock lighting-complete Q record. Reject it at attach
+-- time before changing the runtime clock or residency.
+do
+ local malicious=disk()
+ malicious.files['globalQ101/world.map']=
+  'LUAENGINE 1\nQ 1 0 0 0\nEND\n'
+ local isolated=runtime()
+ assert(not pcall(isolated.attachMapBlockStore,isolated,
+  malicious,'globalQ101'))
+ eq(next(isolated.map.lighting_complete),nil)
+ eq(isolated.map.mapBlockStore,nil)
+end
+-- Legacy images with no Q must restore the native 0xFFFF default
+-- even after a complete segmented disk unload/emerge round trip.
+do
+ local legacyfs=disk()
+ local oldruntime=runtime()
+ oldruntime.map:set_node(fp,{name='test:lamp'})
+ oldruntime.map.last_active[full]=0
+ local oldstore=oldruntime:attachMapBlockStore(legacyfs,'oldQ101')
+ assert(oldstore:flush())
+ assert(not legacyfs.files[oldstore:path(full)]:find(
+  '\nQ ',1,true))
+ local after=runtime()
+ local restored=after:attachMapBlockStore(legacyfs,'oldQ101')
+ assert(restored:emerge(full))
+ eq(after.map:get_mapblock_lighting_complete(full),65535)
+ assert(after.map:is_mapblock_lighting_complete(full,'night',5))
+end
 -- Streaming full and partial records remain isolated to their own block.
 local fs=disk()
 local world=runtime()
