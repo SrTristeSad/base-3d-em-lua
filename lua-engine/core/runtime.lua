@@ -26,6 +26,7 @@ local LBM=require('core.lbm')
 local ActiveBlocks=require('core.activeblocks')
 local MapBlockStore=require('core.mapblockstore')
 local Emerge=require('core.emerge')
+local ValueNoise=require('core.valuenoise')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -161,6 +162,23 @@ function Runtime.new(options)
  local settings=self.opts.settings or {}
  local mapgen=self.opts.mapgen or {}
  self.opts.mapgen=mapgen
+ -- Lua original get_value_noise adds world seed to a noiseparams seed.
+ local function world_noise_seed()
+  local raw=tonumber(mapgen.seed or self.opts.seed or 0) or 0
+  assert(raw==math.floor(raw) and raw==raw and
+   raw~=math.huge and raw~=-math.huge and
+   math.abs(raw)<=9007199254740991,'invalid world noise seed')
+  local low=raw%4294967296
+  return low>=2147483648 and low-4294967296 or low
+ end
+ function api.get_value_noise(a,b,c,d)
+  return ValueNoise.world_scalar(world_noise_seed(),a,b,c,d)
+ end
+ api.get_perlin=api.get_value_noise
+ function api.get_value_noise_map(params,size)
+  return ValueNoise.map(params,size,world_noise_seed())
+ end
+ api.get_perlin_map=api.get_value_noise_map
  function api.settings:get(name)
   local v=settings[name]
   if v==nil then return nil end
@@ -990,6 +1008,10 @@ function Runtime:installGlobals(target)
  target.core=self.api
  target.vector=Vector
  target.ItemStack=self.api.ItemStack
+ target.ValueNoise=ValueNoise.global_scalar
+ target.PerlinNoise=ValueNoise.global_scalar
+ target.ValueNoiseMap=ValueNoise.global_map
+ target.PerlinNoiseMap=ValueNoise.global_map
  return self.api
 end
 function Runtime:loadMod(name,path)

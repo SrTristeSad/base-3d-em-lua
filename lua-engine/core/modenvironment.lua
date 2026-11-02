@@ -6,6 +6,7 @@ local Bitops=require('core.bitops')
 local PcgRandom=require('core.pcgrandom')
 local PseudoRandom=require('core.pseudorandom')
 local Voxel=require('core.voxel')
+local ValueNoise=require('core.valuenoise')
 local ModEnvironment={}
 ModEnvironment.__index=ModEnvironment
 
@@ -101,6 +102,10 @@ function ModEnvironment.new(runtime)
  env.PcgRandom=PcgRandom.new
  env.PseudoRandom=PseudoRandom.new
  env.VoxelArea=Voxel.VoxelArea
+ env.ValueNoise=ValueNoise.global_scalar
+ env.PerlinNoise=ValueNoise.global_scalar
+ env.ValueNoiseMap=ValueNoise.global_map
+ env.PerlinNoiseMap=ValueNoise.global_map
  env.DIR_DELIM=package.config:sub(1,1)
  env.Settings=settings_file
  env.table.copy=recursive_copy
