@@ -109,10 +109,20 @@ function Storage.encode(map)
  lines[#lines+1]='END'
  return table.concat(lines,'\n')..'\n'
 end
-function Storage.decode(data)
+function Storage.decode(data,options)
  assert(type(data)=='string' and #data<=16*1024*1024,
   'save too large or not a string')
  local map=Map.new()
+ -- A partial MapBlock's default is CONTENT_IGNORE, not AIR. Decode
+ -- into that state so explicitly stored AIR(0,0) is not lost to the
+ -- ordinary sparse-world optimization. No change to complete saves.
+ if options~=nil then
+  assert(type(options)=='table' and
+   type(options.partial_block)=='string',
+   'invalid partial MapBlock decode options')
+  assert(map:create_blank_block(options.partial_block),
+   'invalid partial MapBlock identity')
+ end
  local lineNo=0
  local finished=false
  local clock_seen=false

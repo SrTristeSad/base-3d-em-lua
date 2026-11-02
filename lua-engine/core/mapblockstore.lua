@@ -50,6 +50,21 @@ local function validate_block(image,k)
  assert(image.last_active[k]~=nil,
   'per-mapblock image missing last-active timestamp')
 end
+-- Partial images use the existing safe LUAENGINE 1 serializer but are
+-- decoded with an ungenerated CONTENT_IGNORE default. They cannot be
+-- mistaken for fully emerged MapBlocks (which require last_active).
+local function validate_partial(image,k)
+ assert(image.blank_blocks[k] and next(image.blank_blocks,k)==nil,
+  'invalid partial MapBlock identity')
+ assert(next(image.generatedChunks)==nil and
+  next(image.last_active)==nil and next(image.lbm_applied)==nil,
+  'partial MapBlock claims generated or activated state')
+ for _,entries in ipairs({image.nodes,image.metadata,image.timers}) do
+  for key in pairs(entries) do
+   assert(block_of(key)==k,'foreign voxel or state in partial MapBlock')
+  end
+ end
+end
 local function unpack_key(k)
  local x,y,z=decode(k)
  return {x=x*16,y=y*16,z=z*16}
@@ -107,6 +122,9 @@ function Store:path(k)
  local x,y,z=decode(k)
  return self.prefix..'/blocks/'..x..'_'..y..'_'..z..'.map'
 end
+function Store:partial_path(k)
+ return self:path(k)..'.partial'
+end
 function Store:saveGlobal()
  local rt=self.runtime
  local map=Map.new()
@@ -128,14 +146,47 @@ function Store:resident(k)
  end
  return false
 end
--- ServerMap::emergeBlock(k,true): load an existing on-disk block
--- first; otherwise create a transient ungenerated CONTENT_IGNORE block.
--- Do not call Map:set_node and do not give it a last_active marker.
+-- Restore a saved ungenerated MapBlock without claiming generation.
+-- A complete disk MapBlock always wins over any stale partial image.
+-- Decode and validate the ENTIRE image before creating live map state.
+function Store:load_partial(k)
+ decode(k)
+ if self:resident(k) then return false end
+ local content=read(self.fs,self:partial_path(k))
+ if not content then return false end
+ if self:emerge(k) then return false end
+ local image=Storage.decode(content,{partial_block=k})
+ validate_partial(image,k)
+ local rt=self.runtime
+ assert(image.game_time<=rt.clock,
+  'partial MapBlock timestamp newer than world clock')
+ local map=rt.map
+ assert(map:create_blank_block(k),'partial block conflicts with loaded map')
+ for key,node in pairs(image.nodes) do
+  local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  map:set_node({x=tonumber(x),y=tonumber(y),z=tonumber(z)},node)
+ end
+ for key,entry in pairs(image.metadata) do
+  local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  local meta=map:get_meta({x=tonumber(x),y=tonumber(y),z=tonumber(z)})
+  local from={fields=entry.fields}
+  if entry.inventory then from.inventory=entry.inventory:to_table() end
+  meta:from_table(from)
+ end
+ for _,timer in pairs(image.timers) do
+  map:get_timer(timer.pos):set(timer.timeout,timer.elapsed)
+ end
+ return true
+end
+-- ServerMap::emergeBlock(k,true): load a complete block first, then
+-- any saved partial state, otherwise create CONTENT_IGNORE. Neither
+-- path for partial data marks the block generated.
 function Store:load_or_create_blank(k)
  decode(k)
  local map=self.runtime.map
  if self:resident(k) then return true,false end
  if self:emerge(k) then return true,false end
+ if self:load_partial(k) then return true,false end
  assert(map:create_blank_block(k),'cannot create blank over loaded block')
  return true,true
 end
@@ -159,6 +210,14 @@ function Store:snapshot(k)
   if block_of(key)==k then map.timers[key]=value end
  end
  return map
+end
+function Store:snapshot_partial(k)
+ assert(self.runtime.map.blank_blocks[k],
+  'only ungenerated MapBlocks have partial snapshots')
+ local image=self:snapshot(k)
+ image.last_active[k]=nil
+ image.lbm_applied[k]=nil
+ return image
 end
 -- A successful fs.write_atomic must mean the entire file is safely replaced.
 -- Failure returns before any in-memory node/metadata/timer is removed.
@@ -257,10 +316,12 @@ function Store:flush()
  for key in pairs(map.timers) do found[block_of(key)]=true end
  local written=0
  for _,key in ipairs(keys(found)) do
-  -- A partial blank block is not generated and must not be serialized
-  -- as a complete MapBlock. Its known halo nodes are retained in RAM
-  -- and mirrored to border sidecars by blitBackHalo above.
-  if not map.blank_blocks[key] then
+  if map.blank_blocks[key] then
+   -- Nodes, explicit AIR, inventory metadata and node timers must all
+   -- survive a restart without marking this block as generated.
+   write(self.fs,self:partial_path(key),
+    Storage.encode(self:snapshot_partial(key)))
+  else
    write(self.fs,self:path(key),Storage.encode(self:snapshot(key)))
    written=written+1
   end
