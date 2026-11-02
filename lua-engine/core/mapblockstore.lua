@@ -117,7 +117,7 @@ end
 function Store:resident(k)
  decode(k)
  local map=self.runtime.map
- if map.revisions[k] or map.lbm_applied[k] or
+ if map.blank_blocks[k] or map.revisions[k] or map.lbm_applied[k] or
   map.last_active[k] then return true end
  for key in pairs(map.metadata) do
   if block_of(key)==k then return true end
@@ -126,6 +126,17 @@ function Store:resident(k)
   if block_of(key)==k then return true end
  end
  return false
+end
+-- ServerMap::emergeBlock(k,true): load an existing on-disk block
+-- first; otherwise create a transient ungenerated CONTENT_IGNORE block.
+-- Do not call Map:set_node and do not give it a last_active marker.
+function Store:load_or_create_blank(k)
+ decode(k)
+ local map=self.runtime.map
+ if self:resident(k) then return true,false end
+ if self:emerge(k) then return true,false end
+ assert(map:create_blank_block(k),'cannot create blank over loaded block')
+ return true,true
 end
 function Store:snapshot(k)
  decode(k)
@@ -157,6 +168,9 @@ function Store:unload(k)
   'cannot unload an active mapblock')
  if not self:resident(k) then return false end
  local map=rt.map
+ -- Blank blocks have not been generated and must not be serialized
+ -- with a false last_active timestamp that would mark them complete.
+ if map.blank_blocks[k] then return false end
  -- Persist pending partial terrain before a mapblock is evicted.
  -- A border is never interpreted as a complete mapblock.
  if rt.mapgenBorder then rt.mapgenBorder:flush() end
@@ -241,6 +255,8 @@ function Store:flush()
  for key in pairs(map.metadata) do found[block_of(key)]=true end
  for key in pairs(map.timers) do found[block_of(key)]=true end
  for _,key in ipairs(keys(found)) do
+  assert(not map.blank_blocks[key],
+   'cannot persist an ungenerated blank as a complete MapBlock')
   write(self.fs,self:path(key),Storage.encode(self:snapshot(key)))
  end
  return true,#keys(found)
