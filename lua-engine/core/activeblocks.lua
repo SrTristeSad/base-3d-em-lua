@@ -91,6 +91,18 @@ function ActiveBlocks.sync(rt)
  local wanted,any=desired(rt,radius)
  if not any and not rt.activeBlockTracking then return false end
  if any then rt.activeBlockTracking=true end
+ -- Emerge saved blocks BEFORE calculating resident activation candidates.
+ -- Read misses remain unloaded; no fabricated terrain is generated.
+ if rt.mapBlockStore then
+  local list={}
+  for k in pairs(wanted) do list[#list+1]=k end
+  table.sort(list)
+  for _,k in ipairs(list) do
+   if not rt.mapBlockStore:resident(k) then
+    rt.mapBlockStore:emerge(k)
+   end
+  end
+ end
  local loaded=resident(rt)
  local next_active={}
  for k in pairs(wanted) do
@@ -100,7 +112,15 @@ function ActiveBlocks.sync(rt)
  rt.map.last_active=rt.map.last_active or {}
  -- Deactivate before activating, as upstream ServerEnvironment does.
  for k in pairs(rt.activeMapBlocks) do
-  if not next_active[k] then rt.map.last_active[k]=rt.clock end
+  if not next_active[k] then
+   rt.map.last_active[k]=rt.clock
+   if rt.mapBlockStore then
+    -- No RAM eviction until the block's atomic write is successful.
+    -- It must no longer be marked active to satisfy unload's invariant.
+    rt.activeMapBlocks[k]=nil
+    rt.mapBlockStore:unload(k)
+   end
+  end
  end
  local added={}
  for k in pairs(next_active) do

@@ -24,6 +24,7 @@ local AuthChat=require('core.authchat')
 local Lighting=require('core.lighting')
 local LBM=require('core.lbm')
 local ActiveBlocks=require('core.activeblocks')
+local MapBlockStore=require('core.mapblockstore')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -829,6 +830,8 @@ end
 -- Storage.load creates a fresh Map with no runtime observer; assigning it
 -- directly would silently revert the selective collision updates.
 function Runtime:replaceMap(map)
+ assert(not self.mapBlockStore,
+  'cannot replace the map while a segmented mapblock store is attached')
  assert(type(map)=='table' and type(map.get_node)=='function' and
   type(map.set_node)=='function' and type(map.nodes)=='table',
   'expected a decoded Lua engine Map')
@@ -856,6 +859,11 @@ end
 -- Real player positions drive mapblock activation, never ordinary node reads.
 function Runtime:isMapBlockActive(nodepos)
  return ActiveBlocks.is_active(self,nodepos)
+end
+-- Opt-in host-backed streaming; the host supplies atomic file writes.
+-- The LÖVR demonstration still uses its original complete-world save.
+function Runtime:attachMapBlockStore(fs,prefix)
+ return MapBlockStore.new(self,fs,prefix)
 end
 -- Advance node timers once per active tick or on return to a dormant block.
 function Runtime:_tickNodeTimers(dt,block)
