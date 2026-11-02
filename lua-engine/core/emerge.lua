@@ -120,15 +120,26 @@ function E.step(rt)
    elseif rt.mapBlockGenerator then
     local p=nodepos(k)
     local maxp={x=p.x+15,y=p.y+15,z=p.z+15}
-    local generated,result=pcall(rt.mapBlockGenerator,rt,p,maxp)
-    if not generated then
-     action=rt.api.EMERGE_ERRORED
-    elseif result==true then
-     -- Only the actual host generator can claim a generated mapblock.
-     rt:markGeneratedMapBlocks(p,maxp)
-     rt:generate(p,maxp,rt.opts.seed or 0)
-     if rt.mapBlockStore then rt.mapBlockStore:invalidate(k) end
-     action=rt.api.EMERGE_GENERATED
+    -- World-edge mapblocks may extend beyond the valid 31000-node limit.
+    if math.abs(p.x)>31000 or math.abs(p.y)>31000 or
+       math.abs(p.z)>31000 or maxp.x>31000 or
+       maxp.y>31000 or maxp.z>31000 then
+     action=rt.api.EMERGE_CANCELLED
+    else
+     local generated,result=pcall(rt.mapBlockGenerator,rt,p,maxp)
+     if not generated then
+      action=rt.api.EMERGE_ERRORED
+     elseif result==true then
+      -- Only an actual host generator can claim a generated mapblock.
+      local finalized=pcall(function()
+       rt:markGeneratedMapBlocks(p,maxp)
+       rt:generate(p,maxp,rt.opts.seed or 0)
+      end)
+      if finalized then
+       if rt.mapBlockStore then rt.mapBlockStore:invalidate(k) end
+       action=rt.api.EMERGE_GENERATED
+      else action=rt.api.EMERGE_ERRORED end
+     end
     end
    end
   end
