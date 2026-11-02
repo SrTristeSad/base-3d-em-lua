@@ -100,8 +100,8 @@ local landed=p(10,1,1)
 assert(api.get_node(landed).name=='test:sand')
 assert(api.get_node(landed).param2==7)
 assert(api.get_meta(landed):get_string('owner')=='Bob')
-assert(api.get_meta(landed):get_string('created')=='',
- 'original metadata overrides on_construct metadata when landing')
+assert(api.get_meta(landed):get_string('created')=='yes',
+ 'falling nodes preserve the original on_construct metadata on landing')
 local timer=api.get_node_timer(landed)
 assert(timer:is_started() and timer:get_timeout()==12 and
  timer:get_elapsed()>=2,
