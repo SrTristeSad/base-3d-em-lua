@@ -82,60 +82,113 @@ function Buffer:index(pos)
  return (pos.z-self.origin.z)*self.sx*self.sy+
   (pos.y-self.origin.y)*self.sx+(pos.x-self.origin.x)+1
 end
--- Source-derived MMVManip::initialEmerge(p_min, p_max, false).
--- In Luanti, existing MapBlocks are copied into the VM before mapgen.
--- Missing blocks keep VOXELFLAG_NO_DATA; empty loaded blocks are known
--- AIR. The Lua map is sparse, so copy only explicit nodes and record the
--- loaded block identities. No disk emergence or map mutation is performed.
-function Buffer:initialEmerge(load_if_inexistent)
+-- Luanti 5.18 MMVManip::initialEmerge (src/map.cpp:805-856).
+-- Each invocation may enlarge the voxel area. A block with ANY known
+-- voxel is skipped on a later overlapping call, even if the live map has
+-- since changed. Missing blocks retain VOXELFLAG_NO_DATA. Sparse loaded
+-- MapBlocks are captured as explicit nodes plus implicit known air.
+--
+-- load_if_inexistent=true intentionally remains unsupported: C++ may
+-- create not-yet-generated MapBlocks, which this engine does not model.
+function Buffer:initialEmerge(load_if_inexistent,block_min,block_max)
  assert(load_if_inexistent==nil or load_if_inexistent==false,
-  'initialEmerge(true) not implemented; never synthesize mapblocks')
- assert(not self.initial_emerged,
-  'MMVManip initialEmerge may only initialize once in this stage')
+  'initialEmerge(true) needs ungenerated MapBlock lifecycle support')
+ assert((block_min==nil)==(block_max==nil),
+  'initialEmerge block range requires both endpoints')
+ local a,b=self.geometry.full_node_min,self.geometry.full_node_max
+ if block_min==nil then
+  block_min={x=floor(a.x/16),y=floor(a.y/16),z=floor(a.z/16)}
+  block_max={x=floor(b.x/16),y=floor(b.y/16),z=floor(b.z/16)}
+ end
+ local minp,maxp={},{}
+ for _,axis in ipairs({'x','y','z'}) do
+  local lo,hi=block_min[axis],block_max[axis]
+  assert(type(lo)=='number' and type(hi)=='number' and
+   lo==floor(lo) and hi==floor(hi) and lo<=hi,
+   'invalid initialEmerge block range')
+  minp[axis]=math.min(a[axis],lo*16)
+  maxp[axis]=math.max(b[axis],(hi+1)*16-1)
+ end
+ validpos(minp)
+ validpos(maxp)
+ local sx=maxp.x-minp.x+1
+ local sy=maxp.y-minp.y+1
+ local sz=maxp.z-minp.z+1
+ -- The Lua representation is sparse, but avoid unbounded world-area
+ -- scans and misleading giant VoxelArea dimensions.
+ assert(sx*sy*sz<=8000000,
+  'MMVManip Lua expansion exceeds 8 million voxel positions')
+ -- Native code calls getCoveredBlocks before addArea. Before the
+ -- first initialEmerge only explicit staged values are known.
+ local covered={}
+ if self.initial_emerged then
+  covered=self:getCoveredBlocks()
+ else
+  for key in pairs(self.overlay) do
+   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+   covered[self.source:blockkey({
+    x=tonumber(x),y=tonumber(y),z=tonumber(z)})]=true
+  end
+  for key,col in pairs(self.air_columns) do
+   local x,z=key:match('^(%-?%d+),(%-?%d+)$')
+   x,z=tonumber(x),tonumber(z)
+   for by=floor(col.ymin/16),floor(col.ymax/16) do
+    covered[floor(x/16)..','..by..','..floor(z/16)]=true
+   end
+  end
+ end
+ -- Grow the geometric VoxelArea, retaining generated data and cave flags.
+ -- Copy the geometry table instead of mutating the chunk descriptor.
+ local geom={}
+ for k,v in pairs(self.geometry) do geom[k]=v end
+ geom.full_node_min=minp
+ geom.full_node_max=maxp
+ self.geometry=geom
+ self.origin={x=minp.x,y=minp.y,z=minp.z}
+ self.sx,self.sy,self.sz=sx,sy,sz
+ self.voxel_count=sx*sy*sz
+
  local map=self.source
- local known={}
- local nodes={}
- local amin,amax=self.geometry.full_node_min,
-  self.geometry.full_node_max
- local function block_in_area(block)
-  local x,y,z=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-  if not x then return false end
-  local bx,by,bz=tonumber(x),tonumber(y),tonumber(z)
-  return bx>=floor(amin.x/16) and bx<=floor(amax.x/16) and
-   by>=floor(amin.y/16) and by<=floor(amax.y/16) and
-   bz>=floor(amin.z/16) and bz<=floor(amax.z/16)
+ local known=self.initial_blocks or {}
+ local nodes=self.initial_nodes or {}
+ local wanted={}
+ for x=block_min.x,block_max.x do
+  for y=block_min.y,block_max.y do
+   for z=block_min.z,block_max.z do
+    local key=x..','..y..','..z
+    if not covered[key] then wanted[key]=true end
+   end
+  end
  end
- local function mark(block)
-  if block_in_area(block) then known[block]=true end
- end
- for block in pairs(map.revisions) do mark(block) end
- for block in pairs(map.last_active) do mark(block) end
- for block in pairs(map.lbm_applied) do mark(block) end
- -- A block may be resident solely because it has metadata/timers.
- -- This mirrors MapBlockStore:resident and avoids treating known air
- -- surrounding an inventory or running timer as CONTENT_IGNORE.
- local function position_block(key)
+ local function block_of(key)
   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   if not x then return nil end
   return floor(tonumber(x)/16)..','..
    floor(tonumber(y)/16)..','..floor(tonumber(z)/16)
  end
+ local newblocks={}
+ local function detect(key)
+  if wanted[key] then newblocks[key]=true end
+ end
+ for key in pairs(map.revisions) do detect(key) end
+ for key in pairs(map.last_active) do detect(key) end
+ for key in pairs(map.lbm_applied) do detect(key) end
  for key in pairs(map.metadata) do
-  local block=position_block(key)
-  if block then mark(block) end
+  local block=block_of(key)
+  if block then detect(block) end
  end
  for key in pairs(map.timers) do
-  local block=position_block(key)
-  if block then mark(block) end
+  local block=block_of(key)
+  if block then detect(block) end
  end
- -- Copy the known map's explicit nodes, including params, at emerge time.
- -- The absence of an explicit node in a known block means known air.
+ for key in pairs(map.nodes) do
+  local block=block_of(key)
+  if block then detect(block) end
+ end
+ for key in pairs(newblocks) do known[key]=true end
  for key,node in pairs(map.nodes) do
-  local block=position_block(key)
-  if block and block_in_area(block) then
-   known[block]=true
-   nodes[key]=copy(node)
-  end
+  local block=block_of(key)
+  if block and newblocks[block] then nodes[key]=copy(node) end
  end
  self.initial_blocks=known
  self.initial_nodes=nodes
