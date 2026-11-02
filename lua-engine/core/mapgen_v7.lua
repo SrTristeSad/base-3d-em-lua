@@ -4,6 +4,7 @@
 -- corresponding raw node placement. Cave, biome, ore, dungeon and decoration
 -- passes are NOT implemented. No independent procedural terrain algorithm.
 local Noise=require('core.valuenoise')
+local CaveNoise=require('core.cave_noise')
 local V7={}
 V7.__index=V7
 local floor=math.floor
@@ -87,12 +88,23 @@ function V7.new(runtime,config)
  local self=setmetatable({
   runtime=runtime,worldseed=seed,water_level=water,mount_zero_level=zero,
   names=names,flags=flags(config.spflags or world.mgv7_spflags),
-  noise={},
+  noise={},noise_caves=config.noise_caves==true,
   generated=0},V7)
  for id,p in pairs(defaults) do
   local custom=config.noise and config.noise[id]
   -- Lua noise implementation already validates octaves, spreads and flags.
   self.noise[id]=Noise.world_scalar(seed,custom or deep_copy(p))
+ end
+ if self.noise_caves then
+  local caveparams={}
+  for _,id in ipairs({'cave1','cave2','cavern'}) do
+   caveparams[id]=config.noise and config.noise[id] or deep_copy(defaults[id])
+  end
+  self.caveNoise=CaveNoise.new(seed,{
+   noise=caveparams,cave_width=config.cave_width,
+   cavern_limit=config.cavern_limit,cavern_taper=config.cavern_taper,
+   cavern_threshold=config.cavern_threshold
+  })
  end
  return self
 end
@@ -161,13 +173,23 @@ function V7:generateBlock(minp,maxp)
  if map.revisions[id] or map.last_active[id] or map.lbm_applied[id] then
   return false
  end
+ local stone_surface_max_y=-31000
  for z=minp.z,maxp.z do for x=minp.x,maxp.x do
   local level=self:baseTerrainLevelAtPoint(x,z)
+  -- Original MapgenV7::generateTerrain assigns this float to s16.
+  local surface=level<0 and math.ceil(level) or floor(level)
+  if surface>stone_surface_max_y then stone_surface_max_y=surface end
   for y=minp.y,maxp.y do
    local name=self:materialAt(x,y,z,level)
    if name~='air' then map:set_node({x=x,y=y,z=z},{name=name}) end
   end
  end end
+ if self.caveNoise then
+  self.lastCaveMetrics=self.caveNoise:carve(map,minp,maxp,self.names.stone,{
+   max_stone_y=stone_surface_max_y,
+   caverns=self.flags.caverns==true
+  })
+ end
  self.generated=self.generated+1
  return true
 end
