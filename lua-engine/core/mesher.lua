@@ -206,7 +206,7 @@ function M.fingerprint(map,cx,cy,cz,light_neighborhood)
    for z=cz-1,cz+1 do
     all[#all+1]=revision(x,y,z)
    end
-  end end end
+  end end
   return table.concat(all,':')
  end
  return table.concat({
