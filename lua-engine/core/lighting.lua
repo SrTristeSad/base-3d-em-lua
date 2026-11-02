@@ -81,11 +81,9 @@ function Lighting.new(runtime)
   registry_revision=nil,cache={},count=0,checks=0,
   skycache={},skycount=0,columncache={},columncount=0},Lighting)
 end
--- Get max light arriving at target from real registered emitters, with
--- six-neighbor falloff and blocking geometry. Sources emit from within
--- opaque blocks but light cannot pass through arbitrary opaque blocks.
--- This is a bounded prototype fallback, not native map-light updating.
-function Lighting:emitted(pos)
+-- All lighting entrypoints share one revision gate. In particular,
+-- direct_sun must not reuse a cached open column after its roof changes.
+function Lighting:refresh()
  local rt=self.runtime
  local map=rt.map
  if self.map~=map or self.revision~=map.geometry_revision or
@@ -93,13 +91,19 @@ function Lighting:emitted(pos)
   self.map=map
   self.revision=map.geometry_revision
   self.registry_revision=rt.light_registry_revision
-  self.cache={}
-  self.count=0
-  self.skycache={}
-  self.skycount=0
-  self.columncache={}
-  self.columncount=0
+  self.cache={};self.count=0
+  self.skycache={};self.skycount=0
+  self.columncache={};self.columncount=0
  end
+end
+-- Get max light arriving at target from real registered emitters, with
+-- six-neighbor falloff and blocking geometry. Sources emit from within
+-- opaque blocks but light cannot pass through arbitrary opaque blocks.
+-- This is a bounded prototype fallback, not native map-light updating.
+function Lighting:emitted(pos)
+ local rt=self.runtime
+ local map=rt.map
+ self:refresh()
  local key=position_key(pos.x,pos.y,pos.z)
  local hit=self.cache[key]
  if hit~=nil then return hit end
@@ -141,6 +145,7 @@ end
 -- Check an x/z column only in the generation slab.  This is a
 -- deterministic on-demand fallback, not baked MapNode param1 sunlight.
 function Lighting:direct_sun(x,y,z)
+ self:refresh()
  local map=self.runtime.map
  if not generated(map,x,y,z) then return false end
  local column=x..','..z
@@ -166,18 +171,9 @@ end
 -- 15.  Sideways daylight spreads through six-neighbor transmissive cells
 -- with one light level lost per step; opaque walls block it.
 function Lighting:sky(pos)
+ self:refresh()
  local map=self.runtime.map
  if not generated(map,pos.x,pos.y,pos.z) then return nil end
- -- Reuse the same invalidation machinery as artificial-light queries.
- if self.map~=map or self.revision~=map.geometry_revision or
-  self.registry_revision~=self.runtime.light_registry_revision then
-  self.map=map
-  self.revision=map.geometry_revision
-  self.registry_revision=self.runtime.light_registry_revision
-  self.cache={};self.count=0
-  self.skycache={};self.skycount=0
-  self.columncache={};self.columncount=0
- end
  local key=position_key(pos.x,pos.y,pos.z)
  if self.skycache[key]~=nil then return self.skycache[key] end
  local registry=self.runtime.registry.nodes
