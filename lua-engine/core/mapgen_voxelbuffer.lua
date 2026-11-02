@@ -275,8 +275,9 @@ function Buffer:terrain_writable(pos)
  local block=self.source:blockkey(pos)
  return not self.overlay[indexkey(pos)] and
   (not self:_resident(pos) or
-   (self.initial_blank_blocks and self.initial_blank_blocks[block] and
-    not self.initial_nodes[indexkey(pos)]))
+   (self.initial_blank_blocks and
+    self.initial_blank_blocks[block]==true and
+    not self.initial_nodes[indexkey(pos)]) or false)
 end
 function Buffer:get_node(pos)
  assert(self:contains(pos),'generation voxel outside MMVManip area')
