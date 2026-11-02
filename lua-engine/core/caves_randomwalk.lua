@@ -7,6 +7,7 @@ local PseudoRandom=require('core.pseudorandom')
 local Bit=require('core.bitops')
 local Noise=require('core.valuenoise')
 local Walk={}
+Walk.__index=Walk
 local U=4294967296
 local floor=math.floor
 local abs=math.abs
