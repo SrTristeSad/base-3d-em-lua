@@ -65,6 +65,8 @@ assert(actions[1].param=='chunk')
 assert(#calls==1,'chunk callback must execute once for full core')
 eq3(calls[1].minp,-16,0,-16)
 eq3(calls[1].maxp,15,15,15)
+assert(calls[1].seed==Walk.getBlockSeed2(geom.full_node_min,42),
+ 'on_generated must receive original full-chunk blockseed')
 assert(gen.generated==1 and gen.generatedMapBlocks==4)
 assert(gen.lastRandomWalkMetrics.caves==1)
 assert(#gen.lastRandomWalkEvents==2)
