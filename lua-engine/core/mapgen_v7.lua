@@ -292,13 +292,27 @@ function V7:generateChunk(minp,maxp,chunk_size)
  local has_existing=false
  for _,b in ipairs(blocks) do
   if store and not store:resident(b.key) then
-   -- Do not mistake a disk-resident neighbor for an ungenerated block.
-   store:emerge(b.key)
+   -- Complete blocks take precedence over saved partial state.
+   if not store:emerge(b.key) then store:load_partial(b.key) end
   end
   if not (map.blank_blocks and map.blank_blocks[b.key]) and
     ((store and store:resident(b.key)) or map.revisions[b.key]
      or map.last_active[b.key] or map.lbm_applied[b.key]) then
    has_existing=true
+  end
+ end
+ -- Luanti ServerMap::initBlockMake loads its full mapgen extent
+ -- before MMVManip::initialEmerge(false). Restore ONLY saved partial
+ -- neighbor states here; the buffer itself never performs disk IO.
+ if store then
+  local a,b=geom.full_node_min,geom.full_node_max
+  for x=floor(a.x/16),floor(b.x/16) do
+   for y=floor(a.y/16),floor(b.y/16) do
+    for z=floor(a.z/16),floor(b.z/16) do
+     local key=x..','..y..','..z
+     if not store:resident(key) then store:load_partial(key) end
+    end
+   end
   end
  end
  local border=self.runtime.mapgenBorder
