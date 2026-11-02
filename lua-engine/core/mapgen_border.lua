@@ -190,8 +190,14 @@ function Border:blitBackHalo(buffer)
  assert(buffer and buffer.is_gen_buffer and
   type(buffer.getCoveredBlocks)=='function',
   'blitBackHalo requires a generated MMVManip workspace')
+ -- Preflight the entire blank halo before changing live nodes or
+ -- provisional sidecars. Generated blocks continue to be protected.
+ if type(buffer.validate_blank_halo)=='function' then
+  buffer:validate_blank_halo()
+ end
  local covered=buffer:getCoveredBlocks()
  local changed,modified_blocks=0,{}
+ local changed_blank={}
  local map=self.runtime.map
  local function copyback(p)
   if not buffer:contains(p) or buffer:core_contains(p) then
@@ -199,23 +205,41 @@ function Border:blitBackHalo(buffer)
   end
   local block=map:blockkey(p)
   if not covered[block] then return end
-  -- The native default !overwrite_generated condition. In the sparse
-  -- Lua map, revisions and generated activation markers also conservatively
-  -- protect player edits that are not explicitly marked generated.
-  if map.revisions[block] or map.last_active[block] or
-   map.lbm_applied[block] then return end
+  -- The native default skips generated MapBlocks. An ungenerated blank
+  -- can carry earlier partial nodes and revisions; it must still accept
+  -- non-IGNORE voxel data from MMVManip::copyTo.
+  local blank=map.blank_blocks and map.blank_blocks[block]
+  if not blank and (map.revisions[block] or map.last_active[block] or
+   map.lbm_applied[block]) then return end
   local node=buffer:get_node(p)
   if node.name=='ignore' then return end
-  self:loadBlock(block)
   local nk=nodekey(p)
-  local prev=self.pending[block][nk]
   local n=validnode(node)
-  if prev and prev.name==n.name and prev.param1==n.param1 and
-   prev.param2==n.param2 then return end
-  self.pending[block][nk]=n
-  self.dirty[block]=true
-  modified_blocks[block]=true
-  changed=changed+1
+  local copied=false
+  if blank then
+   local current=map:get_node(p)
+   if current.name~=n.name or current.param1~=n.param1 or
+    current.param2~=n.param2 then
+    map:set_node(p,n)
+    copied=true
+   end
+  end
+  -- Blank MapBlocks are transient in the Lua streaming store. Mirror
+  -- transferred cells to the durable sidecar until the destination is
+  -- generated; a restart must not lose this overgenerated halo data.
+  self:loadBlock(block)
+  local prev=self.pending[block][nk]
+  if not prev or prev.name~=n.name or prev.param1~=n.param1 or
+   prev.param2~=n.param2 then
+   self.pending[block][nk]=n
+   self.dirty[block]=true
+   copied=true
+  end
+  if copied then
+   modified_blocks[block]=true
+   if blank then changed_blank[block]=true end
+   changed=changed+1
+  end
  end
  -- Known-air columns have compressed representation. Only the one-down
  -- and one-up generated halo planes need individual entries in sidecars.
@@ -237,11 +261,32 @@ function Border:blitBackHalo(buffer)
    visit(math.max(col.ymin,b.y+1),col.ymax)
   end
  end
+ -- A blank block may already contain valid nodes from its initialEmerge
+ -- snapshot, even outside generated columns. MapBlock::copyFrom retains
+ -- them. Mirror these nodes to the provisional file as well, because the
+ -- Lua streaming store cannot serialize a partial MapBlock as complete.
+ for nk in pairs(buffer.initial_nodes or {}) do
+  local p=decodekey(nk)
+  if not buffer:core_contains(p) and
+     map.blank_blocks[map:blockkey(p)] then
+   copyback(p)
+  end
+ end
  -- Other mapgen algorithms (e.g. CavesRandomWalk) can create or modify
  -- voxels on any X/Y/Z face of the full MMVManip area.
  for key in pairs(buffer.overlay) do
   local p=decodekey(key)
   if not buffer:core_contains(p) then copyback(p) end
+ end
+ -- The writes above are ours; preserve the post-blit revision so a
+ -- second identical blit is idempotent, while subsequent external edits
+ -- continue to fail the next preflight.
+ if next(changed_blank) then
+  buffer.blank_halo_postcommit_revisions=
+   buffer.blank_halo_postcommit_revisions or {}
+  for block in pairs(changed_blank) do
+   buffer.blank_halo_postcommit_revisions[block]=map.revisions[block] or 0
+  end
  end
  local nblocks=0
  for _ in pairs(modified_blocks) do nblocks=nblocks+1 end
@@ -251,10 +296,12 @@ local function add(self,p,node)
  local block=self.runtime.map:blockkey(p)
  self:loadBlock(block)
  if self.pending[block][nodekey(p)] then return false end
- -- Never hold provisional values for a complete/resident mapblock.
+ -- Blank MapBlocks are handled by blitBackHalo after core commit, not
+ -- by early publish; an incomplete block must not be marked generated.
  local map=self.runtime.map
- if map.revisions[block] or map.last_active[block] or
-  map.lbm_applied[block] then return false end
+ if (map.blank_blocks and map.blank_blocks[block]) or
+   map.revisions[block] or map.last_active[block] or
+   map.lbm_applied[block] then return false end
  self.pending[block][nodekey(p)]=validnode(node)
  self.dirty[block]=true
  self.published=self.published+1

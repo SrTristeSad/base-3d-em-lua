@@ -255,11 +255,16 @@ function Store:flush()
  for key in pairs(map.lbm_applied) do found[key]=true end
  for key in pairs(map.metadata) do found[block_of(key)]=true end
  for key in pairs(map.timers) do found[block_of(key)]=true end
+ local written=0
  for _,key in ipairs(keys(found)) do
-  assert(not map.blank_blocks[key],
-   'cannot persist an ungenerated blank as a complete MapBlock')
-  write(self.fs,self:path(key),Storage.encode(self:snapshot(key)))
+  -- A partial blank block is not generated and must not be serialized
+  -- as a complete MapBlock. Its known halo nodes are retained in RAM
+  -- and mirrored to border sidecars by blitBackHalo above.
+  if not map.blank_blocks[key] then
+   write(self.fs,self:path(key),Storage.encode(self:snapshot(key)))
+   written=written+1
+  end
  end
- return true,#keys(found)
+ return true,written
 end
 return Store
