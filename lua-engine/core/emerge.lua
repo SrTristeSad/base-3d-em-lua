@@ -149,8 +149,15 @@ function E.step(rt)
           'generator chunk region outside mapgen limits')
         end
        end
+       local seed=rt.opts.seed or 0
+       if region and region.blockseed~=nil then
+        seed=region.blockseed
+        assert(finite(seed) and seed==floor(seed) and
+         seed>=0 and seed<=4294967295,
+         'invalid generated chunk blockseed')
+       end
        rt:markGeneratedMapBlocks(min_generated,max_generated)
-       rt:generate(min_generated,max_generated,rt.opts.seed or 0)
+       rt:generate(min_generated,max_generated,seed)
       end)
       if finalized then
        if rt.mapBlockStore then
