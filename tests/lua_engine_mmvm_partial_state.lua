@@ -146,7 +146,8 @@ eq(emit(resumed,p),resumed.api.EMERGE_GENERATED)
 eq(resumed.api.get_node(p).name,'test:marker')
 eq(resumed.api.get_node(p).param2,13)
 eq(resumed.api.get_meta(mpos):get_string('core'),'persistent')
-eq(resumed.api.get_node_timer(mpos):get_elapsed(),1.5)
+assert(math.abs(resumed.api.get_node_timer(mpos):get_elapsed()-1.6)<1e-6,
+ 'timer must retain elapsed state and advance by the emerge tick')
 assert(not resumed.map.blank_blocks[k])
 -- A neighboring saved partial halo is loaded before the real MMVManip
 -- initialEmerge, retaining its timer and inventory when the core is built.
@@ -175,5 +176,6 @@ upper_restart:attachMapBlockStore(halo_disk,'v7halo97')
 eq(emit(upper_restart,{x=0,y=16,z=0}),upper_restart.api.EMERGE_GENERATED)
 eq(upper_restart.api.get_node(up).name,'test:marker')
 eq(upper_restart.api.get_meta(up):get_string('owner'),'upper')
-eq(upper_restart.api.get_node_timer(up):get_elapsed(),4)
+assert(math.abs(upper_restart.api.get_node_timer(up):get_elapsed()-4.2)<1e-6,
+ 'timer continues across two generation steps and a restart')
 print('LUANTI MMVM PARTIAL MAPBLOCK META/TIMERS INVENTORY AND RESTART PASS')
