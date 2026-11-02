@@ -98,7 +98,11 @@ function Map:set_mapblock_lighting_complete(block,flags)
  assert(resident,'lighting complete requires a resident MapBlock')
  local old=self:get_mapblock_lighting_complete(block)
  if old==flags then return false end
- self.lighting_complete[block]=flags==65535 and nil or flags
+ if flags==65535 then
+  self.lighting_complete[block]=nil
+ else
+  self.lighting_complete[block]=flags
+ end
  self.modified[block]=true
  return true
 end
