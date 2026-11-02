@@ -176,6 +176,8 @@ function Storage.decode(data,options)
      local flags=tonumber(rest)
      assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
       math.abs(p.z)<=1938 and
+      x==tostring(p.x) and y==tostring(p.y) and
+      z==tostring(p.z) and
       rest:match('^%d+$') and flags and
       flags==math.floor(flags) and flags>=0 and flags<=65535,
       'invalid lighting-complete flag record')
