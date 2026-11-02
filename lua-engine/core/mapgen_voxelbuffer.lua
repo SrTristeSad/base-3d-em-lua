@@ -705,6 +705,9 @@ function Buffer:blitBackAll(overwrite_generated)
   -- Native blitBackAll marks every written block modified even when
   -- all its transferred MapNodes are already equal to their targets.
   map.modified[block]=true
+  if type(map.expire_mapblock_air_cache)=='function' then
+   map:expire_mapblock_air_cache(block)
+  end
   modified_blocks[block]=true
   modified=modified+1
  end

@@ -23,6 +23,9 @@ function Map.new(registry)
  return setmetatable({nodes={},metadata={},timers={},registry=registry,
   revisions={},modified={},generatedChunks={},lightbanks={},lbm_applied={},
   blank_blocks={},
+  -- MapBlock::isAir is a lazy per-block CONTENT_AIR cache. Unknown
+  -- MapBlocks have no cache entry, and transient IGNORE is not AIR.
+  block_air_cache={},block_air_scans=0,
   game_time=0,last_active={},count=0,
   geometry_revision=0},Map)
 end
@@ -33,6 +36,66 @@ end
 function Map:blockkey(p)
  local x,y,z=coord(p)
  return bk(x,y,z)
+end
+local function blockcoords(block)
+ assert(type(block)=='string','mapblock cache key must be a string')
+ local xs,ys,zs=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+ assert(xs and ys and zs,'invalid mapblock cache key')
+ local x,y,z=tonumber(xs),tonumber(ys),tonumber(zs)
+ assert(x and y and z and math.abs(x)<=1938 and
+  math.abs(y)<=1938 and math.abs(z)<=1938 and
+  block==x..','..y..','..z,'invalid mapblock cache coordinates')
+ return x,y,z
+end
+-- Luanti 5.18 MapBlock::expireIsAirCache. Called on node mutations,
+-- on transitions from IGNORE to generated AIR, and after MMVManip blit.
+-- No serialized copy of this derived state is needed.
+function Map:expire_mapblock_air_cache(block)
+ blockcoords(block)
+ self.block_air_cache[block]=nil
+end
+-- Nil means no resident MapBlock. For an existing one, this is exactly
+-- MapBlock::isAir: every one of its 4096 MapNodes must have CONTENT_AIR,
+-- independent of param1/param2, metadata, timers and light.
+function Map:is_mapblock_air(block)
+ local bx,by,bz=blockcoords(block)
+ local nodes=0
+ local has_non_air=false
+ local resident=not not (self.blank_blocks[block] or
+  self.revisions[block] or self.last_active[block] or
+  self.lbm_applied[block])
+ local value=self.block_air_cache[block]
+ if value~=nil then return value end
+ for key,node in pairs(self.nodes) do
+  local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  if x and floor(tonumber(x)/16)==bx and
+   floor(tonumber(y)/16)==by and floor(tonumber(z)/16)==bz then
+   resident=true
+   nodes=nodes+1
+   if node.name~='air' then has_non_air=true end
+  end
+ end
+ if not resident then
+  for _,collection in ipairs({self.metadata,self.timers}) do
+   for key in pairs(collection) do
+    local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+    if x and floor(tonumber(x)/16)==bx and
+     floor(tonumber(y)/16)==by and floor(tonumber(z)/16)==bz then
+     resident=true
+     break
+    end
+   end
+   if resident then break end
+  end
+ end
+ if not resident then return nil end
+ self.block_air_scans=self.block_air_scans+1
+ -- Unwritten cells in generated/ordinary blocks are sparse AIR.
+ -- Unwritten cells in blank MapBlocks are CONTENT_IGNORE.
+ local air=not has_non_air and
+  (not self.blank_blocks[block] or nodes==4096)
+ self.block_air_cache[block]=air
+ return air
 end
 -- MapBlocks created by ServerMap::createBlock start full of
 -- CONTENT_IGNORE and are not generated (Luanti 5.18 mapblock.cpp:101).
@@ -58,11 +121,13 @@ function Map:create_blank_block(block)
  for k in pairs(self.metadata) do if has(k) then return false end end
  for k in pairs(self.timers) do if has(k) then return false end end
  self.blank_blocks[block]=true
+ self:expire_mapblock_air_cache(block)
  return true
 end
 function Map:finish_blank_block(block)
  if not self.blank_blocks[block] then return false end
  self.blank_blocks[block]=nil
+ self:expire_mapblock_air_cache(block)
  -- During construction, an explicit AIR node can represent a single
  -- known cell inside an otherwise CONTENT_IGNORE blank block.
  -- After generation, AIR becomes the normal sparse default.
@@ -113,6 +178,10 @@ function Map:set_node(p,node)
   if not old then self.count=self.count+1 end
   self.nodes[k]={name=name,param1=p1,param2=p2}
  end
+ -- Map:set_node is a hot worldgen loop; 'block' is already a
+ -- canonical key, so invalidate directly rather than re-parse it.
+ -- Even a byte-identical MapNode write expires the derived isAir cache.
+ self.block_air_cache[block]=nil
  -- Sparse collision broadphase is maintained incrementally once built.
  -- Replacing map.nodes directly is handled by lazy index reconstruction.
  MapNodeIndex.changed(self,x,y,z,name~='air')
