@@ -141,7 +141,7 @@ assert(old.generated==1 and old.generatedMapBlocks==nil)
 local lb=legacy.api.get_loaded_blocks()
 assert(#lb==1)
 -- The callback bounds must be mapblock-aligned and contain the request.
-assert(not pcall(rt.enableMapgenV7Chunks,rt,opts,{x=3,y=1,z=1}))
+assert(not pcall(rt.enableMapgenV7Chunks,rt,opts,{x=6,y=1,z=1}))
 -- A malformed third-party generator range must report an emerge error
 -- without corrupting LBM markers or breaking the runtime tick.
 local bad=runtime()
