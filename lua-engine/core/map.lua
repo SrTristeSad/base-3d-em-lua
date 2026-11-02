@@ -5,6 +5,72 @@ local MapNodeIndex=require('core.mapnodeindex')
 local Map={}
 Map.__index=Map
 Map.BLOCKSIZE=16
+-- Luanti 5.18 src/modifiedstate.h and src/mapblock.h.
+Map.MOD_STATE_CLEAN=0
+Map.MOD_STATE_WRITE_AT_UNLOAD=2
+Map.MOD_STATE_WRITE_NEEDED=4
+Map.MOD_REASON_SET_IS_UNDERGROUND=2
+Map.MOD_REASON_SET_LIGHTING_COMPLETE=4
+Map.MOD_REASON_SET_GENERATED=8
+Map.MOD_REASON_SET_NODE=16
+Map.MOD_REASON_SET_TIMESTAMP=32
+Map.MOD_REASON_REPORT_META_CHANGE=64
+Map.MOD_REASON_EXPIRE_IS_AIR=65536
+Map.MOD_REASON_VMANIP=131072
+Map.MOD_REASON_UNKNOWN=262144
+local reason_names={
+ [0]='reallocate or initial',
+ [1]='setIsUnderground',
+ [2]='setLightingComplete',
+ [3]='setGenerated',
+ [4]='setNode',
+ [5]='setTimestamp',
+ [6]='reportMetadataChange',
+ [7]='clearAllObjects',
+ [8]='Timestamp expired (step)',
+ [9]='addActiveObjectRaw',
+ [10]='removeRemovedObjects: remove',
+ [11]='removeRemovedObjects: deactivate',
+ [12]='objects cleared due to overflow',
+ [13]='deactivateFarObjects: static data moved in',
+ [14]='deactivateFarObjects: static data moved out',
+ [15]='deactivateFarObjects: static data changed',
+ [16]='finishBlockMake: expireIsAir',
+ [17]='MMVManip::blitBackAll',
+ [18]='unknown'
+}
+local function reason_or(a,b)
+ -- Both Lua 5.4 and LuaJIT support integer-exact arithmetic here;
+ -- neither requires bit32, which is not built into all Lua 5.4 hosts.
+ local sum=0
+ local bit=1
+ while a>0 or b>0 do
+  local av,bv=a%2,b%2
+  if av+bv>0 then sum=sum+bit end
+  a=math.floor(a/2); b=math.floor(b/2); bit=bit*2
+ end
+ return sum
+end
+local function raise_modified_fast(map,block,state,reason)
+ local old=map.modified_states[block] or 0
+ if state>old then
+  map.modified_states[block]=state
+  map.modified_reasons[block]=reason
+ elseif state==old then
+  local current=map.modified_reasons[block] or 0
+  if current~=reason then
+   -- Power-of-two fast path for the per-voxel setNode hot loop.
+   if reason>0 and reason%2==0 and
+    (reason==16 or reason==131072 or reason==2 or reason==4) and
+    math.floor(current/reason)%2==1 then
+    -- already set
+   else
+    map.modified_reasons[block]=reason_or(current,reason)
+   end
+  end
+ end
+ if state>0 then map.modified[block]=true end
+end
 local floor=math.floor
 local function coord(p)
  assert(type(p)=='table','position must be a table')
@@ -21,7 +87,8 @@ local function bk(x,y,z)
 end
 function Map.new(registry)
  return setmetatable({nodes={},metadata={},timers={},registry=registry,
-  revisions={},modified={},generatedChunks={},lightbanks={},lbm_applied={},
+  revisions={},modified={},modified_states={},modified_reasons={},
+  generatedChunks={},lightbanks={},lbm_applied={},
   blank_blocks={},
   -- MapBlock::isAir is a lazy per-block CONTENT_AIR cache. Unknown
   -- MapBlocks have no cache entry, and transient IGNORE is not AIR.
@@ -51,6 +118,44 @@ local function blockcoords(block)
   math.abs(y)<=1938 and math.abs(z)<=1938 and
   block==x..','..y..','..z,'invalid mapblock cache coordinates')
  return x,y,z
+end
+-- Luanti MapBlock::raiseModified severity/reason ordering. These
+-- transient diagnostic tables do not change the LUAENGINE 1 save format.
+function Map:get_mapblock_modified_state(block)
+ blockcoords(block)
+ return self.modified_states[block] or Map.MOD_STATE_CLEAN
+end
+function Map:get_mapblock_modified_reason(block)
+ blockcoords(block)
+ return self.modified_reasons[block] or 0
+end
+function Map:get_mapblock_modified_reason_string(block)
+ local reason=self:get_mapblock_modified_reason(block)
+ local names={}
+ for i=0,18 do
+  if math.floor(reason/2^i)%2==1 then
+   names[#names+1]=reason_names[i]
+  end
+ end
+ return table.concat(names,', ')
+end
+function Map:raise_mapblock_modified(block,state,reason)
+ blockcoords(block)
+ assert(state==Map.MOD_STATE_CLEAN or
+  state==Map.MOD_STATE_WRITE_AT_UNLOAD or
+  state==Map.MOD_STATE_WRITE_NEEDED,
+  'invalid MapBlock modified state')
+ assert(type(reason)=='number' and reason==floor(reason) and
+  reason>=0 and reason<2^19,
+  'invalid MapBlock modified reason')
+ raise_modified_fast(self,block,state,reason)
+ return self:get_mapblock_modified_state(block)
+end
+function Map:reset_mapblock_modified(block)
+ blockcoords(block)
+ self.modified_states[block]=nil
+ self.modified_reasons[block]=nil
+ self.modified[block]=nil
 end
 -- Luanti 5.18 MapBlock::getIsUnderground / setIsUnderground.
 -- This is a persisted MapBlock flag, not a calculation of sunlight.
@@ -89,7 +194,8 @@ function Map:set_mapblock_is_underground(block,is_underground)
  else
   self.underground[block]=nil
  end
- self.modified[block]=true
+ self:raise_mapblock_modified(block,Map.MOD_STATE_WRITE_NEEDED,
+  Map.MOD_REASON_SET_IS_UNDERGROUND)
  return changed
 end
 -- Native MapBlock::m_lighting_complete is a 16-bit flag word. Bits 0..5
@@ -145,7 +251,8 @@ function Map:set_mapblock_lighting_complete(block,flags)
  else
   self.lighting_complete[block]=flags
  end
- self.modified[block]=true
+ self:raise_mapblock_modified(block,Map.MOD_STATE_WRITE_AT_UNLOAD,
+  Map.MOD_REASON_SET_LIGHTING_COMPLETE)
  return true
 end
 function Map:set_mapblock_lighting_complete_direction(block,bank,direction,complete)
@@ -308,7 +415,8 @@ function Map:set_node(p,node)
   self.geometry_revision=self.geometry_revision+1
   local block=bk(x,y,z)
   self.revisions[block]=(self.revisions[block] or 0)+1
-  self.modified[block]=true
+  raise_modified_fast(self,block,Map.MOD_STATE_WRITE_NEEDED,
+   Map.MOD_REASON_SET_NODE)
   -- Optional runtime observer keeps collision geometry live without
   -- forcing a complete shape cache reset after each mining/build edit.
   if self.on_geometry_changed then
