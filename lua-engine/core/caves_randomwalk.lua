@@ -157,8 +157,12 @@ function Walk:_carveRoute(vec,f,randomize_xz)
      -- complete neighbor's mapblock.
      local inarea=self.map.is_gen_buffer and self.map:contains(pos) or
       inside(pos,self.node_min,self.node_max)
-     if inarea and not (self.map.is_gen_buffer and
-        self.map:_resident(pos)) and
+     local protected=self.map.is_gen_buffer and
+      self.map:_resident(pos)
+     local writable=not protected or
+      (self.map.is_gen_buffer and
+       self.map:can_carve_resident(pos))
+     if inarea and writable and
         self.map:get_node(pos).name==self.stone then
       local material='air'
       if self.large and self.flooded then
