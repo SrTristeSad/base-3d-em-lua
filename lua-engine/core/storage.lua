@@ -27,6 +27,10 @@ end
 function Storage.encode(map)
  assert(map and map.nodes and map.metadata and map.timers)
  local lines={'LUAENGINE 1'}
+ local clock=map.game_time or 0
+ assert(type(clock)=='number' and clock==clock and
+  clock>=0 and clock<=1e12,'invalid world clock')
+ if clock>0 then lines[#lines+1]=('C %.17g'):format(clock) end
  for _,k in ipairs(keys(map.nodes)) do
   local node=map.nodes[k]
   local x,y,z=coords(k)
@@ -84,6 +88,16 @@ function Storage.encode(map)
    end
   end
  end
+ -- Save per-mapblock last-active time.
+ for _,block in ipairs(keys(map.last_active or {})) do
+  local x,y,z=coords(block)
+  local stamp=map.last_active[block]
+  assert(x and y and z and math.abs(x)<=1938 and
+   math.abs(y)<=1938 and math.abs(z)<=1938 and
+   type(stamp)=='number' and stamp==stamp and
+   stamp>=0 and stamp<=clock,'invalid block timestamp')
+  lines[#lines+1]=('B %d %d %d %.17g'):format(x,y,z,stamp)
+ end
  for _,k in ipairs(keys(map.timers)) do
   local x,y,z=coords(k)
   local t=map.timers[k]
@@ -99,6 +113,7 @@ function Storage.decode(data)
  local map=Map.new()
  local lineNo=0
  local finished=false
+ local clock_seen=false
  for line in (data..'\n'):gmatch('(.-)\n') do
   if line~='' then
    lineNo=lineNo+1
@@ -108,6 +123,15 @@ function Storage.decode(data)
     finished=true
    else
     assert(not finished,'data after END')
+    local world_clock=line:match('^C (%S+)$')
+    if world_clock then
+     assert(not clock_seen,'duplicate world clock')
+     clock_seen=true
+     local value=tonumber(world_clock)
+     assert(value and value==value and value>=0 and
+      value<=1e12,'invalid world clock')
+     map.game_time=value
+    else
     local cx,cz,seed=line:match('^G (%-?%d+) (%-?%d+) (%d+)$')
     if cx then
      cx,cz,seed=tonumber(cx),tonumber(cz),tonumber(seed)
@@ -117,10 +141,19 @@ function Storage.decode(data)
      assert(map.generatedChunks[chunk]==nil,'duplicate generated chunk')
      map.generatedChunks[chunk]=seed
     else
-     local tag,x,y,z,rest=line:match('^([NMTLIFA]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
+     local tag,x,y,z,rest=line:match('^([NMTLIFAB]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
      assert(tag,'malformed save at line '..lineNo)
     local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
-    if tag=='A' then
+    if tag=='B' then
+     assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
+      math.abs(p.z)<=1938,'invalid active block coordinates')
+     local stamp=tonumber(rest)
+     assert(stamp and stamp==stamp and stamp>=0 and
+      stamp<=1e12,'invalid active block timestamp')
+     local block=p.x..','..p.y..','..p.z
+     assert(map.last_active[block]==nil,'duplicate block timestamp')
+     map.last_active[block]=stamp
+    elseif tag=='A' then
      assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
       math.abs(p.z)<=1938,'invalid LBM block coordinates')
      assert(rest~='' and not rest:find('%s'),'invalid LBM name encoding')
@@ -172,10 +205,14 @@ function Storage.decode(data)
      map:get_timer(p):set(timeout,elapsed)
     end
     end -- optional G record
+    end -- optional world clock record
    end
   end
  end
  assert(finished,'save is incomplete')
+ for _,stamp in pairs(map.last_active) do
+  assert(stamp<=map.game_time,'block timestamp is in the future')
+ end
  map.modified={}
  return map
 end

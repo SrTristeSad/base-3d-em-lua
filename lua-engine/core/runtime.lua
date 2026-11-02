@@ -23,6 +23,7 @@ local PlayerHP=require('core.playerhp')
 local AuthChat=require('core.authchat')
 local Lighting=require('core.lighting')
 local LBM=require('core.lbm')
+local ActiveBlocks=require('core.activeblocks')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -58,7 +59,8 @@ function Runtime.new(options)
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
   chatcommands={},privileges={},players={},player_meta={},
-  playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new()
+  playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new(),
+  activeMapBlocks={},activeBlockTracking=false
  },Runtime)
  local api={}
  self.api=api
@@ -830,7 +832,10 @@ function Runtime:replaceMap(map)
  assert(type(map)=='table' and type(map.get_node)=='function' and
   type(map.set_node)=='function' and type(map.nodes)=='table',
   'expected a decoded Lua engine Map')
+ ActiveBlocks.clear(self)
  self.map=map
+ self.clock=map.game_time or 0
+ self.activeBlockTracking=false
  map.registry=self.registry.items
  map.on_geometry_changed=function(changed,x,y,z)
   CollisionGeometry.node_changed(self,changed,x,y,z)
@@ -848,27 +853,19 @@ end
 function Runtime:markGeneratedMapBlocks(minp,maxp)
  return LBM.mark_generated(self,minp,maxp)
 end
-function Runtime:step(dt)
- assert(type(dt)=='number' and dt>=0 and dt==dt,'invalid dt')
- self.clock=self.clock+dt
- self.stepcount=self.stepcount+1
- -- Queue snapshot prevents recursive after(0) from locking a frame.
- local pending=self.scheduled
- self.scheduled={}
- for _,task in ipairs(pending) do
-  if not task.cancelled then
-   if task.at<=self.clock then
-    task.callback(unpack_args(task.args,1,task.count))
-   else self.scheduled[#self.scheduled+1]=task end
-  end
- end
- for _,fn in ipairs(self.callbacks.globalstep) do fn(dt) end
- -- Node timers run once per tick, without repeated callbacks in one frame.
+-- Real player positions drive mapblock activation, never ordinary node reads.
+function Runtime:isMapBlockActive(nodepos)
+ return ActiveBlocks.is_active(self,nodepos)
+end
+-- Advance node timers once per active tick or on return to a dormant block.
+function Runtime:_tickNodeTimers(dt,block)
  local timeouts={}
  for key,t in pairs(self.map.timers) do
-  t.elapsed=t.elapsed+dt
-  if t.elapsed>=t.timeout then
-   timeouts[#timeouts+1]={key=key,time=t.timeout,elapsed=t.elapsed,pos=t.pos}
+  if not block or self.map:blockkey(t.pos)==block then
+   t.elapsed=t.elapsed+dt
+   if t.elapsed>=t.timeout then
+    timeouts[#timeouts+1]={key=key,time=t.timeout,elapsed=t.elapsed,pos=t.pos}
+   end
   end
  end
  for _,timer in ipairs(timeouts) do
@@ -881,6 +878,37 @@ function Runtime:step(dt)
     self.map.timers[timer.key]={
      timeout=timer.time,elapsed=0,pos=timer.pos}
    end
+  end
+ end
+end
+function Runtime:step(dt)
+ assert(type(dt)=='number' and dt>=0 and dt==dt and dt~=math.huge,
+  'invalid dt')
+ local managed=ActiveBlocks.sync(self)
+ self.clock=self.clock+dt
+ self.map.game_time=self.clock
+ self.stepcount=self.stepcount+1
+ -- Queue snapshot prevents recursive after(0) from locking a frame.
+ local pending=self.scheduled
+ self.scheduled={}
+ for _,task in ipairs(pending) do
+  if not task.cancelled then
+   if task.at<=self.clock then
+    task.callback(unpack_args(task.args,1,task.count))
+   else self.scheduled[#self.scheduled+1]=task end
+  end
+ end
+ for _,fn in ipairs(self.callbacks.globalstep) do fn(dt) end
+ -- Positional sessions only step active resident timers. Hosts without
+ -- positional players keep the original headless timer test semantics.
+ if managed then
+  for block in pairs(self.activeMapBlocks) do self:_tickNodeTimers(dt,block) end
+ else
+  self:_tickNodeTimers(dt)
+ end
+ if managed then
+  for block in pairs(self.activeMapBlocks) do
+   self.map.last_active[block]=self.clock
   end
  end
  -- Falling object state advances before ABMs, with swept vertical collision
@@ -906,7 +934,10 @@ function Runtime:step(dt)
    for poskey,node in pairs(self.map.nodes) do
     if named(def,node) and math.random(def.chance)==1 then
      local x,y,z=poskey:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-     def.action({x=tonumber(x),y=tonumber(y),z=tonumber(z)},node,0,0)
+     local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
+     if not managed or self:isMapBlockActive(pos) then
+      def.action(pos,node,0,0)
+     end
     end
    end
   end
@@ -1060,6 +1091,7 @@ function Runtime:disconnectPlayer(name)
  if self.playerDigSessions then self.playerDigSessions[name]=nil end
  self.players[name]=nil
  self:clearChat(name)
+ if self.activeBlockTracking then ActiveBlocks.sync(self) end
  if not ok then error(err,0) end
  return true
 end
