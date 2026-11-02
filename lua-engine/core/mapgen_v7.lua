@@ -285,9 +285,7 @@ function V7:generateChunk(minp,maxp,chunk_size)
  -- Copy the fully computed interior only. No nodes are written to the
  -- expanded border: that space is reserved for the later MMVManip port.
  for k,node in pairs(stage.nodes) do
-  local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)
-return V7
-)
+  local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   map:set_node({x=tonumber(x),y=tonumber(y),z=tonumber(z)},node)
  end
  self.lastChunkGeometry=geom
