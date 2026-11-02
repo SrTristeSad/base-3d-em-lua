@@ -473,30 +473,7 @@ function Buffer:commit_core()
  -- preserve IGNORE outside the known columns until finalization.
  local air_copied=0
  for column,range in pairs(self.air_columns) do
-  local xs,zs=column:match('^(%-?%d+),(%-?%d+)
- for k,node in pairs(self.overlay) do
-  local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-  local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
-  if self:core_contains(pos) then
-   if node.name~='air' then map:set_node(pos,node) end
-   nodes=nodes+1
-  elseif self.resident_modified[k] then
-   -- Native blitBackAll writes non-IGNORE nodes to emerged neighbors.
-   -- These are staged cave changes, never raw terrain or unknown voxels.
-   if not same(node,self.resident_original[k]) then
-    map:set_node(pos,node)
-    resident=resident+1
-   end
-  else
-   discarded=discarded+1
-  end
- end
- self.core_nodes,self.discarded_border=nodes,discarded
- self.committed_resident=resident
- return nodes,discarded,resident
-end
-return Buffer
-)
+  local xs,zs=column:match('^(%-?%d+),(%-?%d+)$')
   local x,z=tonumber(xs),tonumber(zs)
   if x>=geom.node_min.x and x<=geom.node_max.x and
      z>=geom.node_min.z and z<=geom.node_max.z then
@@ -520,7 +497,12 @@ return Buffer
   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
   if self:core_contains(pos) then
-   if node.name~='air' then map:set_node(pos,node) end
+   -- copyTo includes explicit AIR; only zero-param AIR in an ordinary
+   -- sparse completed block can be omitted.
+   if node.name~='air' or (node.param1 or 0)~=0 or
+      (node.param2 or 0)~=0 or map.blank_blocks[map:blockkey(pos)] then
+    map:set_node(pos,node)
+   end
    nodes=nodes+1
   elseif self.resident_modified[k] then
    -- Native blitBackAll writes non-IGNORE nodes to emerged neighbors.
