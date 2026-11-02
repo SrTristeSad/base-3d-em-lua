@@ -61,7 +61,8 @@ function Buffer.new(map,geom)
  local sz=geom.full_node_max.z-zmin+1
  return setmetatable({
   source=map,geometry=geom,is_gen_buffer=true,extended_y=true,
-  overlay={},flags={},writes=0,discarded_border=0,
+  overlay={},flags={},air_columns={},air_columns_count=0,
+  flags={},writes=0,discarded_border=0,
   core_nodes=0,voxel_count=sx*sy*sz,
   sx=sx,sy=sy,sz=sz,origin={x=xmin,y=ymin,z=zmin}
  },Buffer)
@@ -85,18 +86,44 @@ function Buffer:_resident(pos)
  return self.source.revisions[key] or self.source.last_active[key] or
   self.source.lbm_applied[key]
 end
+-- During V7 terrain generation, a complete vertical column is known to
+-- contain air EXCEPT at its explicit non-air entries. Store the known-air
+-- default once per column instead of allocating a Lua node/key per sky voxel.
+-- This only represents staged generation; it does not mark live mapblocks.
+function Buffer:begin_terrain_column(x,z,ymin,ymax)
+ local a,b=self.geometry.full_node_min,self.geometry.full_node_max
+ local p={x=x,y=ymin,z=z}
+ assert(self:contains(p) and self:contains({x=x,y=ymax,z=z}) and
+  ymin<=ymax,'terrain column outside MMVManip area')
+ local key=x..','..z
+ assert(not self.air_columns[key],
+  'cannot begin a terrain column more than once')
+ self.air_columns[key]={ymin=ymin,ymax=ymax}
+ self.air_columns_count=self.air_columns_count+1
+end
+function Buffer:_known_air(pos)
+ local col=self.air_columns[pos.x..','..pos.z]
+ return col and pos.y>=col.ymin and pos.y<=col.ymax
+end
+function Buffer:terrain_writable(pos)
+ assert(self:contains(pos),'generation voxel outside MMVManip area')
+ return not self.overlay[indexkey(pos)] and not self:_resident(pos)
+end
 function Buffer:get_node(pos)
  assert(self:contains(pos),'generation voxel outside MMVManip area')
  local v=self.overlay[indexkey(pos)]
  if v then return copy(v) end
  if self:_resident(pos) then return self.source:get_node(pos) end
+ if self:_known_air(pos) then return {name='air',param1=0,param2=0} end
  return {name='ignore',param1=0,param2=0}
 end
 function Buffer:get_flags(pos)
  assert(self:contains(pos),'generation voxel outside MMVManip area')
  local key=indexkey(pos)
  local flags=self.flags[key] or 0
- if self.overlay[key] or self:_resident(pos) then return flags end
+ if self.overlay[key] or self:_resident(pos) or self:_known_air(pos) then
+  return flags
+ end
  return flags+Buffer.FLAG_NO_DATA
 end
 function Buffer:mark_cave(pos)
@@ -117,7 +144,12 @@ function Buffer:set_node(pos,node)
  local k=indexkey(pos)
  -- Never change nodes in already-emerged mapblocks (including known air).
  if not self.overlay[k] and self:_resident(pos) then return false end
- self.overlay[k]=copy(node) -- even air is *known* here
+ -- An air node under the column's known-air default needs no allocation
+ -- unless it replaces explicit ground (e.g. after cave excavation).
+ if node.name=='air' and not self.overlay[k] and self:_known_air(pos) then
+  return true
+ end
+ self.overlay[k]=copy(node) -- explicit air still replaces excavated stone
  self.flags[k]=nil
  self.writes=self.writes+1
  return true
