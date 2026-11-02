@@ -41,8 +41,10 @@ assert(area:getCoveredBlocks()['-2,-1,0'])
 assert(area:getCoveredBlocks()['1,0,0'])
 assert(area:getCoveredBlocks()['0,0,0'])
 assert(not area:getCoveredBlocks()['0,-1,1'])
-assert(not pcall(area.initialEmerge,area,false),
- 'initialEmerge should not silently overwrite an active snapshot')
+assert(area:initialEmerge(false)==4,
+ 'overlapping initialEmerge preserves the four captured mapblocks')
+assert(area:get_node(resident).name=='test:stone',
+ 'repeated emergence must not overwrite a prior snapshot')
 assert(not pcall(Buffer.initialEmerge,Buffer.new(world,geom),true),
  'load_if_inexistent=true unsupported, never invent loaded mapblocks')
 -- Native initialEmerge copies nodes. Changes to the real world after
