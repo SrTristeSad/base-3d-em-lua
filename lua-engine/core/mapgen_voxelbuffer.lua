@@ -82,8 +82,72 @@ function Buffer:index(pos)
  return (pos.z-self.origin.z)*self.sx*self.sy+
   (pos.y-self.origin.y)*self.sx+(pos.x-self.origin.x)+1
 end
+-- Source-derived MMVManip::initialEmerge(p_min, p_max, false).
+-- In Luanti, existing MapBlocks are copied into the VM before mapgen.
+-- Missing blocks keep VOXELFLAG_NO_DATA; empty loaded blocks are known
+-- AIR. The Lua map is sparse, so copy only explicit nodes and record the
+-- loaded block identities. No disk emergence or map mutation is performed.
+function Buffer:initialEmerge(load_if_inexistent)
+ assert(load_if_inexistent==nil or load_if_inexistent==false,
+  'initialEmerge(true) not implemented; never synthesize mapblocks')
+ assert(not self.initial_emerged,
+  'MMVManip initialEmerge may only initialize once in this stage')
+ local map=self.source
+ local known={}
+ local nodes={}
+ local amin,amax=self.geometry.full_node_min,
+  self.geometry.full_node_max
+ local function block_in_area(block)
+  local x,y,z=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  if not x then return false end
+  local bx,by,bz=tonumber(x),tonumber(y),tonumber(z)
+  return bx>=floor(amin.x/16) and bx<=floor(amax.x/16) and
+   by>=floor(amin.y/16) and by<=floor(amax.y/16) and
+   bz>=floor(amin.z/16) and bz<=floor(amax.z/16)
+ end
+ local function mark(block)
+  if block_in_area(block) then known[block]=true end
+ end
+ for block in pairs(map.revisions) do mark(block) end
+ for block in pairs(map.last_active) do mark(block) end
+ for block in pairs(map.lbm_applied) do mark(block) end
+ -- A block may be resident solely because it has metadata/timers.
+ -- This mirrors MapBlockStore:resident and avoids treating known air
+ -- surrounding an inventory or running timer as CONTENT_IGNORE.
+ local function position_block(key)
+  local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  if not x then return nil end
+  return floor(tonumber(x)/16)..','..
+   floor(tonumber(y)/16)..','..floor(tonumber(z)/16)
+ end
+ for key in pairs(map.metadata) do
+  local block=position_block(key)
+  if block then mark(block) end
+ end
+ for key in pairs(map.timers) do
+  local block=position_block(key)
+  if block then mark(block) end
+ end
+ -- Copy the known map's explicit nodes, including params, at emerge time.
+ -- The absence of an explicit node in a known block means known air.
+ for key,node in pairs(map.nodes) do
+  local block=position_block(key)
+  if block and block_in_area(block) then
+   known[block]=true
+   nodes[key]=copy(node)
+  end
+ end
+ self.initial_blocks=known
+ self.initial_nodes=nodes
+ self.initial_emerged=true
+ local count=0
+ for _ in pairs(known) do count=count+1 end
+ self.initial_loaded_count=count
+ return count
+end
 function Buffer:_resident(pos)
  local key=self.source:blockkey(pos)
+ if self.initial_emerged then return self.initial_blocks[key] end
  return self.source.revisions[key] or self.source.last_active[key] or
   self.source.lbm_applied[key]
 end
@@ -106,7 +170,7 @@ function Buffer:can_carve_resident(pos)
  local key=indexkey(pos)
  -- A cave must not remove nodes bearing metadata or running timers.
  if self.source.metadata[key] or self.source.timers[key] then return false end
- local n=self.source:get_node(pos)
+ local n=self:get_node(pos)
  return n.name==self.resident_halo_ground
 end
 -- During V7 terrain generation, a complete vertical column is known to
@@ -136,7 +200,12 @@ function Buffer:get_node(pos)
  assert(self:contains(pos),'generation voxel outside MMVManip area')
  local v=self.overlay[indexkey(pos)]
  if v then return copy(v) end
- if self:_resident(pos) then return self.source:get_node(pos) end
+ if self:_resident(pos) then
+  if self.initial_emerged then
+   return copy(self.initial_nodes[indexkey(pos)] or {name='air'})
+  end
+  return self.source:get_node(pos)
+ end
  if self:_known_air(pos) then return {name='air',param1=0,param2=0} end
  return {name='ignore',param1=0,param2=0}
 end
@@ -171,7 +240,7 @@ function Buffer:set_node(pos,node)
   if self.resident_halo_ground==nil then return false end
   if not self.resident_original[k] then
    if not self:can_carve_resident(pos) then return false end
-   self.resident_original[k]=copy(self.source:get_node(pos))
+   self.resident_original[k]=copy(self:get_node(pos))
   end
   self.resident_modified[k]=true
  end
@@ -228,9 +297,13 @@ function Buffer:getCoveredBlocks()
    end
   end
  end
- for key in pairs(self.source.revisions) do resident(key) end
- for key in pairs(self.source.last_active) do resident(key) end
- for key in pairs(self.source.lbm_applied) do resident(key) end
+ if self.initial_emerged then
+  for key in pairs(self.initial_blocks) do resident(key) end
+ else
+  for key in pairs(self.source.revisions) do resident(key) end
+  for key in pairs(self.source.last_active) do resident(key) end
+  for key in pairs(self.source.lbm_applied) do resident(key) end
+ end
  return result
 end
 -- Imported MMVManip voxels are the initial state, not modifications.
