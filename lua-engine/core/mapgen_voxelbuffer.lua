@@ -168,6 +168,7 @@ function Buffer:set_node(pos,node)
  -- Existing mapblocks are immutable to terrain generation. A cave may
  -- change a known ground node in the halo only when explicitly enabled.
  if self:_resident(pos) then
+  if self.resident_halo_ground==nil then return false end
   if not self.resident_original[k] then
    if not self:can_carve_resident(pos) then return false end
    self.resident_original[k]=copy(self.source:get_node(pos))
