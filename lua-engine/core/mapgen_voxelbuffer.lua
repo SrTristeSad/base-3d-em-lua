@@ -560,4 +560,141 @@ function Buffer:commit_core()
  self.committed_resident=resident
  return nodes,discarded,resident
 end
+-- Explicit VoxelManipulator writes are distinct from the V7 terrain
+-- writer, which must NEVER gain permission to modify generated blocks.
+-- Native MMVManip clients can change imported MapNodes before blitBackAll.
+-- No live MapBlock is touched until the explicit blit call.
+function Buffer:stage_vmanip_node(pos,node)
+ assert(self.initial_emerged,
+  'explicit MMVManip writes require initialEmerge')
+ assert(not self.blit_done,'MMVManip buffer already blitted')
+ assert(self:contains(pos),'MMVManip write outside emerged area')
+ assert(type(node)=='table' and type(node.name)=='string' and
+  node.name~='' and node.name~='ignore',
+  'explicit MMVManip cannot write CONTENT_IGNORE')
+ local p1,p2=node.param1 or 0,node.param2 or 0
+ assert(type(p1)=='number' and p1==floor(p1) and
+  p1>=0 and p1<=255 and type(p2)=='number' and
+  p2==floor(p2) and p2>=0 and p2<=255,
+  'MMVManip MapNode parameters must be bytes')
+ local k=indexkey(pos)
+ self.overlay[k]={name=node.name,param1=p1,param2=p2}
+ self.modified[k]=true
+ self.flags[k]=nil
+ self.writes=self.writes+1
+ return true
+end
+
+-- Explicit counterpart to Luanti 5.18 MMVManip::blitBackAll.
+-- src/map.cpp:894-935 iterates covered blocks, skips generated blocks
+-- unless overwrite_generated=true, and calls MapBlock::copyFrom.
+-- src/voxel.cpp:231-246 copies ALL non-CONTENT_IGNORE MapNodes,
+-- including AIR with arbitrary param1/param2; it does not copy metadata.
+--
+-- This deliberately separate API does not weaken V7 commit_core or
+-- mapgenBorder safeguards. The source snapshot must be stable; validate
+-- every writable block before changing even the first live MapNode.
+-- Partially known blocks stay ungenerated and are saved by the existing
+-- .map.partial adapter on the next MapBlockStore:flush().
+function Buffer:blitBackAll(overwrite_generated)
+ assert(overwrite_generated==nil or
+  type(overwrite_generated)=='boolean',
+  'overwrite_generated must be boolean')
+ assert(self.initial_emerged,
+  'blitBackAll requires initialEmerge')
+ assert(not self.blit_done,'MMVManip buffer already blitted')
+ local map=self.source
+ local covered=self:getCoveredBlocks()
+ local destinations={}
+ for block,has_data in pairs(covered) do
+  if has_data then
+   local initial=self.initial_blocks[block]==true
+   local was_blank=self.initial_blank_blocks[block]==true
+   local blank=map.blank_blocks[block]==true
+   local original_generated=initial and not was_blank
+   if overwrite_generated or not original_generated then
+    -- Missing blocks may be created only if NO other writer has
+    -- emerged, edited or activated them since initialEmerge.
+    if initial then
+     assert(blank==was_blank,
+      'MMVManip target changed generation state')
+    else
+     assert(not blank and not map.revisions[block] and
+      not map.last_active[block] and not map.lbm_applied[block],
+      'MMVManip missing target changed before blit')
+     -- initialEmerge(false) leaves disk-backed MapBlocks unimported.
+     -- Never silently create a blank over a complete/partial image or
+     -- provisional border state: the native blit emerges disk data first.
+     -- Call initialEmerge(true) to read those targets into this snapshot.
+     local store=map.mapBlockStore
+     if store then
+      local function exists(path)
+       local data,err=store.fs.read(path)
+       assert(data==nil or type(data)=='string',
+        'MMVManip disk preflight returned invalid content')
+       assert(data~=nil or err==nil or err=='not found',
+        'MMVManip disk preflight failed: '..tostring(err))
+       return data~=nil
+      end
+      assert(not exists(store:path(block)) and
+       not exists(store:partial_path(block)) and
+       not (store.runtime.mapgenBorder and
+        exists(store.runtime.mapgenBorder:path(block))),
+       'MMVManip disk target requires initialEmerge(true)')
+     end
+    end
+    assert((map.revisions[block] or 0)==
+     (self.initial_block_revisions[block] or 0),
+     'MMVManip target changed during blit')
+    -- An already-generated block remains generated when overwritten.
+    destinations[block]={create=not initial}
+   end
+  end
+ end
+ -- Preflight is complete. Do not create any missing MapBlock unless
+ -- ALL destinations have passed the snapshot checks.
+ for block,dest in pairs(destinations) do
+  if dest.create then
+   assert(map:create_blank_block(block),
+    'MMVManip failed to create empty target MapBlock')
+  end
+ end
+ local changed,modified,created=0,0,0
+ local modified_blocks={}
+ for block,dest in pairs(destinations) do
+  if dest.create then created=created+1 end
+  local bx,by,bz=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  bx,by,bz=tonumber(bx)*16,tonumber(by)*16,tonumber(bz)*16
+  -- MapBlock::copyFrom writes a complete 16^3 VoxelArea, not only the
+  -- overlay entries. Imported implicit AIR is therefore significant.
+  for z=bz,bz+15 do
+   for y=by,by+15 do
+    for x=bx,bx+15 do
+     local pos={x=x,y=y,z=z}
+     if self:contains(pos) then
+      local n=self:get_node(pos)
+      if n.name~='ignore' then
+       local old=map:get_node(pos)
+       if not same(old,n) then
+        map:set_node(pos,n)
+        changed=changed+1
+       end
+      end
+    end
+   end
+  end
+  end
+  -- Native blitBackAll marks every written block modified even when
+  -- all its transferred MapNodes are already equal to their targets.
+  map.modified[block]=true
+  modified_blocks[block]=true
+  modified=modified+1
+ end
+ self.blit_done=true
+ self.blit_modified_blocks=modified_blocks
+ self.blit_changed_nodes=changed
+ self.blit_created_blocks=created
+ return modified_blocks,changed,created
+end
+
 return Buffer
