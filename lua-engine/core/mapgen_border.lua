@@ -129,6 +129,56 @@ function Border:seed(buffer,geom)
  self.seeded=self.seeded+seeded
  return seeded
 end
+-- InitialEmerge loads the COMPLETE MMVManip volume. Import only
+-- already-known sidecar nodes outside the generated core, including X/Z
+-- margins; CONTENT_IGNORE remains unknown and cannot be carved.
+function Border:seedExpanded(buffer,geom)
+ local from,to=geom.full_node_min,geom.full_node_max
+ local count=0
+ for x=floor(from.x/16),floor(to.x/16) do
+  for y=floor(from.y/16),floor(to.y/16) do
+   for z=floor(from.z/16),floor(to.z/16) do
+    local block=x..','..y..','..z
+    self:loadBlock(block)
+    for nk,node in pairs(self.pending[block]) do
+     local p=decodekey(nk)
+     if buffer:contains(p) and not buffer:core_contains(p) and
+       buffer:terrain_writable(p) then
+      assert(buffer:set_node(p,node),'MMVManip halo seed rejected')
+      count=count+1
+     end
+    end
+   end
+  end
+ end
+ self.seeded=self.seeded+count
+ return count
+end
+-- Only changes to an already-known provisional halo voxel are copied
+-- back. Do not synthesize stone in CONTENT_IGNORE or modify a completed
+-- neighbor; both would diverge from MMVManip::copyTo/initialEmerge.
+function Border:publishModifiedHalo(buffer)
+ local count=0
+ for nk in pairs(buffer.modified) do
+  local p=decodekey(nk)
+  if not buffer:core_contains(p) then
+   local block=self.runtime.map:blockkey(p)
+   self:loadBlock(block)
+   local old=self.pending[block][nk]
+   local changed=buffer.overlay[nk]
+   local map=self.runtime.map
+   if old and changed and not (map.revisions[block] or
+    map.last_active[block] or map.lbm_applied[block]) and
+    (old.name~=changed.name or old.param1~=changed.param1 or
+     old.param2~=changed.param2) then
+    self.pending[block][nk]=validnode(changed)
+    self.dirty[block]=true
+    count=count+1
+   end
+  end
+ end
+ return count
+end
 local function add(self,p,node)
  local block=self.runtime.map:blockkey(p)
  self:loadBlock(block)
