@@ -47,6 +47,7 @@ local function validate_block(image,k)
  same(image.last_active,false)
  same(image.lighting_complete,false)
  same(image.underground,false)
+ same(image.block_timestamps,false)
  assert(next(image.generatedChunks)==nil,
   'per-mapblock data contains global generation markers')
  assert(image.last_active[k]~=nil,
@@ -71,6 +72,9 @@ local function validate_partial(image,k)
  end
  for key in pairs(image.underground) do
   assert(key==k,'foreign underground flag in partial MapBlock')
+ end
+ for key in pairs(image.block_timestamps) do
+  assert(key==k,'foreign timestamp in partial MapBlock')
  end
 end
 local function unpack_key(k)
@@ -112,7 +116,8 @@ function Store.new(runtime,fs,prefix)
    next(header.timers)==nil and next(header.lbm_applied)==nil and
    next(header.last_active)==nil and
    next(header.lighting_complete)==nil and
-   next(header.underground)==nil,
+   next(header.underground)==nil and
+   next(header.block_timestamps)==nil,
    'invalid streaming world header')
   assert(runtime.clock<=header.game_time,
    'cannot attach an older segmented world to a newer runtime')
@@ -149,7 +154,7 @@ function Store:resident(k)
  local map=self.runtime.map
  if map.blank_blocks[k] or map.revisions[k] or map.lbm_applied[k] or
   map.last_active[k] or map.lighting_complete[k] or
-  map.underground[k] then return true end
+  map.underground[k] or map.block_timestamps[k] then return true end
  for key in pairs(map.metadata) do
   if block_of(key)==k then return true end
  end
@@ -192,6 +197,9 @@ function Store:load_partial(k)
  map:reset_mapblock_modified(k)
  map.lighting_complete[k]=image.lighting_complete[k]
  map.underground[k]=image.underground[k]
+ -- Native deserialize initializes disk timestamp from stored timestamp.
+ map.block_timestamps[k]=image.block_timestamps[k]
+ map.block_disk_timestamps[k]=image.block_timestamps[k]
  return true
 end
 -- ServerMap::emergeBlock(k,true): load a complete block first, then
@@ -220,6 +228,9 @@ function Store:snapshot(k)
   map.lighting_complete[k]=source.lighting_complete[k]
  end
  if source.underground[k] then map.underground[k]=true end
+ if source.block_timestamps[k]~=nil then
+  map.block_timestamps[k]=source.block_timestamps[k]
+ end
  for key,value in pairs(source.nodes) do
   if block_of(key)==k then map.nodes[key]=value;map.count=map.count+1 end
  end
@@ -279,6 +290,8 @@ function Store:unload(k)
  map.lightbanks[k]=nil
  map.lighting_complete[k]=nil
  map.underground[k]=nil
+ map.block_timestamps[k]=nil
+ map.block_disk_timestamps[k]=nil
  map.lbm_applied[k]=nil
  map.last_active[k]=nil
  self.misses[k]=nil
@@ -317,6 +330,8 @@ function Store:emerge(k)
  map.last_active[k]=image.last_active[k]
  map.lighting_complete[k]=image.lighting_complete[k]
  map.underground[k]=image.underground[k]
+ map.block_timestamps[k]=image.block_timestamps[k]
+ map.block_disk_timestamps[k]=image.block_timestamps[k]
  map:reset_mapblock_modified(k)
  self.loads=self.loads+1
  self.misses[k]=nil
@@ -341,6 +356,7 @@ function Store:flush()
  for key in pairs(map.lbm_applied) do found[key]=true end
  for key in pairs(map.lighting_complete) do found[key]=true end
  for key in pairs(map.underground) do found[key]=true end
+ for key in pairs(map.block_timestamps) do found[key]=true end
  -- Also write changed blocks whose last custom flag was just reset to
  -- its default. Otherwise an older .map.partial could revive that flag.
  for key in pairs(map.modified) do found[key]=true end
@@ -357,8 +373,9 @@ function Store:flush()
    write(self.fs,self:path(key),Storage.encode(self:snapshot(key)))
    written=written+1
   end
-  -- A successful atomic write synchronizes this MapBlock's state.
-  -- Never clear dirty flags if any write throws.
+  -- The disk image now contains the current timestamp. Neither this
+  -- marker nor modified state advances if the atomic write throws.
+  map.block_disk_timestamps[key]=map.block_timestamps[key]
   map:reset_mapblock_modified(key)
  end
  return true,written

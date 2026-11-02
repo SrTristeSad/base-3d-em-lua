@@ -9,6 +9,7 @@ Map.BLOCKSIZE=16
 Map.MOD_STATE_CLEAN=0
 Map.MOD_STATE_WRITE_AT_UNLOAD=2
 Map.MOD_STATE_WRITE_NEEDED=4
+Map.BLOCK_TIMESTAMP_UNDEFINED=4294967295
 Map.MOD_REASON_SET_IS_UNDERGROUND=2
 Map.MOD_REASON_SET_LIGHTING_COMPLETE=4
 Map.MOD_REASON_SET_GENERATED=8
@@ -56,6 +57,11 @@ local function raise_modified_fast(map,block,state,reason)
  if state>old then
   map.modified_states[block]=state
   map.modified_reasons[block]=reason
+  -- MapBlock::raiseModified copies m_timestamp to m_disk_timestamp
+  -- only when severity increases to at least WRITE_AT_UNLOAD.
+  if state>=Map.MOD_STATE_WRITE_AT_UNLOAD then
+   map.block_disk_timestamps[block]=map.block_timestamps[block]
+  end
  elseif state==old then
   local current=map.modified_reasons[block] or 0
   if current~=reason then
@@ -96,6 +102,9 @@ function Map.new(registry)
   -- Luanti 5.18 MapBlock::m_lighting_complete is u16, default 0xFFFF.
   -- Only deviations from the default need a sparse entry.
   lighting_complete={},
+  -- Native u32 MapBlock timestamps, independent of fractional LBM
+  -- last_active clock. Absent entries mean 0xffffffff (undefined).
+  block_timestamps={},block_disk_timestamps={},
   -- Luanti 5.18 MapBlock::is_underground, false by default.
   underground={},
   game_time=0,last_active={},count=0,
@@ -118,6 +127,61 @@ local function blockcoords(block)
   math.abs(y)<=1938 and math.abs(z)<=1938 and
   block==x..','..y..','..z,'invalid mapblock cache coordinates')
  return x,y,z
+end
+local function timestamp_value(t)
+ assert(type(t)=='number' and t==floor(t) and
+  t>=0 and t<=Map.BLOCK_TIMESTAMP_UNDEFINED,
+  'MapBlock timestamp must be a u32')
+ return t
+end
+-- A native timestamp setter operates on an existing MapBlock object,
+-- not on unloaded terrain. Do not create a block just to change time.
+local function block_resident(map,block,bx,by,bz)
+ if map.blank_blocks[block] or map.revisions[block] or
+  map.last_active[block] or map.lbm_applied[block] or
+  map.lighting_complete[block] or map.underground[block] or
+  map.block_timestamps[block] then return true end
+ for _,entries in ipairs({map.nodes,map.metadata,map.timers}) do
+  for k in pairs(entries) do
+   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+   if x and floor(tonumber(x)/16)==bx and
+    floor(tonumber(y)/16)==by and floor(tonumber(z)/16)==bz then
+    return true
+   end
+  end
+ end
+ return false
+end
+function Map:get_mapblock_timestamp(block)
+ blockcoords(block)
+ return self.block_timestamps[block] or Map.BLOCK_TIMESTAMP_UNDEFINED
+end
+-- Native getDiskTimestamp() is explicitly deprecated and should not
+-- be interpreted as the last durable write time. It is captured on
+-- a rise of the modification severity and restored on disk import.
+function Map:get_mapblock_disk_timestamp(block)
+ blockcoords(block)
+ return self.block_disk_timestamps[block] or Map.BLOCK_TIMESTAMP_UNDEFINED
+end
+function Map:set_mapblock_timestamp_no_changed_flag(block,t)
+ local bx,by,bz=blockcoords(block)
+ t=timestamp_value(t)
+ assert(block_resident(self,block,bx,by,bz),
+  'timestamp requires a resident MapBlock')
+ if t==Map.BLOCK_TIMESTAMP_UNDEFINED then
+  self.block_timestamps[block]=nil
+ else
+  self.block_timestamps[block]=t
+ end
+ return true
+end
+function Map:set_mapblock_timestamp(block,t)
+ self:set_mapblock_timestamp_no_changed_flag(block,t)
+ -- Native MapBlock::setTimestamp raises WRITE_AT_UNLOAD even when
+ -- assigned the same value. No-change import setter does not raise.
+ self:raise_mapblock_modified(block,Map.MOD_STATE_WRITE_AT_UNLOAD,
+  Map.MOD_REASON_SET_TIMESTAMP)
+ return true
 end
 -- Luanti MapBlock::raiseModified severity/reason ordering. These
 -- transient diagnostic tables do not change the LUAENGINE 1 save format.
