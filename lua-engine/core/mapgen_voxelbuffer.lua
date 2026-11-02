@@ -314,6 +314,9 @@ function Buffer:get_flags(pos)
  if self.overlay[key] or self:_resident(pos) or self:_known_air(pos) then
   return flags
  end
+ -- VOXELFLAG_NO_DATA is a bit, not a counter. Preserve the bit
+ -- when a caller has already marked an unknown voxel as NO_DATA.
+ if flags%2==1 then return flags end
  return flags+Buffer.FLAG_NO_DATA
 end
 function Buffer:mark_cave(pos)
@@ -365,10 +368,25 @@ end
 -- is covered if ANY position in it has data (!VOXELFLAG_NO_DATA).
 -- The Lua representation can count a known-air column in O(number of
 -- Y mapblocks), instead of allocating all individual air voxels.
--- Returned keys are block positions, values are the same booleans as
--- the original covered-block map (only true entries need copying).
+-- After initialEmerge, every mapblock in the block-aligned VoxelArea
+-- has an entry: true for any known voxel, false for an entirely NO_DATA
+-- block. The pre-emerge staging mode intentionally stays sparse, since
+-- Buffer.new has only reserved Lua geometry (native MMVManip starts empty).
 function Buffer:getCoveredBlocks()
  local result={}
+ if self.initial_emerged then
+  local a,b=self.geometry.full_node_min,self.geometry.full_node_max
+  assert(a.x%16==0 and a.y%16==0 and a.z%16==0 and
+   (b.x+1)%16==0 and (b.y+1)%16==0 and (b.z+1)%16==0,
+   'MMVManip covered blocks require block-aligned VoxelArea')
+  for z=floor(a.z/16),floor(b.z/16) do
+   for y=floor(a.y/16),floor(b.y/16) do
+    for x=floor(a.x/16),floor(b.x/16) do
+     result[x..','..y..','..z]=false
+    end
+   end
+  end
+ end
  local function visit(p)
   if self:contains(p) then
    result[self.source:blockkey(p)]=true
@@ -439,8 +457,8 @@ end
 function Buffer:validate_blank_halo()
  local map=self.source
  if not map.blank_blocks then return end
- for block in pairs(self:getCoveredBlocks()) do
-  if map.blank_blocks[block] then
+ for block,has_data in pairs(self:getCoveredBlocks()) do
+  if has_data and map.blank_blocks[block] then
    local bx,by,bz=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
    local origin={x=tonumber(bx)*16,y=tonumber(by)*16,
     z=tonumber(bz)*16}
