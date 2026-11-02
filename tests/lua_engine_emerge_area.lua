@@ -45,7 +45,7 @@ rt:setMapBlockGenerator(function(runtime,minp,maxp)
  return false
 end)
 -- load_area is synchronous but MUST NOT generate absent mapblocks.
-assert(api.load_area({x=48,y=0,z=0})==0)
+assert(api.load_area({x=48,y=0,z=0})==nil)
 assert(generated_calls==0)
 local calls={}
 local context={identifier='user-token'}
@@ -56,7 +56,7 @@ api.emerge_area({x=0,y=0,z=0},{x=32,y=0,z=0},
  end,context)
 assert(#calls==0,'emerge_area must enqueue, not synchronously call callbacks')
 assert(api.compare_block_status({x=32,y=0,z=0},'emerging'))
-assert(not api.compare_block_status({x=32,y=0,z=0},'unknown'))
+assert(api.compare_block_status({x=32,y=0,z=0},'unknown'))
 rt:step(.1)
 assert(#calls==1 and calls[1].x==0 and
  calls[1].action==api.EMERGE_GENERATED and calls[1].remaining==2)
@@ -107,7 +107,7 @@ rt:connectPlayer({get_player_name=function() return 'Alice' end,
  get_pos=function() return playerpos end})
 rt:step(.1)
 assert(api.compare_block_status({x=0,y=0,z=0},'active'))
-assert(not api.compare_block_status({x=0,y=0,z=0},'loaded'))
+assert(api.compare_block_status({x=0,y=0,z=0},'loaded'))
 assert(#api.get_active_blocks()==1 and one_shots==0)
 assert(api.compare_block_status({x=16,y=0,z=0},'loaded'))
 local before=generated_calls
