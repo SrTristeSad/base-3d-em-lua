@@ -6,10 +6,10 @@ Este código complementa, **sem substituir**, o streaming em `core/mapblockstore
 
 ## API exposta aos mods originais
 
-- `core.load_area(pos1[, pos2])`: carrega da memória/disco os mapblocks disponíveis **sincronamente**, sem gerar novas regiões e sem ativar LBMs por si só. Retorna um contador interno não especificado pela API original.
+- `core.load_area(pos1[, pos2])`: carrega da memória/disco os mapblocks disponíveis **sincronamente**, sem gerar novas regiões e sem ativar LBMs por si só. Não retorna valores, assim como a função C++ original.
 - `core.emerge_area(pos1, pos2[, callback[, param]])`: insere em fila os mapblocks, processados nas chamadas seguintes de `runtime:step`; não executa callbacks na mesma chamada que solicita emergência. Cada callback recebe `blockpos, action, calls_remaining, param`.
 - Constantes originais: `EMERGE_CANCELLED=0`, `EMERGE_ERRORED=1`, `EMERGE_FROM_MEMORY=2`, `EMERGE_FROM_DISK=3`, `EMERGE_GENERATED=4`.
-- `core.get_loaded_blocks()`, `core.get_active_blocks()` e `core.compare_block_status(pos, condition)` usam o estado real residente/ativo. `condition` suporta `unknown`, `emerging`, `loaded`, `active`.
+- `core.get_loaded_blocks()`, `core.get_active_blocks()` e `core.compare_block_status(pos, condition)` usam o estado real residente/ativo. `condition` suporta `unknown`, `emerging`, `loaded`, `active`, comparados como níveis mínimos de prontidão (`status >= condition`), conforme `ServerEnvironment::BlockStatus`.
 - Em mundos com armazenamento segmentado, `core.get_node(pos)` retorna `ignore` em região não carregada, `get_node_or_nil(pos)` retorna `nil` e `get_node_raw(x,y,z)` retorna `CONTENT_IGNORE, 0, 0, false`. Em blocos residentes, as posições `air` continuam representadas por `air`, e não por `ignore`. Os testes antigos sem streaming conservam a semântica protótipo de mapa esparso.
 
 ## Geração de blocos ausentes
