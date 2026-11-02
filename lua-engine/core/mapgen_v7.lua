@@ -243,6 +243,10 @@ function V7:_generateRegion(map,minp,maxp,full_node_min)
   })
  end
  if self.randomwalk_caves then
+  -- Native cavegen traverses MMVManip's entire emerged area, including
+  -- already-loaded neighbor blocks. Only enable guarded edits while
+  -- executing this stage, never during terrain generation.
+  if buffered then map:enable_resident_halo_caves(self.names.stone) end
   local walk=RandomWalk.new({
    map=map,node_min=minp,node_max=maxp,
    heightmap=heightmap,seed=self.worldseed,
@@ -265,6 +269,7 @@ function V7:_generateRegion(map,minp,maxp,full_node_min)
    large_cave_depth=large_ymax
   })
   self.lastRandomWalkEvents=walk.events
+  if buffered then map:disable_resident_halo_caves() end
  end
  self.generated=self.generated+1
  return true
@@ -309,13 +314,13 @@ function V7:generateChunk(minp,maxp,chunk_size)
   partial:mark_imports_clean()
   self:_generateRegion(partial,single.node_min,single.node_max,
    single.full_node_min)
-  partial:commit_core()
+  local _,_,resident=partial:commit_core()
   local retired=border and border:retire(single) or 0
   local published=border and border:publish(partial,single) or 0
   local carved_halo=border and border:publishModifiedHalo(partial) or 0
   self.lastChunkBorderStats={seeded=inherited,retired=retired,
    published=published,seeded_halo=halo,
-   carved_halo=carved_halo,isolated=true}
+   carved_halo=carved_halo,resident_blit=resident,isolated=true}
   return true
  end
  local stage=MapgenVoxelBuffer.new(map,geom)
@@ -324,7 +329,7 @@ function V7:generateChunk(minp,maxp,chunk_size)
  stage:mark_imports_clean()
  self:_generateRegion(stage,geom.node_min,geom.node_max,
   geom.full_node_min)
- local copied,discarded=stage:commit_core()
+ local copied,discarded,resident=stage:commit_core()
  -- The generated 1-up/1-down terrain is provisional; it is kept in a
  -- separate nonresident border layer and seeded into vertical neighbors.
  local retired=border and border:retire(geom) or 0
@@ -332,7 +337,7 @@ function V7:generateChunk(minp,maxp,chunk_size)
  local carved_halo=border and border:publishModifiedHalo(stage) or 0
  self.lastChunkBorderStats={seeded=inherited,retired=retired,
   published=published,seeded_halo=halo,
-  carved_halo=carved_halo,isolated=false}
+  carved_halo=carved_halo,resident_blit=resident,isolated=false}
  self.lastChunkVoxelStats={core_nodes=copied,
   border_discarded=discarded,air_columns=stage.air_columns_count,
   generated_writes=stage.writes,buffer_volume=stage.voxel_count}
