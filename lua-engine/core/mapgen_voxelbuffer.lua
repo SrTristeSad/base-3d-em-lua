@@ -293,6 +293,11 @@ function Buffer:get_node(pos)
    local n=self.initial_nodes[indexkey(pos)]
    if n then return copy(n) end
    local block=self.source:blockkey(pos)
+   -- Imported CONTENT_IGNORE cells become AIR when terrain generation
+   -- fills a column; explicit nodes from initialEmerge still win.
+   if self:_known_air(pos) then
+    return {name='air',param1=0,param2=0}
+   end
    return {name=self.initial_blank_blocks and
      self.initial_blank_blocks[block] and 'ignore' or 'air',
     param1=0,param2=0}
@@ -342,7 +347,9 @@ function Buffer:set_node(pos,node)
  end
  -- An air node under the column's known-air default needs no allocation
  -- unless it replaces explicit ground (e.g. after cave excavation).
- if node.name=='air' and not self.overlay[k] and self:_known_air(pos) then
+ if node.name=='air' and (node.param1 or 0)==0 and
+    (node.param2 or 0)==0 and not self.overlay[k] and
+    self:_known_air(pos) then
   return true
  end
  self.overlay[k]=copy(node) -- explicit air still replaces excavated stone
@@ -460,12 +467,42 @@ function Buffer:commit_core()
  -- No part of the core is committed if a neighboring voxel was
  -- changed concurrently or has node metadata/timers.
  self:validate_resident_halo()
+ -- Native MapBlock::copyFrom uses VoxelManipulator::copyTo, copying
+ -- all non-IGNORE nodes (including AIR) to ungenerated MapBlocks.
+ -- For new/completed blocks AIR stays sparse; for an existing blank,
+ -- preserve IGNORE outside the known columns until finalization.
+ local air_copied=0
+ for column,range in pairs(self.air_columns) do
+  local xs,zs=column:match('^(%-?%d+),(%-?%d+)$')
+  local x,z=tonumber(xs),tonumber(zs)
+  if x>=geom.node_min.x and x<=geom.node_max.x and
+     z>=geom.node_min.z and z<=geom.node_max.z then
+   local ymin=math.max(range.ymin,geom.node_min.y)
+   local ymax=math.min(range.ymax,geom.node_max.y)
+   for y=ymin,ymax do
+    local pos={x=x,y=y,z=z}
+    local block=map:blockkey(pos)
+    local key=indexkey(pos)
+    if map.blank_blocks[block] and not self.initial_nodes[key] and
+       not self.overlay[key] then
+     map:set_node(pos,{name='air',param1=0,param2=0})
+     air_copied=air_copied+1
+    end
+   end
+  end
+ end
+ self.core_air_copied=air_copied
  local nodes,discarded,resident=0,0,0
  for k,node in pairs(self.overlay) do
   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
   if self:core_contains(pos) then
-   if node.name~='air' then map:set_node(pos,node) end
+   -- copyTo includes explicit AIR; only zero-param AIR in an ordinary
+   -- sparse completed block can be omitted.
+   if node.name~='air' or (node.param1 or 0)~=0 or
+      (node.param2 or 0)~=0 or map.blank_blocks[map:blockkey(pos)] then
+    map:set_node(pos,node)
+   end
    nodes=nodes+1
   elseif self.resident_modified[k] then
    -- Native blitBackAll writes non-IGNORE nodes to emerged neighbors.

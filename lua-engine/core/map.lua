@@ -67,7 +67,9 @@ function Map:finish_blank_block(block)
  -- known cell inside an otherwise CONTENT_IGNORE blank block.
  -- After generation, AIR becomes the normal sparse default.
  for key,node in pairs(self.nodes) do
-  if node.name=='air' then
+  -- Only AIR(0,0) is equivalent to an absent sparse cell.
+  if node.name=='air' and (node.param1 or 0)==0 and
+     (node.param2 or 0)==0 then
    local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
    if x and floor(tonumber(x)/16)..','..
       floor(tonumber(y)/16)..','..floor(tonumber(z)/16)==block then
@@ -103,7 +105,7 @@ function Map:set_node(p,node)
  local block=bk(x,y,z)
  local blank=self.blank_blocks[block]==true
  local oldname=old and old.name or (blank and 'ignore' or 'air')
- if name=='air' and not blank then
+ if name=='air' and not blank and p1==0 and p2==0 then
   if old then self.count=self.count-1 end
   self.nodes[k]=nil
  else
@@ -114,7 +116,8 @@ function Map:set_node(p,node)
  -- Sparse collision broadphase is maintained incrementally once built.
  -- Replacing map.nodes directly is handled by lazy index reconstruction.
  MapNodeIndex.changed(self,x,y,z,name~='air')
- if oldname~=name or (old and (old.param1~=p1 or old.param2~=p2)) then
+ if oldname~=name or (old and (old.param1~=p1 or old.param2~=p2)) or
+    (not old and (p1~=0 or p2~=0)) then
   -- Collision nodeboxes (including connected neighbors) may depend on
   -- any changed cell. A single monotonic stamp invalidates cached shapes.
   self.geometry_revision=self.geometry_revision+1
