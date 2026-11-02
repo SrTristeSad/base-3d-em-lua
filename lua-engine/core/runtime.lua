@@ -660,8 +660,14 @@ function Runtime.new(options)
   local success=self.map:set_node(pos,n)
   if not success then return false end
   local key=Map.key(pos)
-  self.map.metadata[key]=nil
-  self.map.timers[key]=nil
+  if self.map.metadata[key] then
+   self.map.metadata[key]=nil
+   self.map:report_node_metadata_change(pos)
+  end
+  if self.map.timers[key] then
+   self.map.timers[key]=nil
+   self.map:report_node_timer_change(pos)
+  end
   if olddef and type(olddef.after_destruct)=='function' then
    olddef.after_destruct(clone(pos),before)
   end
@@ -699,8 +705,14 @@ function Runtime.new(options)
   end
   if not self.map:remove_node(pos) then return false end
   local key=Map.key(pos)
-  self.map.metadata[key]=nil
-  self.map.timers[key]=nil
+  if self.map.metadata[key] then
+   self.map.metadata[key]=nil
+   self.map:report_node_metadata_change(pos)
+  end
+  if self.map.timers[key] then
+   self.map.timers[key]=nil
+   self.map:report_node_timer_change(pos)
+  end
   if def and type(def.after_destruct)=='function' then
    def.after_destruct(clone(pos),before)
   end
@@ -971,6 +983,7 @@ function Runtime:_tickNodeTimers(dt,block)
   local current=self.map.timers[timer.key]
   if current and current.elapsed>=current.timeout then
    self.map.timers[timer.key]=nil
+   self.map:report_node_timer_change(timer.pos)
    local n=self.map:get_node(timer.pos)
    local def=self.registry.nodes[n.name]
    if def and def.on_timer and def.on_timer(timer.pos,timer.elapsed) then
