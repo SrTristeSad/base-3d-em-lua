@@ -83,6 +83,18 @@ assert(type(g.mcl_util.gen_uuid())=='string','original UUID generator not runnin
 assert(g.vl_unittests and g.vl_unittests.enabled==false)
 assert(type(g.flowlib.is_water)=='function')
 assert(type(g.vl_legacy.convert_itemstack)=='function')
+-- Run the original pinned VoxeLibre vl_legacy LoadingBlockModifier.
+-- Its upstream definition uses nodenames = "group:legacy" (a string),
+-- not an array; both registration and the actual callback must work.
+local real_lbm_pos={x=245,y=5,z=245}
+rt.api.register_node('test:lbm_old',{
+ groups={legacy=1},_vl_legacy_convert_node='test:lbm_new'})
+rt.api.register_node('test:lbm_new',{})
+rt.api.set_node(real_lbm_pos,{name='test:lbm_old'})
+assert(rt:activateMapBlock(real_lbm_pos,0)>=1,
+ 'original VoxeLibre legacy LBM must be activated by the Lua engine')
+assert(rt.api.get_node(real_lbm_pos).name=='test:lbm_new',
+ 'original VoxeLibre legacy LBM must migrate its matching node')
 assert(type(g.controls.register_on_press)=='function')
 assert(type(g.mcl_particles.add_node_particlespawner)=='function')
 assert(type(g.mcl_worlds.y_to_layer)=='function')
