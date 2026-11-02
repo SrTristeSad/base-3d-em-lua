@@ -22,6 +22,7 @@ end
 function Map.new(registry)
  return setmetatable({nodes={},metadata={},timers={},registry=registry,
   revisions={},modified={},generatedChunks={},lightbanks={},lbm_applied={},
+  blank_blocks={},
   game_time=0,last_active={},count=0,
   geometry_revision=0},Map)
 end
@@ -33,9 +34,57 @@ function Map:blockkey(p)
  local x,y,z=coord(p)
  return bk(x,y,z)
 end
+-- MapBlocks created by ServerMap::createBlock start full of
+-- CONTENT_IGNORE and are not generated (Luanti 5.18 mapblock.cpp:101).
+-- Keep them distinct from generated empty blocks, which are known air.
+function Map:create_blank_block(block)
+ assert(type(block)=='string' and
+  block:match('^%-?%d+,%-?%d+,%-?%d+$'),
+  'invalid blank mapblock key')
+ local x,y,z=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+ x,y,z=tonumber(x),tonumber(y),tonumber(z)
+ assert(math.abs(x)<=1938 and math.abs(y)<=1938 and
+  math.abs(z)<=1938 and block==x..','..y..','..z,
+  'blank mapblock outside valid coordinates')
+ if self.blank_blocks[block] then return false end
+ if self.revisions[block] or self.last_active[block] or
+  self.lbm_applied[block] then return false end
+ local function has(key)
+  local px,py,pz=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+  return px and floor(tonumber(px)/16)==x and
+   floor(tonumber(py)/16)==y and floor(tonumber(pz)/16)==z
+ end
+ for k in pairs(self.nodes) do if has(k) then return false end end
+ for k in pairs(self.metadata) do if has(k) then return false end end
+ for k in pairs(self.timers) do if has(k) then return false end end
+ self.blank_blocks[block]=true
+ return true
+end
+function Map:finish_blank_block(block)
+ if not self.blank_blocks[block] then return false end
+ self.blank_blocks[block]=nil
+ -- During construction, an explicit AIR node can represent a single
+ -- known cell inside an otherwise CONTENT_IGNORE blank block.
+ -- After generation, AIR becomes the normal sparse default.
+ for key,node in pairs(self.nodes) do
+  if node.name=='air' then
+   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+   if x and floor(tonumber(x)/16)..','..
+      floor(tonumber(y)/16)..','..floor(tonumber(z)/16)==block then
+    self.nodes[key]=nil
+    self.count=self.count-1
+   end
+  end
+ end
+ return true
+end
 function Map:get_node(p)
- local n=self.nodes[Map.key(p)]
- if not n then return {name='air',param1=0,param2=0} end
+ local k=Map.key(p)
+ local n=self.nodes[k]
+ if not n then
+  return {name=self.blank_blocks[self:blockkey(p)] and
+   'ignore' or 'air',param1=0,param2=0}
+ end
  return {name=n.name,param1=n.param1,param2=n.param2}
 end
 function Map:set_node(p,node)
@@ -51,11 +100,14 @@ function Map:set_node(p,node)
   and p1>=0 and p1<=255,'param1 outside 0..255')
  assert(type(p2)=='number' and p2==floor(p2)
   and p2>=0 and p2<=255,'param2 outside 0..255')
- local oldname=old and old.name or 'air'
- if name=='air' then
+ local block=bk(x,y,z)
+ local blank=self.blank_blocks[block]==true
+ local oldname=old and old.name or (blank and 'ignore' or 'air')
+ if name=='air' and not blank then
   if old then self.count=self.count-1 end
   self.nodes[k]=nil
  else
+  -- A blank mapblock stores explicitly written AIR until it is generated.
   if not old then self.count=self.count+1 end
   self.nodes[k]={name=name,param1=p1,param2=p2}
  end
