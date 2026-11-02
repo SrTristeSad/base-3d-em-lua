@@ -168,8 +168,11 @@ function Map:set_mapblock_timestamp_no_changed_flag(block,t)
  t=timestamp_value(t)
  assert(block_resident(self,block,bx,by,bz),
   'timestamp requires a resident MapBlock')
- self.block_timestamps[block]=t==Map.BLOCK_TIMESTAMP_UNDEFINED
-  and nil or t
+ if t==Map.BLOCK_TIMESTAMP_UNDEFINED then
+  self.block_timestamps[block]=nil
+ else
+  self.block_timestamps[block]=t
+ end
  return true
 end
 function Map:set_mapblock_timestamp(block,t)
