@@ -25,6 +25,7 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_cave_noise.lua'
       - 'tests/lua_engine_mapgen_v7.lua'
       - 'tests/lua_engine_value_noise.lua'
       - 'tests/lua_engine_voxel.lua'
@@ -122,6 +123,7 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_cave_noise.lua'
       - 'tests/lua_engine_mapgen_v7.lua'
       - 'tests/lua_engine_value_noise.lua'
       - 'tests/lua_engine_voxel.lua'
@@ -223,6 +225,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_active_mapblocks.lua
           luajit tests/lua_engine_active_mapblocks.lua
+      - name: Luanti 5.18 cavegen.cpp noise-intersection tunnels and deep caverns (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_cave_noise.lua
+          luajit tests/lua_engine_cave_noise.lua
       - name: Luanti 5.18 original V7 base, mountains, rivers and emerged mapblock (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mapgen_v7.lua
