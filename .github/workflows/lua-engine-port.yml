@@ -657,7 +657,11 @@ jobs:
           luajit tests/lua_engine_serialization.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr --require-upstream-textures
+      # The same commit is tested by both push and pull_request. Build
+      # the .lovr in both jobs; upload the large archive only once on push
+      # to avoid duplicate uploads and PR runner stalls.
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
         with:
           name: Motor-Lua-Experimental-LOVR
           path: dist/Motor-Lua-Demo.lovr
