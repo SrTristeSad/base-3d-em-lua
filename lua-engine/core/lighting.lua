@@ -224,6 +224,9 @@ function Lighting:get_natural_light(pos,timeofday)
   finite(pos.y) and finite(pos.z) and
   pos.x==floor(pos.x) and pos.y==floor(pos.y) and
   pos.z==floor(pos.z),'natural light requires integer position')
+ if timeofday~=nil then
+  assert(finite(timeofday),'timeofday must be finite')
+ end
  local daylight=self:sky(pos)
  if daylight==nil then return nil end
  local t=timeofday
