@@ -23,6 +23,7 @@ local PlayerHP=require('core.playerhp')
 local AuthChat=require('core.authchat')
 local Lighting=require('core.lighting')
 local LBM=require('core.lbm')
+local ActiveBlocks=require('core.activeblocks')
 local Formspec=require('core.formspec')
 local PlayerMeta=require('core.playermeta')
 local PlayerInventoryActions=require('core.playerinventoryactions')
@@ -58,7 +59,8 @@ function Runtime.new(options)
     allow_player_inventory_action={},on_player_inventory_action={}},
   abmClock={}, logging={}, detached={},mod_storage={},
   chatcommands={},privileges={},players={},player_meta={},
-  playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new()
+  playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new(),
+  activeMapBlocks={},activeBlockTracking=false
  },Runtime)
  local api={}
  self.api=api
@@ -830,7 +832,10 @@ function Runtime:replaceMap(map)
  assert(type(map)=='table' and type(map.get_node)=='function' and
   type(map.set_node)=='function' and type(map.nodes)=='table',
   'expected a decoded Lua engine Map')
+ ActiveBlocks.clear(self)
  self.map=map
+ self.clock=map.game_time or 0
+ self.activeBlockTracking=false
  map.registry=self.registry.items
  map.on_geometry_changed=function(changed,x,y,z)
   CollisionGeometry.node_changed(self,changed,x,y,z)
@@ -1060,6 +1065,7 @@ function Runtime:disconnectPlayer(name)
  if self.playerDigSessions then self.playerDigSessions[name]=nil end
  self.players[name]=nil
  self:clearChat(name)
+ if self.activeBlockTracking then ActiveBlocks.sync(self) end
  if not ok then error(err,0) end
  return true
 end
