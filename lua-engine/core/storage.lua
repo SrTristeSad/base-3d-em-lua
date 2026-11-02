@@ -300,7 +300,11 @@ function Storage.decode(data,options)
  for _,stamp in pairs(map.last_active) do
   assert(stamp<=map.game_time,'block timestamp is in the future')
  end
+ -- Deserialization is not a new edit: metadata, inventory and timer
+ -- setters above may have raised dirty status while reconstructing data.
  map.modified={}
+ map.modified_states={}
+ map.modified_reasons={}
  return map
 end
 function Storage.save(map,path,fs)
