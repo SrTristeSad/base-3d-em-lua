@@ -13,6 +13,7 @@ on:
       - 'tests/lua_engine_natural_sunlight.lua'
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
+      - 'tests/lua_engine_mapblock_streaming.lua'
       - 'tests/lua_engine_active_mapblocks.lua'
       - 'tests/lua_engine_active_mapblocks.lua'
       - 'tests/lua_engine_lbm_activation.lua'
@@ -203,6 +204,10 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y lua5.4 luajit
       - name: Syntax check for standalone Lua engine
         run: find lua-engine -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
+      - name: Persistent segmented mapblock streaming (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mapblock_streaming.lua
+          luajit tests/lua_engine_mapblock_streaming.lua
       - name: Resident active mapblock lifecycle and saved game time (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_active_mapblocks.lua
