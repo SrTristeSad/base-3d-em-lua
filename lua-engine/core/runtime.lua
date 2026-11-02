@@ -767,6 +767,9 @@ function Runtime.new(options)
  function api.get_node_light(pos,timeofday)
   return self.lighting:get_node_light(pos,timeofday)
  end
+ function api.get_natural_light(pos,timeofday)
+  return self.lighting:get_natural_light(pos,timeofday)
+ end
  function api.get_artificial_light(param1)
   return Lighting.artificial(param1)
  end
