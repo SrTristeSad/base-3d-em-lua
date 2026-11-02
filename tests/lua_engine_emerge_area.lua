@@ -112,8 +112,8 @@ assert(#api.get_active_blocks()==1 and one_shots==0)
 assert(api.compare_block_status({x=16,y=0,z=0},'loaded'))
 local before=generated_calls
 assert(not pcall(api.emerge_area,{x=0.5,y=0,z=0},{x=16,y=0,z=0}))
-assert(not pcall(api.emerge_area,{x=-31000,y=0,z=0},
- {x=31000,y=0,z=0}))
+assert(not pcall(api.emerge_area,{x=-31000,y=-31000,z=0},
+ {x=31000,y=31000,z=0}))
 assert(not pcall(api.emerge_area,{x=0,y=0,z=0},{x=0,y=0,z=0},true))
 assert(generated_calls==before)
 -- Headless mode (without streaming) retains historical sparse implicit air.
