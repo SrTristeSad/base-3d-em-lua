@@ -166,6 +166,10 @@ function Walk:_carveRoute(vec,f,randomize_xz)
        end
       end
       self.map:set_node(pos,{name=material})
+      if not self.large and self.map.mark_cave then
+       -- VMANIP_FLAG_CAVE = VOXELFLAG_CHECKED1 on small randomwalk caves.
+       self.map:mark_cave(pos)
+      end
       self.metrics.carved=self.metrics.carved+1
      end
     end
