@@ -151,9 +151,14 @@ function Walk:_carveRoute(vec,f,randomize_xz)
     if not skip then
      local pos=vector(cp.x+x0+self.of.x,cp.y+y0+self.of.y,
       cp.z+z0+self.of.z)
-     -- Native works inside a larger MMVManip area, but this partial
-     -- mapblock port must not mutate ungenerated neighboring blocks.
-     if inside(pos,self.node_min,self.node_max) and
+     -- Native cavegen.cpp::carveRoute checks vm->m_area.contains(p).
+     -- For the staged MMVManip, allow a KNOWN stone voxel in the XYZ
+     -- margin, but never generate into CONTENT_IGNORE or mutate a
+     -- complete neighbor's mapblock.
+     local inarea=self.map.is_gen_buffer and self.map:contains(pos) or
+      inside(pos,self.node_min,self.node_max)
+     if inarea and not (self.map.is_gen_buffer and
+        self.map:_resident(pos)) and
         self.map:get_node(pos).name==self.stone then
       local material='air'
       if self.large and self.flooded then
