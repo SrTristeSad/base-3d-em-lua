@@ -7,7 +7,7 @@ local Noise=require('core.valuenoise')
 local CaveNoise=require('core.cave_noise')
 local RandomWalk=require('core.caves_randomwalk')
 local Chunk=require('core.mapgen_chunk')
-local Map=require('core.map')
+local MapgenVoxelBuffer=require('core.mapgen_voxelbuffer')
 local V7={}
 V7.__index=V7
 local floor=math.floor
@@ -154,12 +154,15 @@ function V7:getRiverChannelAtPoint(x,y,z)
   max(altitude,0)/7
  return ridge+width_mod*height_mod>=.6
 end
-function V7:materialAt(x,y,z,base_height)
+function V7:materialAt(x,y,z,base_height,chunk_rivers)
  local h=base_height or self:baseTerrainLevelAtPoint(x,z)
- -- Upstream generates rivers for a whole mapchunk if its maximum Y
- -- reaches water_level - 16, rather than checking each node's Y.
- local block_max_y=floor(y/16)*16+15
- local river=block_max_y>=self.water_level-16 and
+ -- Single-mapblock legacy path uses block Y. The original MapgenV7
+ -- enables rivers for an entire chunk based on node_max.Y.
+ local river_enabled=chunk_rivers
+ if river_enabled==nil then
+  river_enabled=floor(y/16)*16+15>=self.water_level-16
+ end
+ local river=river_enabled and
   self:getRiverChannelAtPoint(x,y,z) or false
  if y<=h and not river then return self.names.stone end
  if self:getMountainTerrainAtPoint(x,y,z) and not river then
@@ -192,14 +195,29 @@ end
 -- neighboring mapblocks of the same chunk.
 function V7:_generateRegion(map,minp,maxp,full_node_min)
  local stone_surface_max_y=-31000
+ -- Luanti src/mapgen/mapgen_v7.cpp generates terrain one node below and
+ -- above the core (node_min.Y-1 .. node_max.Y+1), only at CONTENT_IGNORE.
+ -- The 2.5D noises remain sampled at the actual x/z coordinates.
+ local buffered=map.is_gen_buffer==true
+ local ymin=buffered and minp.y-1 or minp.y
+ local ymax=buffered and maxp.y+1 or maxp.y
+ local gen_rivers
+ if buffered then gen_rivers=maxp.y>=self.water_level-16 end
  for z=minp.z,maxp.z do for x=minp.x,maxp.x do
   local level=self:baseTerrainLevelAtPoint(x,z)
-  -- Original MapgenV7::generateTerrain assigns this float to s16.
   local surface=level<0 and math.ceil(level) or floor(level)
   if surface>stone_surface_max_y then stone_surface_max_y=surface end
-  for y=minp.y,maxp.y do
-   local name=self:materialAt(x,y,z,level)
-   if name~='air' then map:set_node({x=x,y=y,z=z},{name=name}) end
+  for y=ymin,ymax do
+   local p={x=x,y=y,z=z}
+   if not buffered or map:get_node(p).name=='ignore' then
+    local name=self:materialAt(x,y,z,
+     buffered and surface or level,gen_rivers)
+    if buffered or name~='air' then
+     map:set_node(p,{name=name})
+    end
+    if buffered and name==self.names.stone and
+     y>stone_surface_max_y then stone_surface_max_y=y end
+   end
   end
  end end
  local heightmap
@@ -279,15 +297,15 @@ function V7:generateChunk(minp,maxp,chunk_size)
  if has_existing then
   return self:generateBlock(minp,maxp)
  end
- local stage=Map.new(self.runtime.registry.items)
+ local stage=MapgenVoxelBuffer.new(map,geom)
  self:_generateRegion(stage,geom.node_min,geom.node_max,
   geom.full_node_min)
- -- Copy the fully computed interior only. No nodes are written to the
- -- expanded border: that space is reserved for the later MMVManip port.
- for k,node in pairs(stage.nodes) do
-  local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-  map:set_node({x=tonumber(x),y=tonumber(y),z=tonumber(z)},node)
- end
+ local copied,discarded=stage:commit_core()
+ -- One-up/one-down cells remain in the temporary VoxelManip area;
+ -- do not commit partial neighboring mapblocks as if fully generated.
+ self.lastChunkVoxelStats={core_nodes=copied,
+  border_discarded=discarded,
+  generated_writes=stage.writes,buffer_volume=stage.voxel_count}
  self.lastChunkGeometry=geom
  self.generatedMapBlocks=(self.generatedMapBlocks or 0)+#blocks
  return true,{minp=geom.node_min,maxp=geom.node_max,

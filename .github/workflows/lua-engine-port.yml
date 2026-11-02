@@ -25,6 +25,7 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_mapgen_voxelbuffer.lua'
       - 'tests/lua_engine_chunk_generation.lua'
       - 'tests/lua_engine_caves_randomwalk.lua'
       - 'tests/lua_engine_cave_noise.lua'
@@ -125,6 +126,7 @@ on:
       - 'tests/lua_engine_real_voxelibre.lua'
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
+      - 'tests/lua_engine_mapgen_voxelbuffer.lua'
       - 'tests/lua_engine_chunk_generation.lua'
       - 'tests/lua_engine_caves_randomwalk.lua'
       - 'tests/lua_engine_cave_noise.lua'
@@ -229,6 +231,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_active_mapblocks.lua
           luajit tests/lua_engine_active_mapblocks.lua
+      - name: Luanti 5.18 MMVManip known air, cave flags and V7 1-up/1-down overgeneration (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mapgen_voxelbuffer.lua
+          luajit tests/lua_engine_mapgen_voxelbuffer.lua
       - name: Luanti 5.18 aligned chunk staging, cave continuity, emerge and disk (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_chunk_generation.lua
