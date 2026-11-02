@@ -924,14 +924,17 @@ function Runtime:enableMapgenV7Base(config)
  self.mapgenV7Base=generator
  return generator
 end
--- Opt-in coherent chunk generation, currently bounded to <=2 mapblocks
--- on each axis. Size 5 (Luanti default) requires further MMVManip work.
+-- Opt-in coherent V7 chunk generation. Default 5^3 mapblocks matches
+-- Luanti 5.18 MapgenParams::chunksize; smaller explicit sizes remain
+-- supported for tests, constrained devices and old prototypes.
+-- This is still a scoped, sparse MMVManip staging layer, not the full
+-- native voxel buffer, biome, lighting or liquid pipeline.
 function Runtime:enableMapgenV7Chunks(config,size)
  assert(not self.mapgenV7Base,'Mapgen V7 already configured')
- local chunk_size=MapgenChunk.size(size or {x=2,y=1,z=2})
+ local chunk_size=MapgenChunk.size(size or 5)
  for _,axis in ipairs({'x','y','z'}) do
-  assert(chunk_size[axis]<=2,
-   'Lua chunk staging currently supports at most 2 mapblocks per axis')
+  assert(chunk_size[axis]<=5,
+   'Lua chunk staging supports at most five mapblocks per axis')
  end
  local generator=MapgenV7.new(self,config)
  self:setMapBlockGenerator(function(_,minp,maxp)
