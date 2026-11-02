@@ -14,6 +14,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_mapblock_lighting_complete.lua'
       - 'tests/lua_engine_mapblock_isair.lua'
       - 'tests/lua_engine_mapblock_streaming.lua'
       - 'tests/lua_engine_active_mapblocks.lua'
@@ -130,6 +131,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_mapblock_lighting_complete.lua'
       - 'tests/lua_engine_mapblock_isair.lua'
       - 'tests/lua_engine_mapblock_streaming.lua'
       - 'tests/lua_engine_active_mapblocks.lua'
@@ -265,6 +267,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 MapBlock lighting-complete flags, partial state and reload (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mapblock_lighting_complete.lua
+          luajit tests/lua_engine_mapblock_lighting_complete.lua
       - name: Luanti 5.18 MapBlock isAir cache, MMVManip invalidation and streaming (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mapblock_isair.lua
@@ -651,7 +657,11 @@ jobs:
           luajit tests/lua_engine_serialization.lua
       - name: Build stand-alone lovr archive
         run: python3 scripts/package_lua_engine.py --output dist/Motor-Lua-Demo.lovr --require-upstream-textures
+      # The same commit is tested by both push and pull_request. Build
+      # the .lovr in both jobs; upload the large archive only once on push
+      # to avoid duplicate uploads and PR runner stalls.
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
         with:
           name: Motor-Lua-Experimental-LOVR
           path: dist/Motor-Lua-Demo.lovr

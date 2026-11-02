@@ -90,6 +90,21 @@ function Storage.encode(map)
    end
   end
  end
+ -- Non-default MapBlock lighting-complete flags. Q uses block
+ -- coordinates, not node coordinates, and preserves the entire u16.
+ -- Default 65535 stays implicit for backwards-compatible saves.
+ for _,block in ipairs(keys(map.lighting_complete or {})) do
+  local x,y,z=coords(block)
+  local flags=map.lighting_complete[block]
+  assert(x and y and z and math.abs(x)<=1938 and
+   math.abs(y)<=1938 and math.abs(z)<=1938 and
+   block==x..','..y..','..z and
+   type(flags)=='number' and flags==math.floor(flags) and
+   flags>=0 and flags<=65535,'invalid lighting-complete mapblock')
+  if flags~=65535 then
+   lines[#lines+1]=('Q %d %d %d %d'):format(x,y,z,flags)
+  end
+ end
  -- Save per-mapblock last-active time.
  for _,block in ipairs(keys(map.last_active or {})) do
   local x,y,z=coords(block)
@@ -153,10 +168,23 @@ function Storage.decode(data,options)
      assert(map.generatedChunks[chunk]==nil,'duplicate generated chunk')
      map.generatedChunks[chunk]=seed
     else
-     local tag,x,y,z,rest=line:match('^([NMTLIFAB]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
+     local tag,x,y,z,rest=line:match('^([NMTLIFABQ]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
      assert(tag,'malformed save at line '..lineNo)
     local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
-    if tag=='B' then
+    if tag=='Q' then
+     local block=p.x..','..p.y..','..p.z
+     local flags=tonumber(rest)
+     assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
+      math.abs(p.z)<=1938 and
+      x==tostring(p.x) and y==tostring(p.y) and
+      z==tostring(p.z) and
+      rest:match('^%d+$') and flags and
+      flags==math.floor(flags) and flags>=0 and flags<=65535,
+      'invalid lighting-complete flag record')
+     assert(map.lighting_complete[block]==nil,
+      'duplicate lighting-complete mapblock record')
+     map.lighting_complete[block]=flags
+    elseif tag=='B' then
      assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
       math.abs(p.z)<=1938,'invalid active block coordinates')
      local stamp=tonumber(rest)
