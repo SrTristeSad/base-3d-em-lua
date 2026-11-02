@@ -143,7 +143,9 @@ function Lighting:emitted(pos)
  if hit~=nil then return hit end
  self.checks=self.checks+1
  if not self:has_near_source(pos) then
+  if self.count>=4096 then self.cache={};self.count=0 end
   self.cache[key]=0
+  self.count=self.count+1
   return 0
  end
  local nodes=rt.registry.nodes
