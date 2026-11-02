@@ -118,7 +118,7 @@ function V7:getMountainTerrainAtPoint(x,y,z)
  return density+gradient>=0
 end
 function V7:getRiverChannelAtPoint(x,y,z)
- if self.flags.ridges==false or y<self.water_level-16 then return false end
+ if self.flags.ridges==false then return false end
  -- getRiverChannelFromMap() from upstream mapgen_v7.cpp, no waterway
  -- shortcuts or different river noise functions.
  local width=.2
@@ -133,7 +133,11 @@ function V7:getRiverChannelAtPoint(x,y,z)
 end
 function V7:materialAt(x,y,z,base_height)
  local h=base_height or self:baseTerrainLevelAtPoint(x,z)
- local river=self:getRiverChannelAtPoint(x,y,z)
+ -- Upstream generates rivers for a whole mapchunk if its maximum Y
+ -- reaches water_level - 16, rather than checking each node's Y.
+ local block_max_y=floor(y/16)*16+15
+ local river=block_max_y>=self.water_level-16 and
+  self:getRiverChannelAtPoint(x,y,z) or false
  if y<=h and not river then return self.names.stone end
  if self:getMountainTerrainAtPoint(x,y,z) and not river then
   return self.names.stone
