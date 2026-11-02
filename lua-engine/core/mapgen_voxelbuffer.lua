@@ -61,7 +61,7 @@ function Buffer.new(map,geom)
  local sz=geom.full_node_max.z-zmin+1
  return setmetatable({
   source=map,geometry=geom,is_gen_buffer=true,extended_y=true,
-  overlay={},flags={},air_columns={},air_columns_count=0,
+  overlay={},modified={},flags={},air_columns={},air_columns_count=0,
   flags={},writes=0,discarded_border=0,
   core_nodes=0,voxel_count=sx*sy*sz,
   sx=sx,sy=sy,sz=sz,origin={x=xmin,y=ymin,z=zmin}
@@ -150,12 +150,18 @@ function Buffer:set_node(pos,node)
   return true
  end
  self.overlay[k]=copy(node) -- explicit air still replaces excavated stone
+ self.modified[k]=true
  self.flags[k]=nil
  self.writes=self.writes+1
  return true
 end
 function Buffer:remove_node(pos)
  return self:set_node(pos,{name='air'})
+end
+-- Imported MMVManip voxels are the initial state, not modifications.
+-- Cave writes after this point can be copied back to partial neighbors.
+function Buffer:mark_imports_clean()
+ self.modified={}
 end
 -- Equivalent to MMVManip::copyTo/ServerMap::finishBlockMake for the
 -- generated core only. Ignore is not copied; explicit air clears nodes.
