@@ -683,3 +683,42 @@ considerado um dos módulos integrados.**
   reconstrução nativa de `param1` em mapblocks, skylight fora
   da faixa demo, efeitos e materiais especiais, atualização
   incremental e equivalência comprovada de renderização.
+
+### Fase 75 — bancos de luz compactados nos mapblocks em Lua
+
+- O núcleo ganhou **`Map.lightbanks`**, um armazenamento
+  transitório por mapblock 16³. Cada célula ocupa conceitualmente
+  um byte, `dia + 16 * noite`, conforme os bancos de 4 bits
+  do Luanti 5.18. Células escuras usam zero implícito; nós `air`
+  não são transformados em entradas falsas na tabela esparsa
+  `Map.nodes`. Não se altera o formato de salvamento do mundo.
+- `Lighting:relight_block(cx,cy,cz)` gera um bloco completo,
+  calculando separadamente a luz solar e a artificial **sem
+  confundir o brilho da noite (175/1000) com o banco noturno**.
+  `get_node_light` usa os bancos gerados enquanto forem válidos;
+  caso contrário, usa o caminho anterior sob demanda.
+- Adicionado `core.fix_light(pos1,pos2)`, cuja assinatura e
+  retorno booleano seguem o contrato do Luanti original:
+  recalcula todos os mapblocks tocados pelo par de cantos
+  inclusive. O backend Lua atual **só processa até oito
+  mapblocks por chamada**, e apenas regiões entre y=-16..31
+  marcadas como geradas. Ao solicitar regiões não geradas,
+  devolve `false` antes de modificar os bancos existentes.
+  Não carrega terrenos ausentes como o servidor C++.
+- Os bancos são invalidados quando `geometry_revision` muda,
+  quando `override_item` ou novos itens afetam a iluminação,
+  ou quando muda o marcador de geração. A substituição do
+  mundo não conserva bancos anteriores. O renderizador já
+  consulta `get_node_light` e aproveita os bancos se existirem.
+- A busca de luz artificial agora leva em conta a potência
+  máxima das fontes perto do observador para evitar caminhar
+  por 14 células quando só há uma fonte de luz fraca.
+- Testes `lua_engine_lightbank_rebuild.lua` em Lua 5.4 e
+  LuaJIT cobrem bytes compactados, independência dos bancos
+  sol/artificial, bloqueios, leitura sem recálculo, invalidação,
+  erro de geração, substituição e carregamento do mundo.
+- **Ainda não 1:1:** a iluminação calculada é transitória
+  e explícita, não gravada como `param1` em todos os nós;
+  não há o algoritmo incremental nativo nem o carregamento
+  geral de áreas fora do gerador demo. `core.fix_light`
+  atende a um domínio muito menor que o upstream.
