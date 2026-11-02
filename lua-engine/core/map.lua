@@ -29,6 +29,8 @@ function Map.new(registry)
   -- Luanti 5.18 MapBlock::m_lighting_complete is u16, default 0xFFFF.
   -- Only deviations from the default need a sparse entry.
   lighting_complete={},
+  -- Luanti 5.18 MapBlock::is_underground, false by default.
+  underground={},
   game_time=0,last_active={},count=0,
   geometry_revision=0},Map)
 end
@@ -49,6 +51,46 @@ local function blockcoords(block)
   math.abs(y)<=1938 and math.abs(z)<=1938 and
   block==x..','..y..','..z,'invalid mapblock cache coordinates')
  return x,y,z
+end
+-- Luanti 5.18 MapBlock::getIsUnderground / setIsUnderground.
+-- This is a persisted MapBlock flag, not a calculation of sunlight.
+function Map:get_mapblock_is_underground(block)
+ blockcoords(block)
+ return self.underground[block]==true
+end
+-- Native setIsUnderground always raises WRITE_NEEDED, even if its
+-- boolean value remains identical. Validate residency first so no
+-- implicit MapBlock is created by changing a flag.
+function Map:set_mapblock_is_underground(block,is_underground)
+ local bx,by,bz=blockcoords(block)
+ assert(type(is_underground)=='boolean',
+  'is_underground requires a boolean')
+ local resident=self.blank_blocks[block] or
+  self.revisions[block] or self.last_active[block] or
+  self.lbm_applied[block] or self.lighting_complete[block] or
+  self.underground[block]
+ if not resident then
+  local function inblock(k)
+   local x,y,z=k:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
+   return x and floor(tonumber(x)/16)==bx and
+    floor(tonumber(y)/16)==by and floor(tonumber(z)/16)==bz
+  end
+  for _,entries in ipairs({self.nodes,self.metadata,self.timers}) do
+   for k in pairs(entries) do
+    if inblock(k) then resident=true;break end
+   end
+   if resident then break end
+  end
+ end
+ assert(resident,'is_underground requires a resident MapBlock')
+ local changed=self:get_mapblock_is_underground(block)~=is_underground
+ if is_underground then
+  self.underground[block]=true
+ else
+  self.underground[block]=nil
+ end
+ self.modified[block]=true
+ return changed
 end
 -- Native MapBlock::m_lighting_complete is a 16-bit flag word. Bits 0..5
 -- represent LIGHTBANK_DAY neighbors (directions 0..5); bits 6..11

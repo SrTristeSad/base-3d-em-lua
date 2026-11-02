@@ -90,6 +90,16 @@ function Storage.encode(map)
    end
   end
  end
+ -- MapBlock::is_underground defaults to false; only true values need
+ -- a persisted record. U coordinates refer to MapBlocks, not nodes.
+ for _,block in ipairs(keys(map.underground or {})) do
+  local x,y,z=coords(block)
+  assert(x and y and z and math.abs(x)<=1938 and
+   math.abs(y)<=1938 and math.abs(z)<=1938 and
+   block==x..','..y..','..z and
+   map.underground[block]==true,'invalid underground mapblock')
+  lines[#lines+1]=('U %d %d %d 1'):format(x,y,z)
+ end
  -- Non-default MapBlock lighting-complete flags. Q uses block
  -- coordinates, not node coordinates, and preserves the entire u16.
  -- Default 65535 stays implicit for backwards-compatible saves.
@@ -168,16 +178,26 @@ function Storage.decode(data,options)
      assert(map.generatedChunks[chunk]==nil,'duplicate generated chunk')
      map.generatedChunks[chunk]=seed
     else
-     local tag,x,y,z,rest=line:match('^([NMTLIFABQ]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
+     local tag,x,y,z,rest=line:match('^([NMTLIFABQU]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
      assert(tag,'malformed save at line '..lineNo)
     local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
-    if tag=='Q' then
+    if tag=='U' then
+     local block=p.x..','..p.y..','..p.z
+     assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
+      math.abs(p.z)<=1938 and
+      x==('%d'):format(p.x) and y==('%d'):format(p.y) and
+      z==('%d'):format(p.z) and rest=='1',
+      'invalid underground MapBlock record')
+     assert(map.underground[block]==nil,
+      'duplicate underground MapBlock record')
+     map.underground[block]=true
+    elseif tag=='Q' then
      local block=p.x..','..p.y..','..p.z
      local flags=tonumber(rest)
      assert(math.abs(p.x)<=1938 and math.abs(p.y)<=1938 and
       math.abs(p.z)<=1938 and
-      x==tostring(p.x) and y==tostring(p.y) and
-      z==tostring(p.z) and
+      x==('%d'):format(p.x) and y==('%d'):format(p.y) and
+      z==('%d'):format(p.z) and
       rest:match('^%d+$') and flags and
       flags==math.floor(flags) and flags>=0 and flags<=65535,
       'invalid lighting-complete flag record')
