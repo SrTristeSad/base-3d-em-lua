@@ -140,4 +140,16 @@ local lb=legacy.api.get_loaded_blocks()
 assert(#lb==1)
 -- The callback bounds must be mapblock-aligned and contain the request.
 assert(not pcall(rt.enableMapgenV7Chunks,rt,opts,{x=3,y=1,z=1}))
+-- A malformed third-party generator range must report an emerge error
+-- without corrupting LBM markers or breaking the runtime tick.
+local bad=runtime()
+bad:setMapBlockGenerator(function()
+ return true,{minp={x=16,y=0,z=0},maxp={x=31,y=15,z=15}}
+end)
+local bad_action
+bad.api.emerge_area(selected,selected,
+ function(_,action) bad_action=action end)
+bad:step(.1)
+assert(bad_action==bad.api.EMERGE_ERRORED)
+assert(#bad.api.get_loaded_blocks()==0)
 print('LUANTI 5.18 CHUNK ALIGNMENT, STAGING AND STREAMING PASS')
