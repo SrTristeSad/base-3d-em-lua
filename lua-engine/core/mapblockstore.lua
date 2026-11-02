@@ -254,6 +254,8 @@ function Store:unload(k)
  end
  map.revisions[k]=nil
  map.modified[k]=nil
+ -- Evicted MapBlocks do not retain a live native isAir cache.
+ map:expire_mapblock_air_cache(k)
  map.lightbanks[k]=nil
  map.lbm_applied[k]=nil
  map.last_active[k]=nil
