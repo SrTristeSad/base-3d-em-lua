@@ -26,6 +26,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_create_blank.lua'
       - 'tests/lua_engine_mmvm_expand.lua'
       - 'tests/lua_engine_mmvm_initial_emerge.lua'
       - 'tests/lua_engine_mmvm_blit.lua'
@@ -134,6 +135,7 @@ on:
       - 'tests/lua_engine_doc_bootstrap.lua'
       - 'tests/lua_engine_rng.lua'
       - 'tests/lua_engine_mmvm_resident_halo.lua'
+      - 'tests/lua_engine_mmvm_create_blank.lua'
       - 'tests/lua_engine_mmvm_expand.lua'
       - 'tests/lua_engine_mmvm_initial_emerge.lua'
       - 'tests/lua_engine_mmvm_blit.lua'
@@ -249,6 +251,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 MMVManip initialEmerge(true), blank MapBlocks and disk-first loading (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mmvm_create_blank.lua
+          luajit tests/lua_engine_mmvm_create_blank.lua
       - name: Luanti 5.18 MMVManip repeated initialEmerge area expansion (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mmvm_expand.lua

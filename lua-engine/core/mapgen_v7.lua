@@ -295,8 +295,9 @@ function V7:generateChunk(minp,maxp,chunk_size)
    -- Do not mistake a disk-resident neighbor for an ungenerated block.
    store:emerge(b.key)
   end
-  if (store and store:resident(b.key)) or map.revisions[b.key]
-   or map.last_active[b.key] or map.lbm_applied[b.key] then
+  if not (map.blank_blocks and map.blank_blocks[b.key]) and
+    ((store and store:resident(b.key)) or map.revisions[b.key]
+     or map.last_active[b.key] or map.lbm_applied[b.key]) then
    has_existing=true
   end
  end

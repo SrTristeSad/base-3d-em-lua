@@ -44,6 +44,7 @@ local function resident_keys(rt)
  for k in pairs(map.revisions) do found[k]=true end
  for k in pairs(map.lbm_applied) do found[k]=true end
  for k in pairs(map.last_active) do found[k]=true end
+ for k in pairs(map.blank_blocks or {}) do found[k]=true end
  for k in pairs(map.metadata) do
   local x,y,z=decode(k)
   found[key(floor(x/16),floor(y/16),floor(z/16))]=true
@@ -55,6 +56,9 @@ local function resident_keys(rt)
  return found
 end
 local function isloaded(rt,k)
+ -- An existent-but-ungenerated blank MapBlock is resident, but should
+ -- still be passed through mapgen by emerge_area.
+ if rt.map.blank_blocks and rt.map.blank_blocks[k] then return false end
  if rt.mapBlockStore then return rt.mapBlockStore:resident(k) end
  return resident_keys(rt)[k]==true
 end
