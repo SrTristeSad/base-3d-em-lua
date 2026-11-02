@@ -501,7 +501,8 @@ function lovr.draw(pass)
   vec3(camera.x+dx,camera.y+dy,camera.z+dz)),true)
  pass:setProjection('perspective',math.rad(75))
  -- GPU draws batched exposed faces, not one box for every saved node.
- renderer:draw(pass,engine.map,engine.registry.nodes,camera,20)
+ renderer:draw(pass,engine.map,engine.registry.nodes,camera,20,
+  engine.lighting)
  -- Moving blocks and loose items are absent from the static map mesh.
  renderer:draw_dynamic(pass,engine,camera,20)
  local w,h=lovr.system.getWindowDimensions()
