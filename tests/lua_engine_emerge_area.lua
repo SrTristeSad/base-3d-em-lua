@@ -92,6 +92,8 @@ assert(#second==1 and second[1][1]==1 and
 assert(generated_calls==2)
 -- A bad disk image reports ERRORED instead of claiming the area exists.
 fs.files[store:path('3,0,0')]='BROKEN SAVE\n'
+-- An external file appeared after a cached miss: host invalidates that key.
+store:invalidate('3,0,0')
 local failure={}
 api.emerge_area({x=48,y=0,z=0},{x=48,y=0,z=0},
  function(b,a,remaining) failure[#failure+1]={a,remaining} end)
