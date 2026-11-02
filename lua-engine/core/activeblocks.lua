@@ -118,7 +118,12 @@ function ActiveBlocks.sync(rt)
     -- No RAM eviction until the block's atomic write is successful.
     -- It must no longer be marked active to satisfy unload's invariant.
     rt.activeMapBlocks[k]=nil
-    rt.mapBlockStore:unload(k)
+    local saved,err=pcall(rt.mapBlockStore.unload,rt.mapBlockStore,k)
+    if not saved then
+     -- A failed atomic write must not leave a live block deactivated.
+     rt.activeMapBlocks[k]=true
+     error(err,0)
+    end
    end
   end
  end
