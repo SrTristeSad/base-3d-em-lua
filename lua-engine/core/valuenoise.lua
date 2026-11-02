@@ -293,6 +293,11 @@ function Noise.map(params,size,world_seed)
  p.seed=seedadd(p.seed,world_seed or 0)
  return setmetatable({params=p,sx=sx,sy=sy,sz=sz},Map)
 end
+function Noise.world_scalar(world_seed,...)
+ local p=parameters(...)
+ p.seed=seedadd(p.seed,world_seed or 0)
+ return setmetatable({params=p},Scalar)
+end
 function Noise.global_scalar(...)
  local p=parameters(...)
  return setmetatable({params=p},Scalar)
