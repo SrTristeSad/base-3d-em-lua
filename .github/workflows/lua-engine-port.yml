@@ -14,6 +14,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_mapblock_modified_state.lua'
       - 'tests/lua_engine_mapblock_underground.lua'
       - 'tests/lua_engine_mapblock_lighting_complete.lua'
       - 'tests/lua_engine_mapblock_isair.lua'
@@ -132,6 +133,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_mapblock_modified_state.lua'
       - 'tests/lua_engine_mapblock_underground.lua'
       - 'tests/lua_engine_mapblock_lighting_complete.lua'
       - 'tests/lua_engine_mapblock_isair.lua'
@@ -269,6 +271,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 MapBlock modified severity, reasons and durable clean-state (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mapblock_modified_state.lua
+          luajit tests/lua_engine_mapblock_modified_state.lua
       - name: Luanti 5.18 MapBlock is_underground flag, dirty writes and streaming (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mapblock_underground.lua

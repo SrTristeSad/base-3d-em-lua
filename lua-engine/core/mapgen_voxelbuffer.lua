@@ -681,6 +681,11 @@ function Buffer:blitBackAll(overwrite_generated)
  local modified_blocks={}
  for block,dest in pairs(destinations) do
   if dest.create then created=created+1 end
+  -- MapBlock::copyFrom writes the array directly; unlike Map:set_node,
+  -- it does not raise individual MOD_REASON_SET_NODE notifications.
+  -- Save the original reasons before the sparse Lua node transfer.
+  local prior_state=map:get_mapblock_modified_state(block)
+  local prior_reason=map:get_mapblock_modified_reason(block)
   local bx,by,bz=block:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   bx,by,bz=tonumber(bx)*16,tonumber(by)*16,tonumber(bz)*16
   -- MapBlock::copyFrom writes a complete 16^3 VoxelArea, not only the
@@ -704,7 +709,12 @@ function Buffer:blitBackAll(overwrite_generated)
   end
   -- Native blitBackAll marks every written block modified even when
   -- all its transferred MapNodes are already equal to their targets.
-  map.modified[block]=true
+  -- Revert only the temporary setNode reason tracking; preserve the
+  -- pre-blit severity and reasons, then apply MOD_REASON_VMANIP.
+  map.modified_states[block]=prior_state~=0 and prior_state or nil
+  map.modified_reasons[block]=prior_reason~=0 and prior_reason or nil
+  map:raise_mapblock_modified(block,map.MOD_STATE_WRITE_NEEDED,
+   map.MOD_REASON_VMANIP)
   if type(map.expire_mapblock_air_cache)=='function' then
    map:expire_mapblock_air_cache(block)
   end
