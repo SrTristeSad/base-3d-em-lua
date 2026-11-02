@@ -201,7 +201,8 @@ function V7:_generateRegion(map,minp,maxp,full_node_min)
  local buffered=map.is_gen_buffer==true
  local ymin=buffered and minp.y-1 or minp.y
  local ymax=buffered and maxp.y+1 or maxp.y
- local gen_rivers=buffered and maxp.y>=self.water_level-16 or nil
+ local gen_rivers
+ if buffered then gen_rivers=maxp.y>=self.water_level-16 end
  for z=minp.z,maxp.z do for x=minp.x,maxp.x do
   local level=self:baseTerrainLevelAtPoint(x,z)
   local surface=level<0 and math.ceil(level) or floor(level)
