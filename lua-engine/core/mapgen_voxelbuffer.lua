@@ -622,6 +622,26 @@ function Buffer:blitBackAll(overwrite_generated)
      assert(not blank and not map.revisions[block] and
       not map.last_active[block] and not map.lbm_applied[block],
       'MMVManip missing target changed before blit')
+     -- initialEmerge(false) leaves disk-backed MapBlocks unimported.
+     -- Never silently create a blank over a complete/partial image or
+     -- provisional border state: the native blit emerges disk data first.
+     -- Call initialEmerge(true) to read those targets into this snapshot.
+     local store=map.mapBlockStore
+     if store then
+      local function exists(path)
+       local data,err=store.fs.read(path)
+       assert(data==nil or type(data)=='string',
+        'MMVManip disk preflight returned invalid content')
+       assert(data~=nil or err==nil or err=='not found',
+        'MMVManip disk preflight failed: '..tostring(err))
+       return data~=nil
+      end
+      assert(not exists(store:path(block)) and
+       not exists(store:partial_path(block)) and
+       not (store.runtime.mapgenBorder and
+        exists(store.runtime.mapgenBorder:path(block))),
+       'MMVManip disk target requires initialEmerge(true)')
+     end
     end
     assert((map.revisions[block] or 0)==
      (self.initial_block_revisions[block] or 0),
