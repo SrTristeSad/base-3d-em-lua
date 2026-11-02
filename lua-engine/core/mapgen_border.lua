@@ -197,6 +197,7 @@ function Border:blitBackHalo(buffer)
  end
  local covered=buffer:getCoveredBlocks()
  local changed,modified_blocks=0,{}
+ local changed_blank={}
  local map=self.runtime.map
  local function copyback(p)
   if not buffer:contains(p) or buffer:core_contains(p) then
@@ -236,6 +237,7 @@ function Border:blitBackHalo(buffer)
   end
   if copied then
    modified_blocks[block]=true
+   if blank then changed_blank[block]=true end
    changed=changed+1
   end
  end
@@ -264,6 +266,16 @@ function Border:blitBackHalo(buffer)
  for key in pairs(buffer.overlay) do
   local p=decodekey(key)
   if not buffer:core_contains(p) then copyback(p) end
+ end
+ -- The writes above are ours; preserve the post-blit revision so a
+ -- second identical blit is idempotent, while subsequent external edits
+ -- continue to fail the next preflight.
+ if next(changed_blank) then
+  buffer.blank_halo_postcommit_revisions=
+   buffer.blank_halo_postcommit_revisions or {}
+  for block in pairs(changed_blank) do
+   buffer.blank_halo_postcommit_revisions[block]=map.revisions[block] or 0
+  end
  end
  local nblocks=0
  for _ in pairs(modified_blocks) do nblocks=nblocks+1 end
