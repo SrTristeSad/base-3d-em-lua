@@ -15,6 +15,8 @@ local Placement=require('core.placement')
 local Falling=require('core.falling')
 local Raycast=require('core.raycast')
 local LuaEntities=require('core.luaentities')
+local WorldObjects=require('core.worldobjects')
+local Sound=require('core.sound')
 local EntityPhysics=require('core.entityphysics')
 local CollisionGeometry=require('core.collisiongeometry')
 local Attached=require('core.attached')
@@ -66,6 +68,7 @@ function Runtime.new(options)
   abmClock={}, logging={}, detached={},mod_storage={},
   chatcommands={},privileges={},players={},player_meta={},
   playerPhysicsBindings={},playerPhysicsControllers={},particles=Particles.new(),
+  sounds=Sound.new((options or {}).sound_backend),
   activeMapBlocks={},activeBlockTracking=false
  },Runtime)
  local api={}
@@ -302,6 +305,17 @@ function Runtime.new(options)
  end
  function api.add_particle(def)
   return self.particles:add_particle(def)
+ end
+ -- Luanti Server API: sound playback is delegated to a real host
+ -- backend, never simulated in a headless/mod-loading runtime.
+ function api.sound_play(spec,params,ephemeral)
+  return self.sounds:play(spec,params,ephemeral)
+ end
+ function api.sound_stop(handle)
+  self.sounds:stop(handle)
+ end
+ function api.sound_fade(handle,step,gain)
+  self.sounds:fade(handle,step,gain)
  end
  -- For use when an actual player/HUD backend exists; registration
  -- alone must never invent a player or pretend to emit sound.
@@ -863,18 +877,10 @@ function Runtime.new(options)
   return self.lighting:fix_light(pos1,pos2)
  end
  function api.get_objects_inside_radius(pos,radius)
-  local out=LuaEntities.radius(self,pos,radius)
-  assert(type(radius)=='number' and radius>=0 and
-   radius==radius and radius~=math.huge,
-   'object radius must be finite and nonnegative')
-  for _,obj in ipairs(self.droppedItems or {}) do
-   if not obj.removed then
-    local p=obj:get_pos()
-    local dx,dy,dz=p.x-pos.x,p.y-pos.y,p.z-pos.z
-    if dx*dx+dy*dy+dz*dz<=radius*radius then out[#out+1]=obj end
-   end
-  end
-  return out
+  return WorldObjects.inside_radius(self,pos,radius)
+ end
+ function api.get_objects_in_area(minp,maxp)
+  return WorldObjects.in_area(self,minp,maxp)
  end
  -- First native-like raycast subset. Includes pointable registered nodes
  -- and real dropped/falling objects, not arbitrary LuaEntity refs yet.
@@ -1434,6 +1440,11 @@ function Runtime:loadModStorage(path,fs)
  if not decoded then return nil,err end
  return applyModStorage(self,decoded)
 end
+-- Host audio backend can be connected after the Lua runtime is created.
+-- Replacing it while sounds are active would leak native resources.
+function Runtime:setSoundBackend(backend)
+ return self.sounds:set_backend(backend)
+end
 function Runtime:shutdown()
  if self.shut_down then return false end
  self:emit('shutdown')
@@ -1442,6 +1453,7 @@ function Runtime:shutdown()
    self.opts.mod_storage_path,self.opts.mod_storage_fs)
   assert(ok,'cannot save world mod storage: '..tostring(err))
  end
+ self.sounds:stop_all()
  self.shut_down=true
  return true
 end
