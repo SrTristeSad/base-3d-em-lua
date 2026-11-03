@@ -116,6 +116,9 @@ function Map.new(registry)
   block_timestamps={},block_disk_timestamps={},
   -- Luanti 5.18 MapBlock::is_underground, false by default.
   underground={},
+  -- Optional fraction of a Luanti day offset from the monotonic clock.
+  -- Nil means no shift; snapshots keep this in the world header.
+  timeofday_offset=nil,
   game_time=0,last_active={},count=0,
   geometry_revision=0},Map)
 end

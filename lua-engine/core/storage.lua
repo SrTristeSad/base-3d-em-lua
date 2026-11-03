@@ -33,6 +33,14 @@ function Storage.encode(map)
  assert(type(clock)=='number' and clock==clock and
   clock>=0 and clock<=1e12,'invalid world clock')
  if clock>0 then lines[#lines+1]=('C %.17g'):format(clock) end
+ -- Optional time-of-day offset, separate from the monotonic timer clock.
+ -- D is a global world record, never duplicated in block snapshots.
+ local offset=map.timeofday_offset
+ if offset~=nil then
+  assert(type(offset)=='number' and offset==offset and
+   offset>=0 and offset<1,'invalid time-of-day offset')
+  if offset~=0 then lines[#lines+1]=('D %.17g'):format(offset) end
+ end
  for _,k in ipairs(keys(map.nodes)) do
   local node=map.nodes[k]
   local x,y,z=coords(k)
@@ -172,6 +180,7 @@ function Storage.decode(data,options)
  local lineNo=0
  local finished=false
  local clock_seen=false
+ local timeofday_seen=false
  for line in (data..'\n'):gmatch('(.-)\n') do
   if line~='' then
    lineNo=lineNo+1
@@ -189,6 +198,15 @@ function Storage.decode(data,options)
      assert(value and value==value and value>=0 and
       value<=1e12,'invalid world clock')
      map.game_time=value
+    else
+    local day_offset=line:match('^D (%S+)$')
+    if day_offset then
+     assert(not timeofday_seen,'duplicate time-of-day offset')
+     timeofday_seen=true
+     local value=tonumber(day_offset)
+     assert(value and value==value and value>=0 and value<1,
+      'invalid time-of-day offset')
+     map.timeofday_offset=value~=0 and value or nil
     else
     local cx,cz,seed=line:match('^G (%-?%d+) (%-?%d+) (%d+)$')
     if cx then
@@ -310,6 +328,7 @@ function Storage.decode(data,options)
      map:get_timer(p):set(timeout,elapsed)
     end
     end -- optional G record
+    end -- optional D time-of-day record
     end -- optional world clock record
    end
   end

@@ -348,7 +348,18 @@ function Runtime.new(options)
     and self.opts.modglobals[name]~=nil or false
  end
  function api.get_gametime() return floor(self.clock) end
- function api.get_timeofday() return (self.clock/1200)%1 end
+ function api.get_timeofday()
+  return (self.clock/1200+(self.map.timeofday_offset or 0))%1
+ end
+ function api.set_timeofday(value)
+  assert(type(value)=='number' and value==value and
+   value~=math.huge and value~=-math.huge and
+   value>=0 and value<=1,'timeofday must be a fraction from 0 to 1')
+  -- Changing time of day does not move Runtime.clock or expire timers.
+  local offset=(value-(self.clock/1200)%1)%1
+  self.map.timeofday_offset=offset~=0 and offset or nil
+ end
+ function api.get_day_count() return floor(self.clock/1200) end
  function api.get_translator()
   return function(msg,...) local args={...}
    return (msg:gsub('@(%d+)',function(index)

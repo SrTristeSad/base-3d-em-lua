@@ -48,6 +48,7 @@ local function validate_block(image,k)
  same(image.lighting_complete,false)
  same(image.underground,false)
  same(image.block_timestamps,false)
+ assert(image.timeofday_offset==nil,'per-block image contains world daylight offset')
  assert(next(image.generatedChunks)==nil,
   'per-mapblock data contains global generation markers')
  assert(image.last_active[k]~=nil,
@@ -60,7 +61,8 @@ local function validate_partial(image,k)
  assert(image.blank_blocks[k] and next(image.blank_blocks,k)==nil,
   'invalid partial MapBlock identity')
  assert(next(image.generatedChunks)==nil and
-  next(image.last_active)==nil and next(image.lbm_applied)==nil,
+  next(image.last_active)==nil and next(image.lbm_applied)==nil and
+  image.timeofday_offset==nil,
   'partial MapBlock claims generated or activated state')
  for _,entries in ipairs({image.nodes,image.metadata,image.timers}) do
   for key in pairs(entries) do
@@ -128,6 +130,7 @@ function Store.new(runtime,fs,prefix)
   end
   runtime.clock=header.game_time
   runtime.map.game_time=header.game_time
+  runtime.map.timeofday_offset=header.timeofday_offset
  end
  runtime.mapBlockStore=self
  runtime.map.mapBlockStore=self
@@ -146,6 +149,7 @@ function Store:saveGlobal()
  local map=Map.new()
  map.game_time=rt.clock
  map.generatedChunks=rt.map.generatedChunks
+ map.timeofday_offset=rt.map.timeofday_offset
  write(self.fs,self.prefix..'/world.map',Storage.encode(map))
  return true
 end
