@@ -662,7 +662,8 @@ function Runtime.new(options)
   local key=Map.key(pos)
   if self.map.metadata[key] then
    self.map.metadata[key]=nil
-   self.map:report_node_metadata_change(pos)
+   -- Implicit metadata removal is part of the node edit event.
+   self.map:report_node_metadata_change(pos,false,true)
   end
   if self.map.timers[key] then
    self.map.timers[key]=nil
@@ -675,6 +676,7 @@ function Runtime.new(options)
   if newdef and type(newdef.on_construct)=='function' then
    newdef.on_construct(clone(pos))
   end
+  self.map:emit_node_edit_event(self.map.MEET_ADDNODE,pos,n)
   return true
  end
  function api.add_node(pos,node) return api.set_node(pos,node) end
@@ -688,7 +690,11 @@ function Runtime.new(options)
  function api.swap_node(pos,node)
   local n=opts_copy(node)
   n.name=resolve(n.name)
-  return self.map:set_node(pos,n)
+  local success=self.map:set_node(pos,n)
+  if success then
+   self.map:emit_node_edit_event(self.map.MEET_SWAPNODE,pos,n)
+  end
+  return success
  end
  function api.bulk_swap_node(positions,node)
   assert(type(positions)=='table','positions must be a list')
@@ -707,7 +713,8 @@ function Runtime.new(options)
   local key=Map.key(pos)
   if self.map.metadata[key] then
    self.map.metadata[key]=nil
-   self.map:report_node_metadata_change(pos)
+   -- Implicit metadata removal is part of the node edit event.
+   self.map:report_node_metadata_change(pos,false,true)
   end
   if self.map.timers[key] then
    self.map.timers[key]=nil
@@ -716,6 +723,8 @@ function Runtime.new(options)
   if def and type(def.after_destruct)=='function' then
    def.after_destruct(clone(pos),before)
   end
+  self.map:emit_node_edit_event(self.map.MEET_REMOVENODE,pos,
+   {name='air',param1=0,param2=0})
   return true
  end
  function api.get_meta(pos) return self.map:get_meta(pos) end
