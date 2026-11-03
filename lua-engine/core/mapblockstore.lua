@@ -186,7 +186,7 @@ function Store:load_partial(k)
  for key,entry in pairs(image.metadata) do
   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local meta=map:get_meta({x=tonumber(x),y=tonumber(y),z=tonumber(z)},true)
-  local from={fields=entry.fields}
+  local from={fields=entry.fields,private=entry.private}
   if entry.inventory then from.inventory=entry.inventory:to_table() end
   meta:from_table(from)
  end
@@ -319,7 +319,7 @@ function Store:emerge(k)
   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
   local meta=map:get_meta(pos,true)
-  local from={fields=entry.fields}
+  local from={fields=entry.fields,private=entry.private}
   if entry.inventory then from.inventory=entry.inventory:to_table() end
   meta:from_table(from)
  end
