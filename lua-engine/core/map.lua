@@ -678,29 +678,53 @@ function Map:report_node_timer_change(p)
  raise_modified_fast(self,block,Map.MOD_STATE_WRITE_AT_UNLOAD,
   Map.MOD_REASON_UNKNOWN)
 end
-local function metaref(entry,registry,on_change)
+local function metaref(entry,registry,on_change,silent_import)
  local ref={}
+ entry.private=entry.private or {}
  function ref:get_string(name) return tostring(entry.fields[name] or '') end
  function ref:set_string(name,v)
   assert(type(name)=='string' and
    (type(v)=='string' or type(v)=='number'),'invalid metadata')
-  entry.fields[name]=tostring(v)
-  on_change()
+  local value=tostring(v)
+  -- SimpleMetadata::setString deletes empty values. A no-op does not
+  -- dispatch NodeMetaRef::reportMetadataChange.
+  if value=='' then value=nil end
+  if entry.fields[name]==value then return end
+  entry.fields[name]=value
+  on_change(entry.private[name] and name or nil)
  end
  function ref:get_int(name) return tonumber(entry.fields[name]) and
   floor(tonumber(entry.fields[name])) or 0 end
  function ref:set_int(name,v)
   assert(type(v)=='number' and v==floor(v),'integer expected')
-  entry.fields[name]=tostring(v)
-  on_change()
+  ref:set_string(name,tostring(v))
  end
  function ref:get_float(name) return tonumber(entry.fields[name]) or 0 end
  function ref:set_float(name,v)
   assert(type(v)=='number','number expected')
-  entry.fields[name]=tostring(v)
-  on_change()
+  ref:set_string(name,tostring(v))
  end
  function ref:contains(name) return entry.fields[name]~=nil end
+ function ref:get_keys()
+  local result={}
+  for name in pairs(entry.fields) do result[#result+1]=name end
+  table.sort(result)
+  return result
+ end
+ function ref:mark_as_private(names)
+  if type(names)=='string' then names={names} end
+  assert(type(names)=='table','metadata private keys must be a string or list')
+  local modified=false
+  for i=1,#names do
+   local name=names[i]
+   assert(type(name)=='string','metadata private key must be a string')
+   if not entry.private[name] then
+    entry.private[name]=true
+    modified=true
+   end
+  end
+  if modified then on_change() end
+ end
  function ref:get_inventory()
   if not entry.inventory then entry.inventory=Inventory.new(registry) end
   entry.inventory._on_change=on_change
@@ -714,8 +738,23 @@ local function metaref(entry,registry,on_change)
  end
  function ref:from_table(t)
   entry.fields={}
+  entry.private={}
   if t and t.fields then
-   for k,v in pairs(t.fields) do entry.fields[k]=tostring(v) end
+   for k,v in pairs(t.fields) do
+    assert(type(k)=='string' and
+     (type(v)=='string' or type(v)=='number'),
+     'invalid metadata table field')
+    if tostring(v)~='' then entry.fields[k]=tostring(v) end
+   end
+  end
+  -- Only the disk loader is allowed to restore private flags: the
+  -- public NodeMetaRef:from_table API does not accept privacy metadata.
+  if silent_import and t and t.private then
+   for name,private in pairs(t.private) do
+    assert(type(name)=='string' and private==true and
+     entry.fields[name]~=nil,'invalid imported private metadata')
+    entry.private[name]=true
+   end
   end
   if t and t.inventory then
    -- Replacing an entire metadata table is one logical edit event,
@@ -736,11 +775,15 @@ local function metaref(entry,registry,on_change)
 end
 function Map:get_meta(p,silent_import)
  local k=Map.key(p)
- if not self.metadata[k] then self.metadata[k]={fields={}} end
- local function on_change()
-  if not silent_import then self:report_node_metadata_change(p) end
+ if not self.metadata[k] then self.metadata[k]={fields={},private={}} end
+ local entry=self.metadata[k]
+ entry.private=entry.private or {}
+ local function on_change(name)
+  if not silent_import then
+   self:report_node_metadata_change(p,name~=nil)
+  end
  end
- return metaref(self.metadata[k],self.registry,on_change)
+ return metaref(entry,self.registry,on_change,silent_import)
 end
 function Map:get_timer(p,silent_import)
  local k=Map.key(p)
