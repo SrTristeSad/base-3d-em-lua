@@ -78,6 +78,12 @@ assert(not pcall(m.dispatch_modified_blocks_event,m,nil))
 assert(not pcall(m.dispatch_modified_blocks_event,m,{},'yes'))
 assert(not pcall(m.dispatch_modified_blocks_event,m,{},false,'yes'))
 eq(#events,2,'preflight failure cannot dispatch partial events')
+-- The canonical MapBlock parser is shared with earlier state APIs.
+-- Reject signed zero on LuaJIT as well as Lua 5.4.
+assert(not pcall(m.get_mapblock_modified_state,m,'-0,0,0'))
+assert(not pcall(m.get_mapblock_modified_reason,m,'0,-0,0'))
+assert(not pcall(m.get_mapblock_timestamp,m,'0,0,-0'))
+assert(not pcall(m.get_mapblock_lighting_complete,m,'-0,0,0'))
 eq(m:dispatch_modified_blocks_event({['0,0,0']=true},false),1)
 eq(events[3].modified_blocks[1].x,0)
 assert(m:remove_event_receiver(receiver))
