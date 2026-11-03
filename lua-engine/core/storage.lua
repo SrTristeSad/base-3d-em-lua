@@ -33,6 +33,14 @@ function Storage.encode(map)
  assert(type(clock)=='number' and clock==clock and
   clock>=0 and clock<=1e12,'invalid world clock')
  if clock>0 then lines[#lines+1]=('C %.17g'):format(clock) end
+ -- Optional time-of-day offset, separate from the monotonic timer clock.
+ -- D is a global world record, never duplicated in block snapshots.
+ local offset=map.timeofday_offset
+ if offset~=nil then
+  assert(type(offset)=='number' and offset==offset and
+   offset>=0 and offset<1,'invalid time-of-day offset')
+  if offset~=0 then lines[#lines+1]=('D %.17g'):format(offset) end
+ end
  for _,k in ipairs(keys(map.nodes)) do
   local node=map.nodes[k]
   local x,y,z=coords(k)
@@ -44,6 +52,17 @@ function Storage.encode(map)
   for _,field in ipairs(keys(map.metadata[k].fields)) do
    lines[#lines+1]=('M %d %d %d %s %s'):format(
     x,y,z,enc(field),enc(map.metadata[k].fields[field]))
+  end
+  -- Optional private-field markers: V belongs to an existing M record.
+  -- Absence retains backwards compatibility with LUAENGINE 1 saves.
+  for _,field in ipairs(keys(map.metadata[k].private or {})) do
+   assert(map.metadata[k].private[field]==true,
+    'invalid private metadata flag')
+   -- Native NodeMetadata may have a private bit for an unset field.
+   -- Its disk serialization writes the bit only with an actual field.
+   if map.metadata[k].fields[field]~=nil then
+    lines[#lines+1]=('V %d %d %d %s'):format(x,y,z,enc(field))
+   end
   end
   local inv=map.metadata[k].inventory
   if inv then
@@ -164,6 +183,7 @@ function Storage.decode(data,options)
  local lineNo=0
  local finished=false
  local clock_seen=false
+ local timeofday_seen=false
  for line in (data..'\n'):gmatch('(.-)\n') do
   if line~='' then
    lineNo=lineNo+1
@@ -182,6 +202,15 @@ function Storage.decode(data,options)
       value<=1e12,'invalid world clock')
      map.game_time=value
     else
+    local day_offset=line:match('^D (%S+)$')
+    if day_offset then
+     assert(not timeofday_seen,'duplicate time-of-day offset')
+     timeofday_seen=true
+     local value=tonumber(day_offset)
+     assert(value and value==value and value>=0 and value<1,
+      'invalid time-of-day offset')
+     map.timeofday_offset=value~=0 and value or nil
+    else
     local cx,cz,seed=line:match('^G (%-?%d+) (%-?%d+) (%d+)$')
     if cx then
      cx,cz,seed=tonumber(cx),tonumber(cz),tonumber(seed)
@@ -191,7 +220,7 @@ function Storage.decode(data,options)
      assert(map.generatedChunks[chunk]==nil,'duplicate generated chunk')
      map.generatedChunks[chunk]=seed
     else
-     local tag,x,y,z,rest=line:match('^([NMTLIFABQUP]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
+     local tag,x,y,z,rest=line:match('^([NMTLIFABQUPV]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
      assert(tag,'malformed save at line '..lineNo)
     local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
     if tag=='P' then
@@ -258,7 +287,17 @@ function Storage.decode(data,options)
     elseif tag=='M' then
      local field,value=rest:match('^(%S+) (%S+)$')
      assert(field,'invalid metadata save')
-     map:get_meta(p):set_string(dec(field),dec(value))
+     map:get_meta(p,true):set_string(dec(field),dec(value))
+    elseif tag=='V' then
+     assert(rest~='' and not rest:find('%s'),
+      'invalid private field marker')
+     local field=dec(rest)
+     local entry=map.metadata[Map.key(p)]
+     assert(entry and entry.fields[field]~=nil,
+      'private field marker without metadata')
+     entry.private=entry.private or {}
+     assert(not entry.private[field],'duplicate private field marker')
+     map:get_meta(p,true):mark_as_private(field)
     elseif tag=='L' then
      local list,size,width=rest:match('^(%S+) (%d+) (%d+)$')
      size,width=tonumber(size),tonumber(width)
@@ -292,6 +331,7 @@ function Storage.decode(data,options)
      map:get_timer(p):set(timeout,elapsed)
     end
     end -- optional G record
+    end -- optional D time-of-day record
     end -- optional world clock record
    end
   end

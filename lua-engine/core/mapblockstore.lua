@@ -48,6 +48,7 @@ local function validate_block(image,k)
  same(image.lighting_complete,false)
  same(image.underground,false)
  same(image.block_timestamps,false)
+ assert(image.timeofday_offset==nil,'per-block image contains world daylight offset')
  assert(next(image.generatedChunks)==nil,
   'per-mapblock data contains global generation markers')
  assert(image.last_active[k]~=nil,
@@ -60,7 +61,8 @@ local function validate_partial(image,k)
  assert(image.blank_blocks[k] and next(image.blank_blocks,k)==nil,
   'invalid partial MapBlock identity')
  assert(next(image.generatedChunks)==nil and
-  next(image.last_active)==nil and next(image.lbm_applied)==nil,
+  next(image.last_active)==nil and next(image.lbm_applied)==nil and
+  image.timeofday_offset==nil,
   'partial MapBlock claims generated or activated state')
  for _,entries in ipairs({image.nodes,image.metadata,image.timers}) do
   for key in pairs(entries) do
@@ -128,6 +130,7 @@ function Store.new(runtime,fs,prefix)
   end
   runtime.clock=header.game_time
   runtime.map.game_time=header.game_time
+  runtime.map.timeofday_offset=header.timeofday_offset
  end
  runtime.mapBlockStore=self
  runtime.map.mapBlockStore=self
@@ -146,6 +149,7 @@ function Store:saveGlobal()
  local map=Map.new()
  map.game_time=rt.clock
  map.generatedChunks=rt.map.generatedChunks
+ map.timeofday_offset=rt.map.timeofday_offset
  write(self.fs,self.prefix..'/world.map',Storage.encode(map))
  return true
 end
@@ -186,7 +190,7 @@ function Store:load_partial(k)
  for key,entry in pairs(image.metadata) do
   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local meta=map:get_meta({x=tonumber(x),y=tonumber(y),z=tonumber(z)},true)
-  local from={fields=entry.fields}
+  local from={fields=entry.fields,private=entry.private}
   if entry.inventory then from.inventory=entry.inventory:to_table() end
   meta:from_table(from)
  end
@@ -319,7 +323,7 @@ function Store:emerge(k)
   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
   local meta=map:get_meta(pos,true)
-  local from={fields=entry.fields}
+  local from={fields=entry.fields,private=entry.private}
   if entry.inventory then from.inventory=entry.inventory:to_table() end
   meta:from_table(from)
  end

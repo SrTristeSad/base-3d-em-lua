@@ -2047,3 +2047,27 @@ fornecido pelo host e não realiza commits atômicos entre
 mapa, entidades e mods. A demo isolada não usa os mods
 VoxeLibre e o aumento de persistência não significa que
 o jogo completo passe a inicializar.
+
+## Inicialização de todos os mods originais — diagnóstico integrado
+
+O carregador de jogo completo agora descobre **todos os** `mod.conf` do
+VoxeLibre e tenta executá-los em ordem de dependências, sem editar os mods:
+
+```sh
+python3 scripts/boot_voxelibre.py --game games/voxelibre --lua lua5.4 --report boot-lua54.txt
+python3 scripts/boot_voxelibre.py --game games/voxelibre --lua luajit --report boot-luajit.txt
+```
+
+O relatório mostra quantos mods foram encontrados, inicializados e bloqueados,
+além das mensagens originais de erro. **Uma saída diferente de zero significa
+que a inicialização completa ainda não funciona; não é uma versão jogável.**
+O adaptador reutilizável é `core.gamebootstrap` e o executável Lua
+é `lua-engine/boot_voxelibre.lua`.
+
+O motor também aceita `NodeMetaRef:get_keys()`,
+`mark_as_private()` e remoção de campos com `set_string(name, '')`,
+persistindo privacidade de campos com um registro opcional `V` em
+`LUAENGINE 1`. A API `core.set_timeofday` altera a iluminação do
+dia sem mover o relógio dos timers; `get_day_count` e o registro
+opcional `D` mantêm essa informação em mundos e no streaming.
+Estes recursos são parciais e não substituem o sistema nativo inteiro.
