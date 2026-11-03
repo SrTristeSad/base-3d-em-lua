@@ -134,7 +134,10 @@ local function blockcoords(block)
  local x,y,z=tonumber(xs),tonumber(ys),tonumber(zs)
  assert(x and y and z and math.abs(x)<=1938 and
   math.abs(y)<=1938 and math.abs(z)<=1938 and
-  block==x..','..y..','..z,'invalid mapblock cache coordinates')
+  -- LuaJIT may stringify tonumber('-0') as '-0': integer-format
+  -- all three components to reject signed zero and noncanonical keys.
+  block==('%d,%d,%d'):format(x,y,z),
+  'invalid mapblock cache coordinates')
  return x,y,z
 end
 local function timestamp_value(t)
