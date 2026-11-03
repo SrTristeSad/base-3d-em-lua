@@ -254,7 +254,9 @@ eq(after.api.get_meta(bp):get_string('owner'),'partial')
 eq(after.api.get_node_timer(bp):is_started(),true)
 -- Event subscriptions belong to Map instances. Replacing the map
 -- doesn't leak receiver entries from the discarded map.
+local standalone=runtime()
+standalone.map:add_event_receiver(function() error('old map receiver') end)
 local replacement=Map.new()
-loaded:replaceMap(replacement)
-eq(loaded.map:dispatch_event({type=loaded.map.MEET_OTHER}),0)
+standalone:replaceMap(replacement)
+eq(standalone.map:dispatch_event({type=standalone.map.MEET_OTHER}),0)
 print('LUANTI MAP EDIT EVENT RECEIVER AND STREAMING REGRESSION PASS')
