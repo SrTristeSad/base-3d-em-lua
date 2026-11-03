@@ -728,4 +728,17 @@ function Buffer:blitBackAll(overwrite_generated)
  return modified_blocks,changed,created
 end
 
+-- Luanti 5.18 src/script/lua_api/l_vmanip.cpp:write_to_map calls
+-- MMVManip::blitBackAll, then emits exactly one MEET_OTHER event with
+-- the entire changed-block set. The native API dispatches even when
+-- the set is empty (e.g. all generated blocks were skipped). Keep
+-- raw blitBackAll silent for internal worldgen and map snapshots.
+function Buffer:write_to_map(overwrite_generated)
+ assert(type(self.source.dispatch_modified_blocks_event)=='function',
+  'write_to_map requires a MapEditEvent-capable source map')
+ local blocks,changed,created=self:blitBackAll(overwrite_generated)
+ self.source:dispatch_modified_blocks_event(blocks,false,true)
+ return blocks,changed,created
+end
+
 return Buffer
