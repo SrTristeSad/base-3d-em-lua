@@ -24,6 +24,7 @@ local PlayerPhysics=require('core.playerphysics')
 local PlayerHP=require('core.playerhp')
 local AuthChat=require('core.authchat')
 local Lighting=require('core.lighting')
+local Liquids=require('core.liquids')
 local LBM=require('core.lbm')
 local ActiveBlocks=require('core.activeblocks')
 local MapBlockStore=require('core.mapblockstore')
@@ -86,6 +87,7 @@ function Runtime.new(options)
  -- through Map:set_node and notify the same collision geometry observer.
  self.map.on_geometry_changed=function(map,x,y,z)
   CollisionGeometry.node_changed(self,map,x,y,z)
+  if self.liquids then self.liquids:node_changed(x,y,z) end
  end
  self.crafting=Crafting.new(self.registry.items,self.registry.aliases)
  self.content=Voxel.ContentIDs.new()
@@ -430,6 +432,10 @@ function Runtime.new(options)
  function api.register_node(name,def)
   register('node',name,def)
   CollisionGeometry.invalidate(self)
+  if self.liquids then
+   self.liquids:refresh()
+   self.liquids:rescan()
+  end
  end
  function api.register_tool(name,def) register('tool',name,def) end
  function api.register_craftitem(name,def) register('craftitem',name,def) end
@@ -929,7 +935,9 @@ function Runtime:replaceMap(map)
  map.registry=self.registry.items
  map.on_geometry_changed=function(changed,x,y,z)
   CollisionGeometry.node_changed(self,changed,x,y,z)
+  if self.liquids then self.liquids:node_changed(x,y,z) end
  end
+ if self.liquids then self.liquids:rescan() end
  CollisionGeometry.invalidate(self)
  return map
 end
@@ -1056,6 +1064,7 @@ function Runtime:step(dt)
    self.map.last_active[block]=self.clock
   end
  end
+ if self.liquids then self.liquids:step(dt) end
  -- Falling object state advances before ABMs, with swept vertical collision
  -- to avoid tunneling through ground when the host supplies a large delta.
  Falling.step(self,dt)
@@ -1136,6 +1145,17 @@ function Runtime:predictCraft(stack,player,old_grid,inventory)
   if changed~=nil then stack=changed end
  end
  return stack
+end
+-- Opt-in bounded liquid propagation: source/flowing pairs drive edits.
+function Runtime:enableLiquidSimulation(opts)
+ assert(not self.liquids,'liquid simulation already enabled')
+ self.liquids=Liquids.new(self,opts)
+ return self.liquids
+end
+function Runtime:disableLiquidSimulation()
+ local active=self.liquids~=nil
+ self.liquids=nil
+ return active
 end
 -- Dispatch a batch of actual changed liquid nodes supplied by the host.
 -- The source and target nodes are managed by the liquid simulation, not

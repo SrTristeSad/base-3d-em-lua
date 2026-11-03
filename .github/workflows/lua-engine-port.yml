@@ -95,6 +95,7 @@ on:
       - 'tests/lua_engine_dynamic_rendering.lua'
       - 'tests/lua_engine_item_pickup.lua'
       - 'tests/lua_engine_item_physics_persistence.lua'
+      - 'tests/lua_engine_liquids.lua'
       - 'tests/lua_engine_item_nodebox_liquids.lua'
       - 'tests/lua_engine_item_player_interaction.lua'
       - 'tests/lua_engine_raycast_entities.lua'
@@ -224,6 +225,7 @@ on:
       - 'tests/lua_engine_dynamic_rendering.lua'
       - 'tests/lua_engine_item_pickup.lua'
       - 'tests/lua_engine_item_physics_persistence.lua'
+      - 'tests/lua_engine_liquids.lua'
       - 'tests/lua_engine_item_nodebox_liquids.lua'
       - 'tests/lua_engine_item_player_interaction.lua'
       - 'tests/lua_engine_raycast_entities.lua'
@@ -510,6 +512,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_item_physics_persistence.lua
           luajit tests/lua_engine_item_physics_persistence.lua
+      - name: Dynamic water/lava flow, sparse queues and persistence (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_liquids.lua
+          luajit tests/lua_engine_liquids.lua
       - name: Precise nodebox and liquid item physics (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_item_nodebox_liquids.lua

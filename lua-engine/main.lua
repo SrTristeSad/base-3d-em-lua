@@ -25,12 +25,30 @@ api.register_node('lua:slab',{description='Stone half slab (physics demo)',
  drawtype='nodebox',walkable=true,
  node_box={type='fixed',fixed={-.5,-.5,-.5,.5,0,.5}},
  tiles={'default_stone.png'},groups={cracky=2}})
-api.register_node('lua:water',{drawtype='liquid',liquidtype='source',use_texture_alpha='blend',tiles={'mcl_core_water_source_animation.png'},description='Water',groups={water=1,liquid=1},
- walkable=false})
+api.register_node('lua:water',{drawtype='liquid',liquidtype='source',
+ liquid_alternative_source='lua:water',
+ liquid_alternative_flowing='lua:water_flowing',liquid_range=7,
+ liquid_renewable=true,use_texture_alpha='blend',
+ tiles={'mcl_core_water_source_animation.png'},description='Water',
+ groups={water=1,liquid=1},walkable=false})
+api.register_node('lua:water_flowing',{drawtype='flowingliquid',
+ liquidtype='flowing',liquid_alternative_source='lua:water',
+ liquid_alternative_flowing='lua:water_flowing',paramtype2='flowingliquid',
+ use_texture_alpha='blend',walkable=false,buildable_to=true,
+ tiles={'mcl_core_water_source_animation.png'},description='Flowing water',
+ groups={water=1,liquid=1}})
 api.register_node('lua:glass',{description='Glass',drawtype='glasslike',
  use_texture_alpha='blend',walkable=true,tiles={'default_glass.png'}})
 api.register_node('lua:lava',{description='Lava',drawtype='liquid',
+ liquidtype='source',liquid_alternative_source='lua:lava',
+ liquid_alternative_flowing='lua:lava_flowing',liquid_range=4,
  use_texture_alpha='blend',walkable=false,
+ tiles={'mcl_core_lava_source_animation.png'}})
+api.register_node('lua:lava_flowing',{drawtype='flowingliquid',
+ liquidtype='flowing',liquid_alternative_source='lua:lava',
+ liquid_alternative_flowing='lua:lava_flowing',liquid_range=4,
+ paramtype2='flowingliquid',use_texture_alpha='blend',
+ walkable=false,buildable_to=true,
  tiles={'mcl_core_lava_source_animation.png'}})
 api.register_node('lua:ladder',{description='Ladder (experimental)',drawtype='plantlike',
  walkable=false,climbable=true,tiles={'default_wood.png'},groups={}})
@@ -206,6 +224,7 @@ function lovr.load()
  end
  inventory_screen=DemoInventory.new(demo_player,api)
  formspec_screen=FormspecView.new(engine,'singleplayer')
+ engine:enableLiquidSimulation({interval=.5,budget=96})
  lovr.system.setMouseMode('relative')
 end
 function lovr.update(dt)
