@@ -185,13 +185,13 @@ function Store:load_partial(k)
  end
  for key,entry in pairs(image.metadata) do
   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
-  local meta=map:get_meta({x=tonumber(x),y=tonumber(y),z=tonumber(z)})
+  local meta=map:get_meta({x=tonumber(x),y=tonumber(y),z=tonumber(z)},true)
   local from={fields=entry.fields}
   if entry.inventory then from.inventory=entry.inventory:to_table() end
   meta:from_table(from)
  end
  for _,timer in pairs(image.timers) do
-  map:get_timer(timer.pos):set(timer.timeout,timer.elapsed)
+  map:get_timer(timer.pos,true):set(timer.timeout,timer.elapsed)
  end
  -- MapNode restoration is a disk import, not a new user edit.
  map:reset_mapblock_modified(k)
@@ -318,13 +318,13 @@ function Store:emerge(k)
  for key,entry in pairs(image.metadata) do
   local x,y,z=key:match('^(%-?%d+),(%-?%d+),(%-?%d+)$')
   local pos={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
-  local meta=map:get_meta(pos)
+  local meta=map:get_meta(pos,true)
   local from={fields=entry.fields}
   if entry.inventory then from.inventory=entry.inventory:to_table() end
   meta:from_table(from)
  end
  for key,timer in pairs(image.timers) do
-  map:get_timer(timer.pos):set(timer.timeout,timer.elapsed)
+  map:get_timer(timer.pos,true):set(timer.timeout,timer.elapsed)
  end
  map.lbm_applied[k]=image.lbm_applied[k]
  map.last_active[k]=image.last_active[k]
