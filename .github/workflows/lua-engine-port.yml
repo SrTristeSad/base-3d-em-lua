@@ -14,6 +14,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_map_edit_events.lua'
       - 'tests/lua_engine_mapblock_metadata_dirty.lua'
       - 'tests/lua_engine_mapblock_timestamps.lua'
       - 'tests/lua_engine_mapblock_modified_state.lua'
@@ -135,6 +136,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_map_edit_events.lua'
       - 'tests/lua_engine_mapblock_metadata_dirty.lua'
       - 'tests/lua_engine_mapblock_timestamps.lua'
       - 'tests/lua_engine_mapblock_modified_state.lua'
@@ -275,6 +277,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 MapEditEvent receiver ordering, mutation and streaming isolation (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_map_edit_events.lua
+          luajit tests/lua_engine_map_edit_events.lua
       - name: MapBlock metadata inventory and timer durable dirty state (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_mapblock_metadata_dirty.lua

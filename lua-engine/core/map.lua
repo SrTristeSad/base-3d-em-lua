@@ -5,6 +5,12 @@ local MapNodeIndex=require('core.mapnodeindex')
 local Map={}
 Map.__index=Map
 Map.BLOCKSIZE=16
+-- Luanti 5.18 src/map.h MapEditEventType (native enum ordinals).
+Map.MEET_ADDNODE=0
+Map.MEET_REMOVENODE=1
+Map.MEET_SWAPNODE=2
+Map.MEET_BLOCK_NODE_METADATA_CHANGED=3
+Map.MEET_OTHER=4
 -- Luanti 5.18 src/modifiedstate.h and src/mapblock.h.
 Map.MOD_STATE_CLEAN=0
 Map.MOD_STATE_WRITE_AT_UNLOAD=2
@@ -94,6 +100,9 @@ end
 function Map.new(registry)
  return setmetatable({nodes={},metadata={},timers={},registry=registry,
   revisions={},modified={},modified_states={},modified_reasons={},
+  -- Native Map::addEventReceiver / removeEventReceiver / dispatchEvent.
+  -- Only high-level edits dispatch; raw Map:set_node remains silent.
+  event_receivers={},event_receiver_set={},
   generatedChunks={},lightbanks={},lbm_applied={},
   blank_blocks={},
   -- MapBlock::isAir is a lazy per-block CONTENT_AIR cache. Unknown
@@ -505,13 +514,133 @@ function Map:iter_nodes(minp,maxp)
  end end end
  return nodes
 end
--- Luanti NodeMetaRef reports metadata changes via MapEditEvent.
--- Node timers lack a dedicated native reason; use UNKNOWN as a Lua
--- durability marker without claiming timer writes are metadata events.
-function Map:report_node_metadata_change(p)
+-- Native src/map.h: MapEditEvent, MapEventReceiver and Map::dispatchEvent.
+-- A registered callback is invoked as fn(event); a receiver object is
+-- invoked as receiver:onMapEditEvent(event). Order is deterministic.
+-- The snapshot prevents registration changes during a dispatch from
+-- corrupting iteration; a receiver removed before its turn is skipped.
+function Map:add_event_receiver(receiver)
+ assert(type(receiver)=='function' or
+  (type(receiver)=='table' and
+   type(receiver.onMapEditEvent)=='function'),
+  'event receiver must be a function or onMapEditEvent object')
+ if self.event_receiver_set[receiver] then return false end
+ self.event_receiver_set[receiver]=true
+ self.event_receivers[#self.event_receivers+1]=receiver
+ return true
+end
+function Map:remove_event_receiver(receiver)
+ if not self.event_receiver_set[receiver] then return false end
+ self.event_receiver_set[receiver]=nil
+ for i=1,#self.event_receivers do
+  if self.event_receivers[i]==receiver then
+   table.remove(self.event_receivers,i)
+   break
+  end
+ end
+ return true
+end
+local function copy_event_data(event)
+ local p=event.p and
+  {x=event.p.x,y=event.p.y,z=event.p.z} or nil
+ local n=event.n and {name=event.n.name,
+  param1=event.n.param1,param2=event.n.param2} or nil
+ local blocks={}
+ for i,block in ipairs(event.modified_blocks) do
+  blocks[i]={x=block.x,y=block.y,z=block.z}
+ end
+ return {type=event.type,p=p,n=n,modified_blocks=blocks,
+  is_private_change=event.is_private_change,
+  low_priority=event.low_priority}
+end
+function Map:dispatch_event(event)
+ assert(type(event)=='table','MapEditEvent must be a table')
+ local event_type=event.type
+ assert(type(event_type)=='number' and event_type==floor(event_type)
+  and event_type>=Map.MEET_ADDNODE and
+  event_type<=Map.MEET_OTHER,'invalid MapEditEvent type')
+ local position
+ if event.p~=nil then
+  local x,y,z=coord(event.p)
+  position={x=x,y=y,z=z}
+ else
+  assert(event_type==Map.MEET_OTHER,
+   'node MapEditEvent requires position')
+ end
+ local node={name='air',param1=0,param2=0}
+ if event.n~=nil then
+  assert(type(event.n)=='table' and
+   type(event.n.name)=='string' and event.n.name~='',
+   'MapEditEvent node must contain a name')
+  for _,k in ipairs({'param1','param2'}) do
+   local v=event.n[k] or 0
+   assert(type(v)=='number' and v==floor(v) and
+    v>=0 and v<=255,'invalid MapEditEvent node param')
+   node[k]=v
+  end
+  node.name=event.n.name
+ end
+ local blocks={}
+ if event.modified_blocks~=nil then
+  assert(type(event.modified_blocks)=='table',
+   'MapEditEvent modified_blocks must be a list')
+  for i,b in ipairs(event.modified_blocks) do
+   assert(type(b)=='table','invalid MapEditEvent MapBlock')
+   for _,axis in ipairs({'x','y','z'}) do
+    local v=b[axis]
+    assert(type(v)=='number' and v==floor(v) and
+     v==v and math.abs(v)<=1938,
+     'invalid MapEditEvent MapBlock coordinate')
+   end
+   blocks[i]={x=b.x,y=b.y,z=b.z}
+  end
+ elseif position then
+  blocks[1]={x=floor(position.x/16),
+   y=floor(position.y/16),z=floor(position.z/16)}
+ end
+ local private=event.is_private_change
+ local priority=event.low_priority
+ assert(private==nil or type(private)=='boolean',
+  'invalid MapEditEvent privacy flag')
+ assert(priority==nil or type(priority)=='boolean',
+  'invalid MapEditEvent priority flag')
+ local normalized={type=event_type,p=position,n=node,
+  modified_blocks=blocks,is_private_change=private or false,
+  low_priority=priority or false}
+ local snapshot={}
+ for i,receiver in ipairs(self.event_receivers) do
+  snapshot[i]=receiver
+ end
+ local delivered=0
+ for _,receiver in ipairs(snapshot) do
+  if self.event_receiver_set[receiver] then
+   local message=copy_event_data(normalized)
+   if type(receiver)=='function' then
+    receiver(message)
+   else
+    receiver:onMapEditEvent(message)
+   end
+   delivered=delivered+1
+  end
+ end
+ return delivered
+end
+function Map:emit_node_edit_event(event_type,p,node)
+ if #self.event_receivers==0 then return 0 end
+ return self:dispatch_event({type=event_type,p=p,n=node})
+end
+-- NodeMetaRef::reportMetadataChange emits a metadata edit event.
+-- Timer changes have no separate MapEditEvent type in Luanti 5.18.
+function Map:report_node_metadata_change(p,is_private_change,suppress_event)
  local block=self:blockkey(p)
+ assert(is_private_change==nil or type(is_private_change)=='boolean',
+  'metadata privacy flag must be boolean')
  raise_modified_fast(self,block,Map.MOD_STATE_WRITE_NEEDED,
   Map.MOD_REASON_REPORT_META_CHANGE)
+ if not suppress_event and #self.event_receivers>0 then
+  self:dispatch_event({type=Map.MEET_BLOCK_NODE_METADATA_CHANGED,
+   p=p,is_private_change=is_private_change or false})
+ end
 end
 function Map:report_node_timer_change(p)
  local block=self:blockkey(p)
@@ -558,7 +687,14 @@ local function metaref(entry,registry,on_change)
    for k,v in pairs(t.fields) do entry.fields[k]=tostring(v) end
   end
   if t and t.inventory then
-   ref:get_inventory():from_table(t.inventory)
+   -- Replacing an entire metadata table is one logical edit event,
+   -- not one event per list and stack restored by Inventory:from_table.
+   local inv=ref:get_inventory()
+   local notify=inv._on_change
+   inv._on_change=nil
+   local ok,err=pcall(inv.from_table,inv,t.inventory)
+   inv._on_change=notify
+   if not ok then error(err,0) end
   else
    entry.inventory=nil
   end
@@ -567,23 +703,23 @@ local function metaref(entry,registry,on_change)
  end
  return ref
 end
-function Map:get_meta(p)
+function Map:get_meta(p,silent_import)
  local k=Map.key(p)
  if not self.metadata[k] then self.metadata[k]={fields={}} end
- local block=self:blockkey(p)
  local function on_change()
-  raise_modified_fast(self,block,Map.MOD_STATE_WRITE_NEEDED,
-   Map.MOD_REASON_REPORT_META_CHANGE)
+  if not silent_import then self:report_node_metadata_change(p) end
  end
  return metaref(self.metadata[k],self.registry,on_change)
 end
-function Map:get_timer(p)
+function Map:get_timer(p,silent_import)
  local k=Map.key(p)
  local all=self.timers
  local block=self:blockkey(p)
  local function on_change()
-  raise_modified_fast(self,block,Map.MOD_STATE_WRITE_AT_UNLOAD,
-   Map.MOD_REASON_UNKNOWN)
+  if not silent_import then
+   raise_modified_fast(self,block,Map.MOD_STATE_WRITE_AT_UNLOAD,
+    Map.MOD_REASON_UNKNOWN)
+  end
  end
  local ref={}
  function ref:start(timeout)
