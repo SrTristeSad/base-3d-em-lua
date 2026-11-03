@@ -165,11 +165,21 @@ function ModEnvironment.new(runtime)
  }
  env._G=env
  env.dofile=function(path) return self:runfile(path) end
+ -- Lua's loadfile returns a compiled closure without executing it.
+ -- Luanti mods use loadfile(modpath..'/something.lua') for optional
+ -- functionality; never fall back to unrestricted host loadfile.
+ env.loadfile=function(path,mode)
+  assert(mode==nil or mode=='t',
+   'only Lua text chunks are supported by the mod environment')
+  return self:compile(path)
+ end
  self.globals=env
  return self
 end
 
-function ModEnvironment:runfile(path)
+-- Compile without execution. The closure records the file only when it
+-- actually runs, so boot diagnostics distinguish parsed from executed Lua.
+function ModEnvironment:compile(path)
  local filename=normal(path)
  local allowed=false
  for _,root in pairs(self.runtime.opts.modpaths or {}) do
@@ -177,7 +187,6 @@ function ModEnvironment:runfile(path)
  end
  assert(allowed,'mod file is outside registered mod directories: '..filename)
  assert(filename:sub(-4)=='.lua','only Lua mod files are supported')
- -- Lua 5.1 (LuaJIT) uses setfenv; Lua 5.2+ takes env in loadfile.
  local chunk,err
  if setfenv then
   chunk,err=loadfile(filename)
@@ -185,9 +194,18 @@ function ModEnvironment:runfile(path)
  else
   chunk,err=loadfile(filename,'t',self.globals)
  end
+ if not chunk then return nil,err end
+ local runner=self
+ return function(...)
+  runner.read_count=runner.read_count+1
+  runner.files[#runner.files+1]=filename
+  return chunk(...)
+ end
+end
+
+function ModEnvironment:runfile(path)
+ local chunk,err=self:compile(path)
  if not chunk then error(err,0) end
- self.read_count=self.read_count+1
- self.files[#self.files+1]=filename
  return chunk()
 end
 

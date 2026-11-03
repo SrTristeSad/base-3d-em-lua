@@ -316,6 +316,12 @@ function Runtime.new(options)
   self.logging[#self.logging+1]=line
  end
  function api.get_current_modname() return self.current_mod end
+ function api.get_modnames()
+  local names={}
+  for name in pairs(self.opts.modpaths or {}) do names[#names+1]=name end
+  table.sort(names)
+  return names
+ end
  function api.get_modpath(name)
   return self.opts.modpaths and self.opts.modpaths[name] or nil
  end

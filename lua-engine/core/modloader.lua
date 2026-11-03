@@ -99,6 +99,42 @@ function Loader.discover(root,fs)
  end
  return Loader.plan(result)
 end
+-- Discover mods across several independent game roots (CORE/ITEMS/PLAYER/
+-- WORLD/HUD/etc.). Plan dependencies across the whole game, not within
+-- each directory: a mod in PLAYER may depend on an ITEMS mod.
+-- The caller supplies a filesystem walk/read adapter, so no host shell,
+-- platform-specific command or implicit VoxeLibre source mutation is used.
+function Loader.discover_roots(roots,fs)
+ assert(type(roots)=='table' and #roots>0,
+  'one or more mod roots are required')
+ assert(type(fs)=='table' and type(fs.walk)=='function' and
+  type(fs.read)=='function','filesystem walk/read required')
+ local mods={}
+ local seen_paths={}
+ for _,root in ipairs(roots) do
+  assert(type(root)=='string' and root~='','invalid mod root')
+  local paths=fs.walk(root)
+  assert(type(paths)=='table','filesystem walk must return directories')
+  for _,path in ipairs(paths) do
+   assert(type(path)=='string' and path~='',
+    'invalid mod directory from filesystem')
+   if not seen_paths[path] then
+    seen_paths[path]=true
+    local config=fs.read(path..'/mod.conf')
+    if config then
+     assert(type(config)=='string','mod.conf must be text')
+     local mod=Loader.parse(config,fs.read(path..'/depends.txt'))
+     assert(type(mod.name)=='string' and mod.name~='',
+      'mod.conf missing name: '..path)
+     mod.path=path
+     mods[#mods+1]=mod
+    end
+   end
+  end
+ end
+ return Loader.plan(mods)
+end
+
 function Loader.load(runtime,ordered,opts)
  assert(runtime and runtime.loadMod and type(ordered)=='table')
  opts=opts or {}
