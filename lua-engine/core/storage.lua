@@ -56,10 +56,13 @@ function Storage.encode(map)
   -- Optional private-field markers: V belongs to an existing M record.
   -- Absence retains backwards compatibility with LUAENGINE 1 saves.
   for _,field in ipairs(keys(map.metadata[k].private or {})) do
-   assert(map.metadata[k].private[field]==true and
-    map.metadata[k].fields[field]~=nil,
-    'invalid private metadata field')
-   lines[#lines+1]=('V %d %d %d %s'):format(x,y,z,enc(field))
+   assert(map.metadata[k].private[field]==true,
+    'invalid private metadata flag')
+   -- Native NodeMetadata may have a private bit for an unset field.
+   -- Its disk serialization writes the bit only with an actual field.
+   if map.metadata[k].fields[field]~=nil then
+    lines[#lines+1]=('V %d %d %d %s'):format(x,y,z,enc(field))
+   end
   end
   local inv=map.metadata[k].inventory
   if inv then
