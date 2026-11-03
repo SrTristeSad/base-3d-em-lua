@@ -45,6 +45,14 @@ function Storage.encode(map)
    lines[#lines+1]=('M %d %d %d %s %s'):format(
     x,y,z,enc(field),enc(map.metadata[k].fields[field]))
   end
+  -- Optional private-field markers: V belongs to an existing M record.
+  -- Absence retains backwards compatibility with LUAENGINE 1 saves.
+  for _,field in ipairs(keys(map.metadata[k].private or {})) do
+   assert(map.metadata[k].private[field]==true and
+    map.metadata[k].fields[field]~=nil,
+    'invalid private metadata field')
+   lines[#lines+1]=('V %d %d %d %s'):format(x,y,z,enc(field))
+  end
   local inv=map.metadata[k].inventory
   if inv then
    for _,list in ipairs(keys(inv.lists)) do
@@ -191,7 +199,7 @@ function Storage.decode(data,options)
      assert(map.generatedChunks[chunk]==nil,'duplicate generated chunk')
      map.generatedChunks[chunk]=seed
     else
-     local tag,x,y,z,rest=line:match('^([NMTLIFABQUP]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
+     local tag,x,y,z,rest=line:match('^([NMTLIFABQUPV]) (%-?%d+) (%-?%d+) (%-?%d+) (.+)$')
      assert(tag,'malformed save at line '..lineNo)
     local p={x=tonumber(x),y=tonumber(y),z=tonumber(z)}
     if tag=='P' then
@@ -258,7 +266,17 @@ function Storage.decode(data,options)
     elseif tag=='M' then
      local field,value=rest:match('^(%S+) (%S+)$')
      assert(field,'invalid metadata save')
-     map:get_meta(p):set_string(dec(field),dec(value))
+     map:get_meta(p,true):set_string(dec(field),dec(value))
+    elseif tag=='V' then
+     assert(rest~='' and not rest:find('%s'),
+      'invalid private field marker')
+     local field=dec(rest)
+     local entry=map.metadata[Map.key(p)]
+     assert(entry and entry.fields[field]~=nil,
+      'private field marker without metadata')
+     entry.private=entry.private or {}
+     assert(not entry.private[field],'duplicate private field marker')
+     map:get_meta(p,true):mark_as_private(field)
     elseif tag=='L' then
      local list,size,width=rest:match('^(%S+) (%d+) (%d+)$')
      size,width=tonumber(size),tonumber(width)
