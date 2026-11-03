@@ -14,6 +14,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_game_boot.lua'
       - 'tests/lua_engine_game_bootstrap.lua'
       - 'tests/lua_engine_private_metadata.lua'
       - 'tests/lua_engine_world_daylight.lua'
@@ -141,6 +142,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_game_boot.lua'
       - 'tests/lua_engine_game_bootstrap.lua'
       - 'tests/lua_engine_private_metadata.lua'
       - 'tests/lua_engine_world_daylight.lua'
@@ -301,6 +303,11 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_map_edit_other.lua
           luajit tests/lua_engine_mmvm_map_edit_other.lua
+      - name: Original game multi-root dependency bootstrap (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_game_boot.lua
+          luajit tests/lua_engine_game_boot.lua
+          python3 scripts/boot_voxelibre.py --game tests/fixtures/lua_gameboot --lua lua5.4
       - name: Luanti 5.18 MapEditEvent receiver ordering, mutation and streaming isolation (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_map_edit_events.lua
