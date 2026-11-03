@@ -14,6 +14,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_world_objects_sound.lua'
       - 'tests/lua_engine_game_boot.lua'
       - 'tests/lua_engine_game_bootstrap.lua'
       - 'tests/lua_engine_private_metadata.lua'
@@ -142,6 +143,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_world_objects_sound.lua'
       - 'tests/lua_engine_game_boot.lua'
       - 'tests/lua_engine_game_bootstrap.lua'
       - 'tests/lua_engine_private_metadata.lua'
@@ -303,6 +305,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_map_edit_other.lua
           luajit tests/lua_engine_mmvm_map_edit_other.lua
+      - name: Native object queries, sound backend and mod audio lifecycle (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_world_objects_sound.lua
+          luajit tests/lua_engine_world_objects_sound.lua
       - name: Original game multi-root dependency bootstrap (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_game_boot.lua
