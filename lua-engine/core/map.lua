@@ -625,6 +625,34 @@ function Map:dispatch_event(event)
  end
  return delivered
 end
+-- Luanti 5.18 MapEditEvent::setModifiedBlocks receives the keys of
+-- an MMVManip changed-block map, not the individual modified voxels.
+-- Validate the complete collection before delivery. Numeric sorting
+-- makes the output deterministic across Lua 5.4 and LuaJIT.
+function Map:dispatch_modified_blocks_event(modified_blocks,
+ low_priority,include_empty)
+ assert(type(modified_blocks)=='table',
+  'modified MapBlocks must be a set')
+ assert(low_priority==nil or type(low_priority)=='boolean',
+  'low_priority must be boolean')
+ assert(include_empty==nil or type(include_empty)=='boolean',
+  'include_empty must be boolean')
+ local blocks={}
+ for key,value in pairs(modified_blocks) do
+  assert(value==true,'modified MapBlock set values must be true')
+  local x,y,z=blockcoords(key)
+  blocks[#blocks+1]={x=x,y=y,z=z}
+ end
+ if #blocks==0 and not include_empty then return 0 end
+ table.sort(blocks,function(a,b)
+  if a.x~=b.x then return a.x<b.x end
+  if a.y~=b.y then return a.y<b.y end
+  return a.z<b.z
+ end)
+ if #self.event_receivers==0 then return 0 end
+ return self:dispatch_event({type=Map.MEET_OTHER,
+  modified_blocks=blocks,low_priority=low_priority or false})
+end
 function Map:emit_node_edit_event(event_type,p,node)
  if #self.event_receivers==0 then return 0 end
  return self:dispatch_event({type=event_type,p=p,n=node})
