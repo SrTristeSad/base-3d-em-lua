@@ -14,6 +14,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_mmvm_map_edit_other.lua'
       - 'tests/lua_engine_map_edit_events.lua'
       - 'tests/lua_engine_mapblock_metadata_dirty.lua'
       - 'tests/lua_engine_mapblock_timestamps.lua'
@@ -136,6 +137,7 @@ on:
       - 'tests/lua_engine_vertex_light_render.lua'
       - 'tests/lua_engine_lightbank_rebuild.lua'
       - 'tests/lua_engine_emerge_area.lua'
+      - 'tests/lua_engine_mmvm_map_edit_other.lua'
       - 'tests/lua_engine_map_edit_events.lua'
       - 'tests/lua_engine_mapblock_metadata_dirty.lua'
       - 'tests/lua_engine_mapblock_timestamps.lua'
@@ -277,6 +279,10 @@ jobs:
         run: |
           lua5.4 tests/lua_engine_mmvm_resident_halo.lua
           luajit tests/lua_engine_mmvm_resident_halo.lua
+      - name: Luanti 5.18 grouped MMVManip write_to_map MEET_OTHER (Lua 5.4 and LuaJIT)
+        run: |
+          lua5.4 tests/lua_engine_mmvm_map_edit_other.lua
+          luajit tests/lua_engine_mmvm_map_edit_other.lua
       - name: Luanti 5.18 MapEditEvent receiver ordering, mutation and streaming isolation (Lua 5.4 and LuaJIT)
         run: |
           lua5.4 tests/lua_engine_map_edit_events.lua
